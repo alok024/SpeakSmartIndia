@@ -153,14 +153,14 @@ app.post('/api/ai', authMiddleware, async (req, res) => {
     if (req.body.system) messages.push({ role: 'system', content: req.body.system });
     if (req.body.messages) messages.push(...req.body.messages);
 
-    const aiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+    const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type':  'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        model:      req.body.model || 'gpt-4o-mini',
+        model: 'llama-3.3-70b-versatile',
         max_tokens: req.body.max_tokens || 1024,
         messages,
       }),
