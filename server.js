@@ -66,7 +66,7 @@ app.post('/api/register', async (req, res) => {
       return res.status(409).json({ error: 'Email already registered' });
 
     const password_hash = await bcrypt.hash(password, 10);
-    const { ok, data } = await sb('/users', 'POST', { email, password_hash, plan: 'free' });
+    const { ok, data } = await sb('/users', 'POST', { email, password_hash, plan: 'free', name: name || '' });
     if (!ok) return res.status(500).json({ error: 'Failed to create user' });
 
     const user = data[0];
@@ -75,8 +75,8 @@ app.post('/api/register', async (req, res) => {
       sb('/stats', 'POST', { user_id: user.id, streak: 0, sessions: 0, best_score: 0, total_score: 0 }),
     ]);
 
-    const token = jwt.sign({ id: user.id, email: user.email, plan: user.plan }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan } });
+    const token = jwt.sign({ id: user.id, email: user.email, plan: user.plan, name: name || '' }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan, name: name || '' } });
   } catch (err) {
     console.error('Register error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -99,8 +99,8 @@ app.post('/api/login', async (req, res) => {
     if (!valid)
       return res.status(401).json({ error: 'Invalid email or password' });
 
-    const token = jwt.sign({ id: user.id, email: user.email, plan: user.plan }, JWT_SECRET, { expiresIn: '30d' });
-    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan } });
+    const token = jwt.sign({ id: user.id, email: user.email, plan: user.plan, name: user.name || '' }, JWT_SECRET, { expiresIn: '30d' });
+    res.json({ token, user: { id: user.id, email: user.email, plan: user.plan, name: user.name || '' } });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -111,7 +111,7 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/me', authMiddleware, async (req, res) => {
   try {
     const [{ data: users }, { data: usage }, { data: stats }] = await Promise.all([
-      sb(`/users?id=eq.${req.user.id}&select=id,email,plan`),
+      sb(`/users?id=eq.${req.user.id}&select=id,email,plan,name`),
       sb(`/usage?user_id=eq.${req.user.id}&select=call_count`),
       sb(`/stats?user_id=eq.${req.user.id}&select=*`),
     ]);
