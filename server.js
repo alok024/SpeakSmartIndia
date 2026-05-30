@@ -191,12 +191,14 @@ app.post('/api/sessions', authMiddleware, async (req, res) => {
     if (feedbacks && feedbacks.length > 0) {
       for (const f of feedbacks) {
         await sb('/feedback', 'POST', {
-          session_id:  session.id,
-          question:    f.q || f.question || '',
-          answer:      f.answer || '',
-          score:       f.score || 0,
-          corrections: JSON.stringify(f.corrections || []),
-          tips:        f.tip || f.tips || '',
+          session_id:   session.id,
+          question:     f.q || f.question || '',
+          answer:       f.answer || '',
+          score:        f.score || 0,
+          corrections:  JSON.stringify(f.english_errors || f.corrections || []),
+          tips:         f.tip || f.tips || '',
+          structure:    JSON.stringify(f.structure || {}),
+          model_answer: JSON.stringify(f.model_answer || {}),
         });
       }
     }
