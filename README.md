@@ -4,10 +4,10 @@
 
 | Variable | Value |
 |---|---|
-| `SUPABASE_URL` | `https://kerouvclhrlnhfslzyae.supabase.co` |
+| `SUPABASE_URL` | `https://your-project-id.supabase.co` |
 | `SUPABASE_SERVICE_KEY` | your service_role JWT key |
 | `JWT_SECRET` | any random string e.g. `speaksmart_super_secret_2024` |
-| `ANTHROPIC_API_KEY` | your Claude API key |
+| `GROQ_API_KEY` | your GROQ API key |
 | `RAZORPAY_KEY_ID` | from Razorpay dashboard (test: `rzp_test_...`) |
 | `RAZORPAY_KEY_SECRET` | from Razorpay dashboard |
 | `PORT` | set automatically by Railway |
