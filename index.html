@@ -1,0 +1,641 @@
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --ink:#0D0F14;
+  --ink2:#181C24;
+  --ink3:#1E232E;
+  --surface:#242938;
+  --muted:#8B909E;
+  --faint:#3A404F;
+  --accent:#22C98A;
+  --accent-dim:#1A9E6B;
+  --accent-glow:rgba(34,201,138,.12);
+  --gold:#F4B94A;
+  --white:#F2F4F8;
+  --white2:#C8CDD8;
+  --serif:'Playfair Display',Georgia,serif;
+  --sans:'DM Sans',system-ui,sans-serif;
+  --rad:10px;
+  --rad-lg:16px;
+}
+
+html{scroll-behavior:smooth}
+body{background:var(--ink);color:var(--white);font-family:var(--sans);font-weight:400;overflow-x:hidden;line-height:1.6}
+
+/* ── REVEAL ANIMATION ── */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .65s ease,transform .65s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:200;background:rgba(13,15,20,.88);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06);padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:56px}
+.nav-logo{font-family:var(--serif);font-size:18px;color:var(--white);letter-spacing:-.01em}
+.nav-logo span{color:var(--accent)}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-link{font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;padding:6px 10px;transition:color .2s}
+.nav-link:hover{color:var(--white)}
+.nav-cta{background:var(--accent);color:var(--ink);border:none;padding:7px 16px;border-radius:var(--rad);font-size:13px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:background .2s,transform .1s}
+.nav-cta:hover{background:#1DB87C;transform:translateY(-1px)}
+
+/* ── HERO ── */
+.hero{text-align:center;padding:5rem 2rem 3.5rem;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:600px;height:600px;background:radial-gradient(circle,rgba(34,201,138,.07) 0%,transparent 70%);pointer-events:none}
+.badge{display:inline-flex;align-items:center;gap:7px;background:rgba(34,201,138,.1);border:1px solid rgba(34,201,138,.25);border-radius:20px;padding:5px 14px;font-size:12px;color:var(--accent);margin-bottom:2rem;letter-spacing:.02em}
+.badge-dot{width:6px;height:6px;background:var(--accent);border-radius:50%;animation:pulse 2s infinite}
+.hero h1{font-family:var(--serif);font-size:clamp(34px,6vw,62px);font-weight:700;line-height:1.1;letter-spacing:-.02em;margin-bottom:1.25rem;color:var(--white)}
+.hero h1 em{font-style:italic;color:var(--accent)}
+.hero h1 .sub-serif{display:block;font-weight:400;font-style:italic;font-size:.75em;color:var(--white2)}
+.hero-sub{font-size:clamp(15px,2vw,17px);color:var(--white2);max-width:520px;margin:0 auto 2rem;line-height:1.7;font-weight:300}
+.cta-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:2rem}
+.btn-primary{background:var(--accent);color:var(--ink);border:none;padding:13px 26px;border-radius:var(--rad);font-size:15px;font-weight:500;cursor:pointer;font-family:var(--sans);transition:background .2s,transform .1s;display:inline-flex;align-items:center;gap:7px}
+.btn-primary:hover{background:#1DB87C;transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--white2);border:1px solid var(--faint);padding:13px 26px;border-radius:var(--rad);font-size:15px;cursor:pointer;font-family:var(--sans);transition:border-color .2s,color .2s;display:inline-flex;align-items:center;gap:7px}
+.btn-ghost:hover{border-color:var(--white2);color:var(--white)}
+.trust-row{display:flex;justify-content:center;gap:1.5rem;flex-wrap:wrap;margin-bottom:2.5rem}
+.trust-item{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.trust-item i{color:var(--accent);font-size:14px}
+
+/* ── DEMO ── */
+.demo-label{text-align:center;font-size:12px;color:var(--muted);margin-bottom:.75rem;letter-spacing:.04em;text-transform:uppercase}
+.demo-label span{color:var(--accent)}
+.demo-wrap{max-width:560px;margin:0 auto;background:var(--ink2);border:1px solid rgba(255,255,255,.08);border-radius:var(--rad-lg);overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,.5),0 0 0 1px rgba(34,201,138,.06)}
+.demo-bar{background:var(--ink3);padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+.dot{width:9px;height:9px;border-radius:50%}
+.demo-body{padding:16px;min-height:160px;max-height:280px;overflow-y:auto}
+.chat-msg{display:flex;gap:10px;margin-bottom:12px;animation:fadeUp .35s ease both}
+.avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;font-family:var(--serif)}
+.aria-av{background:rgba(34,201,138,.15);color:var(--accent);border:1px solid rgba(34,201,138,.2)}
+.user-av{background:rgba(244,185,74,.15);color:var(--gold);border:1px solid rgba(244,185,74,.2)}
+.bubble{padding:10px 14px;border-radius:12px;font-size:13.5px;line-height:1.55;max-width:88%;font-weight:300}
+.aria-b{background:var(--ink3);border:1px solid rgba(255,255,255,.06);border-radius:4px 12px 12px 12px;color:var(--white)}
+.user-b{background:rgba(34,201,138,.15);border:1px solid rgba(34,201,138,.2);color:var(--white);border-radius:12px 4px 12px 12px}
+.user-row{justify-content:flex-end}
+.demo-input-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid rgba(255,255,255,.06);background:var(--ink3)}
+.demo-input{flex:1;padding:9px 12px;border:1px solid var(--faint);border-radius:var(--rad);font-size:13px;background:var(--ink2);color:var(--white);outline:none;font-family:var(--sans);transition:border-color .2s}
+.demo-input::placeholder{color:var(--muted)}
+.demo-input:focus{border-color:var(--accent)}
+.demo-send{background:var(--accent);color:var(--ink);border:none;padding:9px 14px;border-radius:var(--rad);cursor:pointer;font-size:14px;transition:background .2s}
+.demo-send:hover{background:#1DB87C}
+.typing-dots span{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--muted);margin:0 2px;animation:bounce .9s infinite}
+.typing-dots span:nth-child(2){animation-delay:.15s}
+.typing-dots span:nth-child(3){animation-delay:.3s}
+
+/* ── SECTION BASE ── */
+.section{padding:4rem 2rem}
+.section-label{font-size:11px;color:var(--accent);font-weight:500;text-transform:uppercase;letter-spacing:.12em;margin-bottom:.6rem;text-align:center}
+.section-title{font-family:var(--serif);font-size:clamp(22px,3.5vw,32px);font-weight:700;text-align:center;margin-bottom:.5rem;color:var(--white);letter-spacing:-.01em}
+.section-sub{font-size:15px;color:var(--muted);text-align:center;margin-bottom:2.5rem;line-height:1.7;font-weight:300;max-width:500px;margin-left:auto;margin-right:auto}
+.divider{border:none;border-top:1px solid rgba(255,255,255,.06)}
+
+/* ── PROBLEM ── */
+.problem{background:var(--ink2);padding:3.5rem 2rem;text-align:center;border-top:1px solid rgba(255,255,255,.06);border-bottom:1px solid rgba(255,255,255,.06)}
+.problem-big{font-family:var(--serif);font-size:clamp(20px,3vw,28px);font-weight:700;max-width:580px;margin:0 auto 1rem;line-height:1.3;color:var(--white)}
+.problem-big em{font-style:italic;color:var(--accent)}
+.problem-sub{font-size:15px;color:var(--muted);max-width:480px;margin:0 auto 1.25rem;line-height:1.7;font-weight:300}
+.fear-bar{background:rgba(34,201,138,.06);border-left:3px solid var(--accent);padding:13px 18px;max-width:480px;margin:0 auto;border-radius:0 var(--rad) var(--rad) 0}
+.fear-bar p{font-size:14px;color:var(--white2);line-height:1.6;font-style:italic;font-family:var(--serif)}
+
+/* ── FOR-WHO ── */
+.for-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;max-width:680px;margin:0 auto}
+.for-card{background:var(--ink2);border:1px solid rgba(255,255,255,.07);border-radius:var(--rad-lg);padding:1.1rem 1.1rem;display:flex;align-items:flex-start;gap:10px;transition:border-color .2s,transform .2s,background .2s}
+.for-card:hover{border-color:var(--accent);transform:translateY(-3px);background:rgba(34,201,138,.05)}
+.for-card i{font-size:19px;color:var(--accent);flex-shrink:0;margin-top:2px}
+.for-card-title{font-size:13px;font-weight:500;margin-bottom:3px;color:var(--white)}
+.for-card-desc{font-size:12px;color:var(--muted);line-height:1.45}
+
+/* ── STEPS ── */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;max-width:640px;margin:0 auto;position:relative}
+.step{text-align:center;padding:1.5rem 1rem;position:relative}
+.step-num{width:42px;height:42px;border-radius:50%;background:var(--accent-glow);border:1px solid rgba(34,201,138,.3);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:500;margin:0 auto 1rem;font-family:var(--serif)}
+.step-title{font-size:14px;font-weight:500;margin-bottom:.4rem;color:var(--white)}
+.step-desc{font-size:12.5px;color:var(--muted);line-height:1.5}
+.step-arrow{display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:20px;padding-top:1.75rem}
+
+/* ── OUTCOMES ── */
+.outcomes{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;max-width:680px;margin:0 auto}
+.outcome{background:var(--ink2);border:1px solid rgba(255,255,255,.07);border-radius:var(--rad-lg);padding:1.1rem 1.2rem;display:flex;align-items:flex-start;gap:10px}
+.outcome i{font-size:18px;color:var(--accent);margin-top:1px;flex-shrink:0}
+.outcome-title{font-size:13px;font-weight:500;margin-bottom:2px;color:var(--white)}
+.outcome-desc{font-size:12px;color:var(--muted);line-height:1.4}
+
+/* ── FEATURES ── */
+.feats{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;max-width:700px;margin:0 auto}
+.feat{background:var(--ink2);border:1px solid rgba(255,255,255,.07);border-radius:var(--rad-lg);padding:1.2rem 1.25rem;transition:border-color .2s,transform .18s}
+.feat:hover{border-color:var(--accent);transform:translateY(-3px)}
+.feat.dashed{border-style:dashed;border-color:var(--faint)}
+.feat i{font-size:20px;color:var(--accent);margin-bottom:.6rem;display:block}
+.feat.dashed i{color:var(--muted)}
+.feat-t{font-size:13px;font-weight:500;margin-bottom:.3rem;color:var(--white)}
+.feat-d{font-size:12px;color:var(--muted);line-height:1.45}
+.soon-tag{font-size:10px;background:rgba(244,185,74,.15);color:var(--gold);padding:2px 7px;border-radius:6px;margin-left:5px;border:1px solid rgba(244,185,74,.2)}
+
+/* ── PROFESSIONS ── */
+.profs{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;max-width:600px;margin:0 auto 1.25rem}
+.prof{background:var(--ink2);border:1px solid rgba(255,255,255,.08);border-radius:20px;padding:6px 14px;font-size:12px;color:var(--muted);cursor:pointer;transition:all .18s;font-family:var(--sans)}
+.prof:hover,.prof.active{background:rgba(34,201,138,.12);color:var(--accent);border-color:rgba(34,201,138,.35)}
+.prof-detail{text-align:center;background:rgba(34,201,138,.06);border:1px solid rgba(34,201,138,.15);border-radius:var(--rad);padding:12px 18px;max-width:420px;margin:0 auto;font-size:13px;color:var(--white2)}
+.prof-detail strong{color:var(--accent)}
+
+/* ── COMPARE ── */
+.compare-wrap{max-width:580px;margin:0 auto;border:1px solid rgba(255,255,255,.08);border-radius:var(--rad-lg);overflow:hidden}
+.compare-table{width:100%;border-collapse:collapse;font-size:13px}
+.compare-table th{padding:11px 16px;text-align:left;font-weight:500;background:var(--ink3);color:var(--muted);border-bottom:1px solid rgba(255,255,255,.07)}
+.compare-table th.ours{color:var(--accent)}
+.compare-table td{padding:11px 16px;border-bottom:1px solid rgba(255,255,255,.05);color:var(--white2)}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+.yes{color:var(--accent);font-weight:500}
+.no{color:var(--faint)}
+
+/* ── TESTIMONIALS ── */
+.testi{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:620px;margin:0 auto}
+.testi-card{background:var(--ink2);border:1px solid rgba(255,255,255,.07);border-radius:var(--rad-lg);padding:1.4rem}
+.testi-text{font-size:13.5px;line-height:1.65;color:var(--white2);margin-bottom:.9rem;font-style:italic;font-family:var(--serif);font-weight:400}
+.testi-text::before{content:'\201C';color:var(--accent);font-size:20px;line-height:0;vertical-align:-.25em;margin-right:2px}
+.testi-author{display:flex;align-items:center;gap:9px}
+.testi-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;font-family:var(--serif)}
+.testi-name{font-size:12.5px;font-weight:500;color:var(--white)}
+.testi-role{font-size:11.5px;color:var(--muted)}
+.stars{color:var(--gold);font-size:12px;margin-bottom:.6rem;letter-spacing:1px}
+
+/* ── PRICING ── */
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;max-width:560px;margin:0 auto}
+.price-card{background:var(--ink2);border:1px solid rgba(255,255,255,.08);border-radius:var(--rad-lg);padding:1.6rem}
+.price-card.featured{border:1px solid rgba(34,201,138,.4);background:rgba(34,201,138,.04)}
+.price-name{font-size:12px;color:var(--muted);margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.08em}
+.price-amt{font-family:var(--serif);font-size:36px;font-weight:700;color:var(--white)}
+.price-per{font-size:13px;color:var(--muted)}
+.price-note{font-size:11px;color:var(--accent);margin-top:.3rem}
+.price-list{list-style:none;margin:1.2rem 0;display:flex;flex-direction:column;gap:8px}
+.price-list li{font-size:13px;display:flex;align-items:center;gap:7px;color:var(--white2)}
+.price-list li i{color:var(--accent);font-size:14px;flex-shrink:0}
+.price-list li.off{color:var(--faint)}
+.price-list li.off i{color:var(--faint)}
+.pop-badge{font-size:10px;background:rgba(34,201,138,.15);color:var(--accent);padding:3px 10px;border-radius:8px;border:1px solid rgba(34,201,138,.25);display:inline-block;margin-bottom:.5rem;letter-spacing:.04em}
+
+/* ── ROADMAP ── */
+.rm{max-width:520px;margin:0 auto;position:relative}
+.rm::before{content:'';position:absolute;left:17px;top:4px;bottom:4px;width:1px;background:rgba(255,255,255,.06)}
+.rm-row{display:flex;gap:14px;margin-bottom:1.4rem;position:relative}
+.rm-ic{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px;z-index:1}
+.done{background:rgba(34,201,138,.12);color:var(--accent);border:1px solid rgba(34,201,138,.25)}
+.nxt{background:rgba(244,185,74,.1);color:var(--gold);border:1px solid rgba(244,185,74,.2)}
+.fut{background:var(--ink3);color:var(--muted);border:1px solid rgba(255,255,255,.07)}
+.rm-t{font-size:13px;font-weight:500;padding-top:7px;color:var(--white)}
+.rm-d{font-size:12px;color:var(--muted);margin-top:2px}
+.tag{display:inline-block;font-size:10px;padding:2px 8px;border-radius:6px;margin-left:6px;vertical-align:middle;letter-spacing:.03em}
+.t-live{background:rgba(34,201,138,.12);color:var(--accent);border:1px solid rgba(34,201,138,.2)}
+.t-next{background:rgba(244,185,74,.1);color:var(--gold);border:1px solid rgba(244,185,74,.2)}
+.t-soon{background:rgba(255,255,255,.05);color:var(--muted);border:1px solid rgba(255,255,255,.08)}
+
+/* ── FAQ ── */
+.faq{max-width:560px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
+.faq-item{background:var(--ink2);border:1px solid rgba(255,255,255,.07);border-radius:var(--rad);overflow:hidden}
+.faq-q{padding:15px 16px;font-size:14px;font-weight:500;cursor:pointer;display:flex;justify-content:space-between;align-items:center;user-select:none;color:var(--white);transition:background .2s}
+.faq-q:hover{background:rgba(255,255,255,.03)}
+.faq-a{font-size:13px;color:var(--muted);line-height:1.65;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s;font-weight:300}
+.faq-a.open{max-height:200px;padding:0 16px 15px}
+.faq-icon{font-size:16px;color:var(--muted);transition:transform .3s;flex-shrink:0}
+.faq-icon.open{transform:rotate(45deg)}
+
+/* ── MID CTA ── */
+.mid-cta{text-align:center;padding:2rem 2rem 1.5rem}
+.mid-cta p{font-size:13.5px;color:var(--muted);margin-bottom:.9rem}
+
+/* ── FOOTER CTA ── */
+.footer-cta{text-align:center;padding:4rem 2rem 3.5rem;background:var(--ink2);border-top:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden}
+.footer-cta::before{content:'';position:absolute;bottom:-80px;left:50%;transform:translateX(-50%);width:400px;height:300px;background:radial-gradient(circle,rgba(34,201,138,.06) 0%,transparent 70%);pointer-events:none}
+.footer-cta h2{font-family:var(--serif);font-size:clamp(22px,4vw,34px);font-weight:700;margin-bottom:.6rem;color:var(--white);letter-spacing:-.01em}
+.footer-cta p{font-size:15px;color:var(--muted);margin-bottom:1.75rem;font-weight:300}
+
+/* ── STICKY BAR ── */
+.sticky-bar{position:sticky;bottom:0;background:rgba(13,15,20,.92);backdrop-filter:blur(12px);border-top:1px solid rgba(255,255,255,.08);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:100}
+.sticky-text{font-size:13px;color:var(--muted)}
+.sticky-text strong{color:var(--white);font-weight:500}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+
+/* Screen reader only — visually hidden but accessible */
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+/* ── MOBILE ── */
+@media(max-width:600px){
+  /* Nav */
+  nav{padding:0 1rem}
+  .nav-link{display:none}
+  .nav-logo{font-size:16px}
+
+  /* Hero */
+  .hero{padding:3rem 1.25rem 2rem}
+  .hero h1{font-size:clamp(26px,8vw,38px)}
+  .hero-sub{font-size:14.5px;margin-bottom:1.5rem}
+  .cta-row{flex-direction:column;align-items:stretch;gap:8px}
+  .btn-primary,.btn-ghost{padding:13px 20px;font-size:14px;justify-content:center}
+
+  /* Trust row — wrap to 2 columns */
+  .trust-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem .75rem;margin-bottom:2rem}
+  .trust-item{font-size:12px}
+
+  /* Demo */
+  .demo-wrap{border-radius:var(--rad)}
+  .demo-body{max-height:220px}
+
+  /* Sections */
+  .section{padding:2.25rem 1.25rem}
+  .section-title{font-size:20px}
+  .section-sub{font-size:14px}
+
+  /* Grids: 2 col on mobile */
+  .for-grid,.feats,.outcomes{grid-template-columns:1fr 1fr;gap:8px}
+
+  /* Steps: single column, no arrows */
+  .steps{grid-template-columns:1fr;gap:0}
+  .step-arrow{display:none}
+  .step{padding:1rem .75rem}
+
+  /* Compare table: horizontal scroll */
+  .compare-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .compare-table{min-width:400px}
+  .compare-table th,.compare-table td{padding:9px 12px;font-size:12px}
+
+  /* Testimonials: single column */
+  .testi{grid-template-columns:1fr}
+
+  /* Pricing: single column */
+  .pricing-grid{grid-template-columns:1fr}
+
+  /* Profession pills */
+  .profs{gap:6px}
+  .prof{font-size:11.5px;padding:5px 12px}
+  .prof-detail{font-size:12.5px}
+
+  /* Roadmap */
+  .rm-t{font-size:12.5px;padding-top:5px}
+  .rm-d{font-size:11.5px}
+
+  /* FAQ */
+  .faq-q{font-size:13.5px;padding:13px 14px}
+
+  /* Footer CTA */
+  .footer-cta{padding:2.75rem 1.25rem 2.25rem}
+  .footer-cta h2{font-size:clamp(20px,6vw,28px)}
+  .footer-cta p{font-size:14px;margin-bottom:1.25rem}
+  .footer-cta .btn-primary{width:100%;justify-content:center}
+
+  /* Sticky bar: stack on very small, stay row on 600 */
+  .sticky-bar{padding:8px 14px;gap:8px}
+  .sticky-text{font-size:12px}
+  .sticky-bar .btn-primary{padding:8px 14px;font-size:12.5px;white-space:nowrap}
+}
+
+@media(max-width:420px){
+  /* Single column everything */
+  .for-grid,.feats,.outcomes{grid-template-columns:1fr}
+  .hero h1{font-size:26px}
+
+  /* Sticky bar stacks vertically on tiny phones */
+  .sticky-bar{flex-direction:column;align-items:stretch;text-align:center;padding:10px 14px}
+  .sticky-bar .btn-primary{justify-content:center;width:100%}
+
+  /* Demo input placeholder shortening handled via JS below */
+  .demo-wrap{border-radius:8px}
+  .trust-row{grid-template-columns:1fr 1fr}
+}
+</style>
+
+<h2 class="sr-only">SpeakSmart — India's AI interview coach landing page</h2>
+
+<nav>
+  <div class="nav-logo">Speak<span>Smart</span></div>
+  <div class="nav-right">
+    <button class="nav-link" onclick="smoothTo('how')">How it works</button>
+    <button class="nav-link" onclick="smoothTo('pricing')">Pricing</button>
+    <button class="nav-cta" onclick="openLink('app.html')">Try free</button>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="badge"><span class="badge-dot"></span> Live · Free to try · No signup needed</div>
+  <h1>
+    India's AI interview coach
+    <span class="sub-serif">for real practice</span>
+  </h1>
+  <p class="hero-sub">Practice real interviews with AI. Get scored feedback, fix your English, and improve with every session — in English, Hinglish, and more.</p>
+  <div class="cta-row">
+    <button class="btn-primary" onclick="openLink('app.html')">Try your first interview free <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+    <button class="btn-ghost" onclick="smoothTo('how')">See how it works</button>
+  </div>
+  <div class="trust-row">
+    <div class="trust-item"><i class="ti ti-check" aria-hidden="true"></i> 30 free sessions</div>
+    <div class="trust-item"><i class="ti ti-check" aria-hidden="true"></i> No credit card</div>
+    <div class="trust-item"><i class="ti ti-check" aria-hidden="true"></i> Works on mobile</div>
+    <div class="trust-item"><i class="ti ti-check" aria-hidden="true"></i> Data saved forever</div>
+  </div>
+  <div class="demo-label reveal">↓ Try it live — takes <span>10 seconds</span></div>
+  <div class="demo-wrap reveal">
+    <div class="demo-bar">
+      <div class="dot" style="background:#E24B4A"></div>
+      <div class="dot" style="background:#EF9F27"></div>
+      <div class="dot" style="background:#1D9E75"></div>
+      <span style="font-size:11px;color:var(--muted);margin-left:8px;font-family:var(--sans)">Aria · Software Developer · Friendly</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--accent)">● Live</span>
+    </div>
+    <div class="demo-body" id="chat-demo"></div>
+    <div class="demo-input-row">
+      <input class="demo-input" id="demo-in" placeholder="Type your answer and press Enter…" onkeydown="if(event.key==='Enter')sendDemo()">
+      <button class="demo-send" onclick="sendDemo()"><i class="ti ti-send" aria-hidden="true"></i></button>
+    </div>
+  </div>
+</div>
+
+<div class="problem">
+  <p class="problem-big reveal">Most candidates fail interviews —<br><em>not because they lack knowledge,</em><br>but because they never practiced speaking.</p>
+  <p class="problem-sub reveal">Reading answers is not the same as saying them out loud under pressure. SpeakSmart gives you a safe space to practice before it actually counts.</p>
+  <div class="fear-bar reveal">
+    <p>Every interview you attend without practice is a missed opportunity you can't get back.</p>
+  </div>
+</div>
+
+<div class="section reveal" id="who">
+  <div class="section-label">Who it's for</div>
+  <div class="section-title">Built for where you are right now</div>
+  <div class="section-sub">If any of these sound like you, SpeakSmart is for you</div>
+  <div class="for-grid">
+    <div class="for-card"><i class="ti ti-school" aria-hidden="true"></i><div><div class="for-card-title">Final year students</div><div class="for-card-desc">Campus placements coming up and you've never done a real mock</div></div></div>
+    <div class="for-card"><i class="ti ti-briefcase" aria-hidden="true"></i><div><div class="for-card-title">Job switchers</div><div class="for-card-desc">Been in a job 2+ years and feel rusty talking to interviewers</div></div></div>
+    <div class="for-card"><i class="ti ti-building-bank" aria-hidden="true"></i><div><div class="for-card-title">Govt exam aspirants</div><div class="for-card-desc">Cleared SSC, Bank PO, or UPSC written — now preparing for interview round</div></div></div>
+    <div class="for-card"><i class="ti ti-language" aria-hidden="true"></i><div><div class="for-card-title">English confidence builders</div><div class="for-card-desc">Know your subject well but worry about how you sound in English</div></div></div>
+    <div class="for-card"><i class="ti ti-map-pin" aria-hidden="true"></i><div><div class="for-card-title">Tier 2 / Tier 3 city candidates</div><div class="for-card-desc">Limited access to coaching — this is your practice partner</div></div></div>
+    <div class="for-card"><i class="ti ti-refresh" aria-hidden="true"></i><div><div class="for-card-title">Back in the market</div><div class="for-card-desc">Returning after a gap year, maternity leave, or career break</div></div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal" id="how">
+  <div class="section-label">How it works</div>
+  <div class="section-title">Ready in 30 seconds</div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-title">Choose your profession</div>
+      <div class="step-desc">Software Dev, Bank PO, SSC, Doctor, Teacher — or type any field</div>
+    </div>
+    <div class="step-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-title">Practice with Aria</div>
+      <div class="step-desc">Real AI conversation — she asks, reacts, and pushes back like an actual interviewer</div>
+    </div>
+    <div class="step-arrow"><i class="ti ti-arrow-right" aria-hidden="true"></i></div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-title">Get score + feedback</div>
+      <div class="step-desc">Every session scored. English errors caught. Actionable tips to improve next time</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">What you improve</div>
+  <div class="section-title">Results, not features</div>
+  <div class="section-sub">This is what consistent practice with SpeakSmart builds</div>
+  <div class="outcomes">
+    <div class="outcome"><i class="ti ti-message-2" aria-hidden="true"></i><div><div class="outcome-title">Confident speaking</div><div class="outcome-desc">Stop freezing. Answer fluently under pressure</div></div></div>
+    <div class="outcome"><i class="ti ti-list-check" aria-hidden="true"></i><div><div class="outcome-title">Structured answers</div><div class="outcome-desc">Learn STAR method naturally through practice</div></div></div>
+    <div class="outcome"><i class="ti ti-writing" aria-hidden="true"></i><div><div class="outcome-title">Better English</div><div class="outcome-desc">Live corrections fix grammar habits in real-time</div></div></div>
+    <div class="outcome"><i class="ti ti-ban" aria-hidden="true"></i><div><div class="outcome-title">No filler words</div><div class="outcome-desc">Aria flags "basically", "like", "so" — every time</div></div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">Features</div>
+  <div class="section-title">Everything you need to prepare</div>
+  <div class="feats">
+    <div class="feat"><i class="ti ti-message-circle" aria-hidden="true"></i><div class="feat-t">Hindi / Hinglish</div><div class="feat-d">Practice in mixed language. No global tool does this</div></div>
+    <div class="feat"><i class="ti ti-writing" aria-hidden="true"></i><div class="feat-t">Live corrections</div><div class="feat-d">Grammar errors caught in real-time with better alternatives</div></div>
+    <div class="feat"><i class="ti ti-microphone" aria-hidden="true"></i><div class="feat-t">Voice input</div><div class="feat-d">Speak your answers. No app install needed</div></div>
+    <div class="feat"><i class="ti ti-chart-bar" aria-hidden="true"></i><div class="feat-t">Score + feedback</div><div class="feat-d">Every answer scored /10. Tips after every session</div></div>
+    <div class="feat"><i class="ti ti-users" aria-hidden="true"></i><div class="feat-t">3 personalities</div><div class="feat-d">Friendly, Strict, or Corporate — train for any style</div></div>
+    <div class="feat dashed"><i class="ti ti-volume" aria-hidden="true"></i><div class="feat-t">Voice mode <span class="soon-tag">Soon</span></div><div class="feat-d">Aria speaks back. Full audio interview experience</div></div>
+    <div class="feat dashed"><i class="ti ti-file-cv" aria-hidden="true"></i><div class="feat-t">Resume-based <span class="soon-tag">Soon</span></div><div class="feat-d">Upload resume → AI asks questions from your experience</div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">Professions</div>
+  <div class="section-title">Built for every Indian career path</div>
+  <div class="profs" id="profs">
+    <div class="prof active" onclick="selProf(this,'Software Developer','Technical + DSA + System Design + HR')">Software Developer</div>
+    <div class="prof" onclick="selProf(this,'Govt / SSC / UPSC','GK + Current Affairs + Hindi + Aptitude')">Govt / SSC / UPSC</div>
+    <div class="prof" onclick="selProf(this,'Bank PO','Reasoning + Banking Awareness + English')">Bank PO</div>
+    <div class="prof" onclick="selProf(this,'Police / Defence','Physical Awareness + Aptitude + GK')">Police / Defence</div>
+    <div class="prof" onclick="selProf(this,'Doctor / Medical','Clinical + Ethics + Patient Communication')">Doctor / Medical</div>
+    <div class="prof" onclick="selProf(this,'Teacher','Pedagogy + Subject Knowledge + Classroom')">Teacher</div>
+    <div class="prof" onclick="selProf(this,'Marketing','Strategy + Case Studies + Brand Thinking')">Marketing</div>
+    <div class="prof" onclick="selProf(this,'Data Scientist','ML + Statistics + Case Studies + Python')">Data Scientist</div>
+    <div class="prof" onclick="selProf(this,'Full Stack Dev','Frontend + Backend + System Design')">Full Stack Dev</div>
+    <div class="prof" onclick="selProf(this,'Java Developer','OOP + Spring Boot + Design Patterns')">Java Developer</div>
+  </div>
+  <div class="prof-detail" id="prof-detail"><strong id="prof-n">Software Developer</strong> — <span id="prof-c" style="color:var(--muted)">Technical + DSA + System Design + HR</span></div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">vs others</div>
+  <div class="section-title">Why SpeakSmart wins</div>
+  <div class="section-sub">No other tool is built specifically for Indian job seekers</div>
+  <div class="compare-wrap">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th class="ours">SpeakSmart</th>
+          <th>Generic AI chat</th>
+          <th>Pramp</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Structured interview flow</td><td class="yes">✓</td><td class="no">✗</td><td class="yes">✓</td></tr>
+        <tr><td>Hindi / Hinglish support</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Live English corrections</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Indian job categories</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>Score + feedback</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+        <tr><td>No human needed</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+        <tr><td>Price</td><td class="yes">₹299/mo</td><td class="no">₹1,700/mo</td><td class="no">Free*</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mid-cta reveal">
+  <p>No other tool has this combination — for Indian candidates, at this price.</p>
+  <button class="btn-primary" onclick="openLink('app.html')">Start improving now <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">Early users</div>
+  <div class="section-title">What people are saying</div>
+  <div class="testi">
+    <div class="testi-card">
+      <div class="stars">★★★★★</div>
+      <div class="testi-text">Practiced 3 sessions before my TCS interview. The English corrections were eye-opening — I didn't realise how many small mistakes I was making.</div>
+      <div class="testi-author"><div class="testi-av" style="background:rgba(34,201,138,.12);color:var(--accent)">RS</div><div><div class="testi-name">Rahul S.</div><div class="testi-role">B.Tech final year, Pune</div></div></div>
+    </div>
+    <div class="testi-card">
+      <div class="stars">★★★★★</div>
+      <div class="testi-text">The Hinglish mode is brilliant. Finally something that feels natural for how we actually speak. Got my Bank PO interview confidence up a lot.</div>
+      <div class="testi-author"><div class="testi-av" style="background:rgba(244,185,74,.1);color:var(--gold)">PM</div><div><div class="testi-name">Priya M.</div><div class="testi-role">Bank PO aspirant, Delhi</div></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal" id="pricing">
+  <div class="section-label">Pricing</div>
+  <div class="section-title">Simple, affordable</div>
+  <div class="section-sub">Start free. Upgrade only when you need more.</div>
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div class="price-name">Free</div>
+      <div class="price-amt">₹0</div>
+      <div class="price-per">forever</div>
+      <ul class="price-list">
+        <li><i class="ti ti-check" aria-hidden="true"></i>30 AI sessions</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>All professions</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>English corrections</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>Score + feedback</li>
+        <li class="off"><i class="ti ti-minus" aria-hidden="true"></i>Voice mode</li>
+        <li class="off"><i class="ti ti-minus" aria-hidden="true"></i>Resume-based questions</li>
+      </ul>
+      <button class="btn-ghost" style="width:100%" onclick="openLink('app.html')">Start free</button>
+    </div>
+    <div class="price-card featured">
+      <div class="pop-badge">Most value</div>
+      <div class="price-name">Pro</div>
+      <div class="price-amt">₹299</div>
+      <div class="price-per">per month</div>
+      <div class="price-note">Early user price — will increase later</div>
+      <ul class="price-list">
+        <li><i class="ti ti-check" aria-hidden="true"></i>Unlimited sessions</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>Advanced AI feedback</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>Session history forever</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>Priority support</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>Voice mode (coming soon)</li>
+        <li><i class="ti ti-check" aria-hidden="true"></i>Resume-based (coming soon)</li>
+      </ul>
+      <button class="btn-primary" style="width:100%" onclick="openLink('app.html')">Upgrade to Pro</button>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">Roadmap</div>
+  <div class="section-title">What's coming</div>
+  <div class="rm">
+    <div class="rm-row"><div class="rm-ic done"><i class="ti ti-check" aria-hidden="true"></i></div><div><div class="rm-t">AI interview engine <span class="tag t-live">Live</span></div><div class="rm-d">Classic + chat mode, scoring, Hindi/Hinglish, personalities</div></div></div>
+    <div class="rm-row"><div class="rm-ic done"><i class="ti ti-check" aria-hidden="true"></i></div><div><div class="rm-t">Accounts + data sync <span class="tag t-live">Live</span></div><div class="rm-d">Login, streaks, session history synced across all devices</div></div></div>
+    <div class="rm-row"><div class="rm-ic done"><i class="ti ti-check" aria-hidden="true"></i></div><div><div class="rm-t">Payments (Razorpay) <span class="tag t-live">Live</span></div><div class="rm-d">UPI, cards, netbanking — ₹299/month Pro plan</div></div></div>
+    <div class="rm-row"><div class="rm-ic nxt"><i class="ti ti-volume" aria-hidden="true"></i></div><div><div class="rm-t">Voice interview mode <span class="tag t-next">Next</span></div><div class="rm-d">Aria speaks, you speak back — the most realistic practice yet</div></div></div>
+    <div class="rm-row"><div class="rm-ic nxt"><i class="ti ti-file-cv" aria-hidden="true"></i></div><div><div class="rm-t">Resume-based questions <span class="tag t-next">Next</span></div><div class="rm-d">Upload resume → AI generates questions from your experience</div></div></div>
+    <div class="rm-row"><div class="rm-ic fut"><i class="ti ti-brand-whatsapp" aria-hidden="true"></i></div><div><div class="rm-t">WhatsApp daily practice <span class="tag t-soon">Coming</span></div><div class="rm-d">One question daily on WhatsApp. Answer in chat. AI coaches you.</div></div></div>
+    <div class="rm-row"><div class="rm-ic fut"><i class="ti ti-building" aria-hidden="true"></i></div><div><div class="rm-t">Company-specific prep <span class="tag t-soon">Coming</span></div><div class="rm-d">Practice for TCS, Infosys, Wipro, BYJU's with real question patterns</div></div></div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<div class="section reveal">
+  <div class="section-label">FAQ</div>
+  <div class="section-title">Common questions</div>
+  <div class="faq" id="faq">
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is my data safe? <i class="ti ti-plus faq-icon" aria-hidden="true"></i></div><div class="faq-a">Yes. Your sessions and personal data are stored securely in our database. We never share or sell your data. You can delete your account anytime.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Does it work on mobile? <i class="ti ti-plus faq-icon" aria-hidden="true"></i></div><div class="faq-a">Yes, fully. SpeakSmart works in any mobile browser — Chrome, Safari. Voice input also works on mobile. No app download needed.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">What happens after 30 free sessions? <i class="ti ti-plus faq-icon" aria-hidden="true"></i></div><div class="faq-a">You'll be prompted to upgrade to Pro at ₹299/month for unlimited sessions. Your data and history are always saved — upgrading just unlocks more practice.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Is this better than practicing with ChatGPT? <i class="ti ti-plus faq-icon" aria-hidden="true"></i></div><div class="faq-a">Yes — ChatGPT is a general tool. SpeakSmart is purpose-built for interviews: structured flow, scoring, live English corrections, Hindi/Hinglish, Indian job categories, and session tracking. None of that exists out of the box.</div></div>
+    <div class="faq-item"><div class="faq-q" onclick="toggleFaq(this)">Will more languages be added? <i class="ti ti-plus faq-icon" aria-hidden="true"></i></div><div class="faq-a">Yes. Hindi and Hinglish are live now. Tamil, Telugu, Bengali, and more regional languages are on the roadmap. India is a multi-language market and we're building for all of it.</div></div>
+  </div>
+</div>
+
+<div class="footer-cta reveal">
+  <h2>Don't go unprepared again</h2>
+  <p>30 free sessions. No credit card. Your progress saved forever.</p>
+  <button class="btn-primary" onclick="openLink('app.html')">Start free — no credit card <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+</div>
+
+<div class="sticky-bar">
+  <div class="sticky-text"><strong>SpeakSmart</strong> — Free to try</div>
+  <button class="btn-primary" style="padding:8px 18px;font-size:13px" onclick="openLink('app.html')">Start practicing <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+</div>
+
+<script>
+function openLink(u){window.open(u,'_blank')}
+// Shorten demo placeholder on mobile
+if(window.innerWidth<480){const di=document.getElementById('demo-in');if(di)di.placeholder='Type your answer…'}
+function smoothTo(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'})}
+function selProf(el,n,c){document.querySelectorAll('.prof').forEach(p=>p.classList.remove('active'));el.classList.add('active');document.getElementById('prof-n').textContent=n;document.getElementById('prof-c').textContent=c;}
+function toggleFaq(el){const a=el.nextElementSibling;const ic=el.querySelector('.faq-icon');const open=a.classList.toggle('open');ic.classList.toggle('open',open);}
+
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target)}})},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+
+const autoMsgs=[
+  {r:'ai',t:'Namaste! I\'m Aria. Let\'s practice a Software Developer interview. Start by telling me about yourself.'},
+  {r:'user',t:'I have 2 year experience in JavaScript. I builded many project using React.'},
+  {r:'ai',t:'Good start! Correction — "builded" → "built". Now, describe a challenging technical problem you solved recently.'},
+];
+const demo=document.getElementById('chat-demo');
+let mi=0;
+
+function addBubble(r,t){
+  const d=document.createElement('div');
+  d.className='chat-msg'+(r==='user'?' user-row':'');
+  if(r==='ai') d.innerHTML=`<div class="avatar aria-av">A</div><div><div class="bubble aria-b">${t}</div></div>`;
+  else d.innerHTML=`<div class="bubble user-b">${t}</div><div class="avatar user-av">U</div>`;
+  demo.appendChild(d);demo.scrollTop=demo.scrollHeight;
+}
+function showTyping(){const d=document.createElement('div');d.className='chat-msg';d.id='typing-bubble';d.innerHTML=`<div class="avatar aria-av">A</div><div class="bubble aria-b"><div class="typing-dots"><span></span><span></span><span></span></div></div>`;demo.appendChild(d);demo.scrollTop=demo.scrollHeight;}
+function removeTyping(){const t=document.getElementById('typing-bubble');if(t)t.remove();}
+function runAuto(){
+  if(mi>=autoMsgs.length)return;
+  const m=autoMsgs[mi++];
+  if(m.r==='ai'){showTyping();setTimeout(()=>{removeTyping();addBubble('ai',m.t);setTimeout(runAuto,1600);},900);}
+  else{setTimeout(()=>{addBubble('user',m.t);setTimeout(runAuto,600);},400);}
+}
+setTimeout(runAuto,900);
+
+const aiReplies=[
+  "Solid answer — but you're missing impact. Try quantifying: 'reduced load time by 40%' lands harder than 'made it faster'. Interviewers remember numbers. Score: 7/10",
+  "Good structure. One correction: 'I have went' → 'I have gone'. Your technical depth is strong — grammar is the only thing holding you back. Score: 8/10",
+  "Excellent — you used STAR method naturally. This is exactly what interviewers want to hear. Keep this structure for every behavioural question. Score: 9/10",
+  "Good attempt. Watch the filler words — you said 'basically' three times. It makes you sound unsure even when your answer is right. Score: 7/10",
+  "Strong opening. Now push further — what was the actual business impact? 'It reduced churn by 12%' wins interviews. Score: 8/10",
+];
+let replyIdx=0;
+function sendDemo(){
+  const inp=document.getElementById('demo-in');const val=inp.value.trim();if(!val)return;
+  addBubble('user',val);inp.value='';showTyping();
+  setTimeout(()=>{removeTyping();addBubble('ai',aiReplies[replyIdx%aiReplies.length]);replyIdx++;},1200);
+}
+</script>
