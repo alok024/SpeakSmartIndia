@@ -2049,17 +2049,58 @@ async function ariaRespond(isFirst) {
     return;
   }
 
+  // ── FIRST MESSAGE: dedicated tight prompt ──────────────────────────────
+  // We bypass the full chat flow for the opener because Llama tends to add
+  // unwanted preamble ("Remember, in a behavioral interview…") regardless of
+  // system prompt instructions. Instead we ask for ONLY the question and
+  // prepend a hardcoded one-line greeting ourselves.
+  if (isFirst) {
+    try {
+      const hn = S.lang !== 'en' ? ' Phrase the question in Hinglish if appropriate.' : '';
+      const personaTone = {
+        friendly:  'warm and encouraging',
+        strict:    'direct and no-nonsense',
+        corporate: 'formal and professional',
+      }[S.persona] || 'professional';
+      const raw = await callAI(
+        `You are Aria, an AI interviewer. Your tone is ${personaTone}.
+Return ONLY valid JSON, no markdown, no extra keys:
+{"greeting":"<one short sentence, max 10 words, varied each time — do NOT say the candidate's name>","question":"<one interview question only, ending with ?>"}`,
+        `Write an opening for a ${S.interviewType} interview for a ${S.difficulty}-level ${S.profession} candidate.${hn}`
+      );
+      const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      const firstMsg = `${parsed.greeting.trim()}\n\n${parsed.question.replace(/\*\*/g, '').trim()}`;
+      S.chatHistory.push({ role: 'assistant', content: firstMsg });
+      setTyping(false);
+      document.getElementById('aria-status').textContent = 'Online · Listening';
+      addBubble('ai', firstMsg);
+      document.getElementById('chat-send-btn').disabled = false;
+      document.getElementById('chat-input').disabled = false;
+      document.getElementById('chat-input').focus();
+    } catch(e) {
+      setTyping(false);
+      if (e.message !== 'LIMIT_REACHED') {
+        addBubble('ai', `Could not load question: ${esc(e.message)}. Please try again.`);
+        document.getElementById('chat-send-btn').disabled = false;
+        document.getElementById('chat-input').disabled = false;
+      }
+      document.getElementById('aria-status').textContent = 'Online · Ready to interview';
+    }
+    return;
+  }
+  // ── END FIRST MESSAGE ──────────────────────────────────────────────────
+
   const personaDesc = { friendly: 'warm, encouraging, and supportive', strict: 'demanding, direct, and exacting', corporate: 'formal, professional, and business-like' }[S.persona] || 'professional';
   const hn = S.lang !== 'en' ? 'The candidate may answer in Hindi or Hinglish. Accept this gracefully.' : 'The candidate should answer in English.';
   const isLast = S.chatExchanges >= S.maxExchanges;
   const sys = `You are Aria, a professional AI interviewer. Your personality is ${personaDesc}.
 Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty} level). ${hn}
 RULES:
-1. Keep messages concise — 2-4 sentences max.
-2. React briefly to their answer (1 sentence), then ask the next question or a follow-up.
-3. ${isLast ? 'This is the LAST exchange. Wrap up warmly, thank the candidate, give one honest line of overall impression, then add [INTERVIEW_COMPLETE] at the very end.' : isFirst ? 'FIRST MESSAGE RULES — STRICTLY FOLLOW: (1) Max one 5-word greeting. (2) Then ONE interview question. (3) NOTHING else. No format instructions. No "remember". No "please respond as if". No explaining what you will do. Just: greeting + question. Stop.' : `Continue naturally. You have ${S.maxExchanges - S.chatExchanges} more exchanges.`}
-4. Do NOT grade or evaluate their English — just interview naturally.
-5. Stay fully in character as Aria.`;
+1. Keep responses concise — 2-3 sentences max.
+2. One sentence reacting to their answer, then ask the next question.
+3. ${isLast ? 'FINAL EXCHANGE: Wrap up warmly, one honest line of feedback, then add [INTERVIEW_COMPLETE] at the end.' : `Continue naturally. ${S.maxExchanges - S.chatExchanges} exchanges left.`}
+4. Do NOT evaluate English. Do NOT explain interview format. Just interview.
+5. Stay in character as Aria at all times.`;
   try {
     const reply = await callAI(sys, null, S.chatHistory);
     S.chatHistory.push({ role: 'assistant', content: reply });
