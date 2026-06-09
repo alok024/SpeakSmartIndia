@@ -37,7 +37,18 @@ const PRO_PRICE_PAISE = 29900; // ₹299
 // ══════════════════════════════════════════
 const app = express();
 app.set('trust proxy', 1); // Required for Railway (sits behind a proxy)
-app.use(cors());
+
+// CORS — restrict to your frontend domain in production
+// Set ALLOWED_ORIGIN env var on Railway e.g. https://speaksmart.in
+// Falls back to * only if not set (useful during local dev)
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+app.use(cors({
+  origin: ALLOWED_ORIGIN === '*' ? '*' : (origin, cb) => {
+    if (!origin || origin === ALLOWED_ORIGIN) cb(null, true);
+    else cb(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json({ limit: '2mb' }));
 
 // Rate limit only the AI endpoint — 20 calls/min per IP
@@ -259,21 +270,28 @@ app.post('/api/ai', authMiddleware, async (req, res) => {
       ...(req.body.messages || []),
     ];
 
-    // Call Groq
-    const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model:      'llama-3.3-70b-versatile',
-        max_tokens: req.body.max_tokens || 1024,
-        messages,
-      }),
-    });
-
-    const aiData = await aiRes.json();
+    // Call Groq — with retry (up to 2 attempts on transient errors)
+    let aiRes, aiData;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model:      'llama-3.3-70b-versatile',
+          max_tokens: req.body.max_tokens || 1024,
+          messages,
+        }),
+      });
+      aiData = await aiRes.json();
+      if (aiRes.ok) break; // success — stop retrying
+      const isTransient = aiRes.status === 429 || aiRes.status >= 500;
+      if (!isTransient || attempt === 2) break; // permanent error or last attempt
+      console.warn(`Groq attempt ${attempt} failed (${aiRes.status}), retrying…`);
+      await new Promise(r => setTimeout(r, 800 * attempt)); // back-off: 800ms, 1600ms
+    }
 
     // Log Groq errors for debugging — visible in Railway logs
     if (!aiRes.ok) {
