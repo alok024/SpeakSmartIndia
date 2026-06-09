@@ -144,22 +144,12 @@ app.post('/api/ai', authMiddleware, async (req, res) => {
 
     if (plan === 'free' && callCount >= FREE_LIMIT)
       return res.status(403).json({ error: 'limit_reached', calls_used: callCount });
-    
-    const aiData = await aiRes.json();
-    const text = aiData.choices?.[0]?.message?.content || '';    
-    
-    await sb(`/usage?user_id=eq.${req.user.id}`, 'PATCH', {
-      call_count: callCount + 1,
-      updated_at: new Date().toISOString(),
-    });
 
-    res.json({ text, calls_used: callCount + 1, limit: plan === 'pro' ? null : FREE_LIMIT });
-
-const SYSTEM_PROMPT = `You are an AI interview coach for SpeakSmart. Help users practice job interviews, evaluate answers, and improve English. Only assist with interview-related tasks.`;
-const messages = [
-  { role: 'system', content: SYSTEM_PROMPT },
-  ...(req.body.messages || []),
-];
+    const SYSTEM_PROMPT = `You are an AI interview coach for SpeakSmart. Help users practice job interviews, evaluate answers, and improve English. Only assist with interview-related tasks.`;
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...(req.body.messages || []),
+    ];
 
     const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -169,6 +159,12 @@ const messages = [
 
     const aiData = await aiRes.json();
     const text = aiData.choices?.[0]?.message?.content || '';
+
+    await sb(`/usage?user_id=eq.${req.user.id}`, 'PATCH', {
+      call_count: callCount + 1,
+      updated_at: new Date().toISOString(),
+    });
+
     res.json({ text, calls_used: callCount + 1, limit: plan === 'pro' ? null : FREE_LIMIT });
   } catch (err) {
     console.error('AI error:', err);
