@@ -4,9 +4,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 app.use(cors());
+app.use('/api/ai', rateLimit({ windowMs: 60_000, max: 20, message: { error: 'Too many requests' } }));
 app.use(express.json({ limit: '2mb' }));
 
 const SUPABASE_URL    = process.env.SUPABASE_URL;
@@ -142,15 +144,22 @@ app.post('/api/ai', authMiddleware, async (req, res) => {
 
     if (plan === 'free' && callCount >= FREE_LIMIT)
       return res.status(403).json({ error: 'limit_reached', calls_used: callCount });
-
+    
+    const aiData = await aiRes.json();
+    const text = aiData.choices?.[0]?.message?.content || '';    
+    
     await sb(`/usage?user_id=eq.${req.user.id}`, 'PATCH', {
       call_count: callCount + 1,
       updated_at: new Date().toISOString(),
     });
 
-    const messages = [];
-    if (req.body.system) messages.push({ role: 'system', content: req.body.system });
-    if (req.body.messages) messages.push(...req.body.messages);
+    res.json({ text, calls_used: callCount + 1, limit: plan === 'pro' ? null : FREE_LIMIT });
+
+const SYSTEM_PROMPT = `You are an AI interview coach for SpeakSmart. Help users practice job interviews, evaluate answers, and improve English. Only assist with interview-related tasks.`;
+const messages = [
+  { role: 'system', content: SYSTEM_PROMPT },
+  ...(req.body.messages || []),
+];
 
     const aiRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -208,7 +217,12 @@ app.post('/api/sessions', authMiddleware, async (req, res) => {
     const existing = statsArr?.[0];
     const today = new Date().toDateString();
     const lastSession = existing?.last_session ? new Date(existing.last_session).toDateString() : null;
-    const newStreak   = lastSession === today ? (existing?.streak || 0) : (existing?.streak || 0) + 1;
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const newStreak = lastSession === today
+     ? (existing?.streak || 0)
+      : lastSession === yesterday.toDateString()
+    ? (existing?.streak || 0) + 1
+    : 1;
     const newSessions = (existing?.sessions || 0) + 1;
     const newBest     = Math.max(existing?.best_score || 0, score || 0);
     const newTotal    = (existing?.total_score || 0) + (score || 0);
