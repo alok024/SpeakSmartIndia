@@ -1,0 +1,2505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeakSmart — AI Interview Coach</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:           #0E0F14;
+      --surface:      #16181F;
+      --surface-2:    #1D2029;
+      --surface-3:    #252936;
+      --border:       rgba(255,255,255,.07);
+      --border-hi:    rgba(255,255,255,.14);
+      --text-1: #F0F2F8;
+      --text-2: #8B90A0;
+      --text-3: #555A6A;
+      --accent:       #4F8EF7;
+      --accent-dim:   rgba(79,142,247,.12);
+      --accent-glow:  rgba(79,142,247,.35);
+      --success:      #34D399;
+      --success-dim:  rgba(52,211,153,.12);
+      --warn:         #FBBF24;
+      --warn-dim:     rgba(251,191,36,.12);
+      --danger:       #F87171;
+      --danger-dim:   rgba(248,113,113,.12);
+      --purple:       #9B7EF8;
+      --purple-dim:   rgba(155,126,248,.12);
+      --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 24px;
+      --font: 'Sora', sans-serif;
+      --mono: 'JetBrains Mono', monospace;
+    }
+    .light {
+      --bg: #F4F5F9; --surface: #FFFFFF; --surface-2: #F0F2F6; --surface-3: #E8EAF0;
+      --border: rgba(0,0,0,.08); --border-hi: rgba(0,0,0,.14);
+      --text-1: #111318; --text-2: #5A6070; --text-3: #9AA0B0;
+      --accent-dim: rgba(79,142,247,.1); --success-dim: rgba(52,211,153,.1);
+      --warn-dim: rgba(251,191,36,.1); --danger-dim: rgba(248,113,113,.1);
+      --purple-dim: rgba(155,126,248,.1);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text-1); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem 4rem; transition: background .3s, color .3s; }
+
+    /* ── Demo banner ── */
+    .demo-banner {
+      width: 100%; max-width: 700px;
+      background: linear-gradient(135deg, rgba(155,126,248,.15), rgba(79,142,247,.15));
+      border: 1px solid rgba(155,126,248,.3);
+      border-radius: var(--r-md);
+      padding: .75rem 1.25rem;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: var(--text-2);
+      margin-bottom: 1rem;
+    }
+    .demo-banner strong { color: var(--purple); }
+    .demo-badge {
+      background: var(--purple-dim); color: var(--purple);
+      border: 1px solid rgba(155,126,248,.3);
+      padding: 2px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700; letter-spacing: .05em;
+      flex-shrink: 0;
+    }
+
+    /* ── Top bar ── */
+    .topbar { width: 100%; max-width: 700px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+    .brand { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: .05em; text-transform: uppercase; }
+    .brand-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent-glow); animation: pulse 2s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.75)} }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+    .icon-btn { width: 36px; height: 36px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text-2); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 17px; transition: all .15s; }
+    .icon-btn:hover { border-color: var(--border-hi); color: var(--text-1); }
+    /* Auth pill in topbar */
+    .auth-pill { display: flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-2); cursor: pointer; transition: all .15s; }
+    .auth-pill:hover { border-color: var(--accent); color: var(--accent); }
+    .auth-pill.logged-in { border-color: rgba(52,211,153,.3); color: var(--success); }
+    .auth-pill .plan-badge { font-size: 10px; padding: 1px 7px; border-radius: 20px; background: var(--accent-dim); color: var(--accent); font-weight: 700; }
+    .auth-pill.logged-in .plan-badge { background: var(--success-dim); color: var(--success); }
+    .auth-pill .plan-badge.pro { background: linear-gradient(135deg, rgba(251,191,36,.2), rgba(155,126,248,.2)); color: var(--warn); }
+
+    /* ── Meta pills ── */
+    .meta-bar { width: 100%; max-width: 700px; display: flex; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+    .meta-pill { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); font-size: 12px; font-weight: 500; color: var(--text-2); }
+    .meta-pill .val { color: var(--text-1); font-weight: 600; }
+    .streak-fire { color: #FF9500; }
+
+    /* ── Main card ── */
+    #app { width: 100%; max-width: 700px; background: var(--surface); border-radius: var(--r-xl); border: 1px solid var(--border); overflow: hidden; }
+    .screen { display: none; animation: fadeIn .25s ease; }
+    .screen.active { display: block; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ── Auth screen (replaces old API key screen) ── */
+    .auth-screen-body { padding: 2.5rem 2rem; text-align: center; }
+    .auth-logo { width: 64px; height: 64px; border-radius: var(--r-lg); background: var(--accent-dim); border: 1px solid rgba(79,142,247,.25); display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 1.5rem; }
+    .auth-screen-body h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .auth-screen-body > p { font-size: 14px; color: var(--text-2); line-height: 1.7; margin-bottom: 1.5rem; }
+    .auth-tabs { display: flex; gap: 0; margin-bottom: 1.25rem; background: var(--surface-2); border-radius: var(--r-md); padding: 4px; }
+    .auth-tab { flex: 1; padding: 8px; font-size: 13px; font-weight: 600; border: none; background: transparent; color: var(--text-2); border-radius: var(--r-sm); cursor: pointer; transition: all .15s; font-family: var(--font); }
+    .auth-tab.active { background: var(--accent); color: #fff; }
+    .auth-form { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+    .auth-form-panel { display: none; }
+    .auth-form-panel.active { display: block; }
+    .auth-input { width: 100%; padding: 11px 13px; font-size: 13px; background: var(--surface-2); border: 1px solid var(--border-hi); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
+    .auth-input:focus { outline: none; border-color: var(--accent); }
+    .auth-input::placeholder { color: var(--text-3); }
+    .auth-btn { width: 100%; padding: 12px; font-size: 14px; font-weight: 700; background: var(--accent); color: #fff; border: none; border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s; box-shadow: 0 0 20px var(--accent-glow); font-family: var(--font); }
+    .auth-btn:hover { filter: brightness(1.1); }
+    .auth-btn:disabled { background: var(--surface-3); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
+    .auth-demo-btn { width: 100%; padding: 11px; font-size: 13px; font-weight: 600; background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(155,126,248,.3); border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s; margin-top: 6px; font-family: var(--font); }
+    .auth-demo-btn:hover { background: rgba(155,126,248,.2); }
+    .auth-error-box { padding: 10px 13px; background: var(--danger-dim); border-radius: var(--r-sm); font-size: 13px; color: var(--danger); margin-top: 4px; display: none; }
+    .auth-success-box { padding: 10px 13px; background: var(--success-dim); border-radius: var(--r-sm); font-size: 13px; color: var(--success); margin-top: 4px; display: none; }
+    .auth-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .auth-divider span { font-size: 12px; color: var(--text-3); }
+    .usage-bar-wrap { background: var(--surface-2); border-radius: var(--r-md); padding: 12px 14px; border: 1px solid var(--border); margin-bottom: 12px; text-align: left; display: none; }
+    .usage-bar-label { font-size: 12px; color: var(--text-2); margin-bottom: 8px; display: flex; justify-content: space-between; }
+    .usage-bar-track { height: 6px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+    .usage-bar-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width .5s; }
+    .usage-bar-fill.warn { background: var(--warn); }
+    .usage-bar-fill.danger { background: var(--danger); }
+
+    /* ── Setup screen ── */
+    .setup-body { padding: 2rem; }
+    .setup-hero { margin-bottom: 1.75rem; }
+    .setup-hero h1 { font-size: 23px; font-weight: 700; margin-bottom: 6px; }
+    .setup-hero p { font-size: 14px; color: var(--text-2); line-height: 1.6; }
+    .form-section { margin-bottom: 1.5rem; }
+    .form-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 10px; display: block; }
+    .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+    .chip { padding: 6px 14px; font-size: 13px; font-weight: 500; border-radius: 20px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); cursor: pointer; transition: all .15s; user-select: none; }
+    .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .chip.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* ── Mode cards ── */
+    .mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .mode-card { padding: 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-2); cursor: pointer; transition: all .15s; position: relative; }
+    .mode-card:hover { border-color: var(--accent); }
+    .mode-card.selected { border-color: var(--accent); background: var(--accent-dim); }
+    .mode-card.selected::after { content: '✓'; position: absolute; top: 10px; right: 12px; font-size: 12px; color: var(--accent); font-weight: 700; }
+    .mode-icon { font-size: 22px; margin-bottom: 8px; }
+    .mode-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .mode-desc { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+    .new-badge { font-size: 10px; background: var(--warn-dim); color: var(--warn); padding: 2px 7px; border-radius: 20px; font-weight: 600; margin-left: 4px; }
+
+    /* ── Toggle ── */
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: var(--surface-2); border-radius: var(--r-md); border: 1px solid var(--border); }
+    .toggle-info h4 { font-size: 14px; font-weight: 500; }
+    .toggle-info p { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+    .toggle-switch { width: 44px; height: 24px; border-radius: 12px; background: var(--surface-3); border: 1px solid var(--border); position: relative; cursor: pointer; transition: background .2s; flex-shrink: 0; }
+    .toggle-switch.on { background: var(--accent); }
+    .toggle-switch::after { content: ''; width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+    .toggle-switch.on::after { transform: translateX(20px); }
+    .lang-opt { display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface-3);cursor:pointer;font-family:var(--font);transition:all .15s;color:var(--text-2); }
+    .lang-opt:hover { border-color:var(--accent);color:var(--text-1); }
+    .lang-opt.active { border-color:var(--accent);background:var(--accent-dim);color:var(--accent); }
+    .lang-opt-label { font-size:11.5px;font-weight:500; }
+
+    .text-input { width: 100%; padding: 10px 13px; font-size: 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; margin-top: 10px; }
+    .text-input:focus { outline: none; border-color: var(--accent); }
+    .text-input::placeholder { color: var(--text-3); }
+
+    .start-btn { width: 100%; padding: 14px; font-size: 15px; font-weight: 700; background: var(--accent); color: white; border: none; border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all .15s; box-shadow: 0 0 20px var(--accent-glow); margin-top: .5rem; font-family: var(--font); }
+    .start-btn:hover { filter: brightness(1.1); box-shadow: 0 0 30px var(--accent-glow); }
+    .start-btn:disabled { background: var(--surface-3); color: var(--text-3); box-shadow: none; cursor: not-allowed; }
+    .error-box { padding: 10px 13px; background: var(--danger-dim); border-radius: var(--r-sm); font-size: 13px; color: var(--danger); }
+
+    /* ── Demo mode pill in setup ── */
+    .demo-mode-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      background: var(--purple-dim); border: 1px solid rgba(155,126,248,.3);
+      font-size: 12px; font-weight: 600; color: var(--purple);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Classic interview screen ── */
+    .interview-header { padding: 1.25rem 1.5rem .875rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .interview-meta { font-size: 13px; color: var(--text-2); }
+    .interview-meta strong { color: var(--text-1); }
+    .q-badge { padding: 4px 12px; font-size: 12px; font-weight: 600; background: var(--accent-dim); color: var(--accent); border-radius: 20px; border: 1px solid rgba(79,142,247,.25); font-family: var(--mono); }
+    .progress-track { height: 2px; background: var(--surface-3); }
+    .progress-fill { height: 100%; background: var(--accent); transition: width .5s cubic-bezier(.4,0,.2,1); box-shadow: 0 0 8px var(--accent-glow); }
+    .interview-body { padding: 1.5rem; }
+
+    /* Timer */
+    .timer-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .timer-display { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+    .timer-num { font-family: var(--mono); font-size: 22px; font-weight: 500; color: var(--text-1); min-width: 52px; }
+    .timer-num.warning { color: var(--warn); }
+    .timer-num.danger  { color: var(--danger); }
+    .timer-arc { width: 44px; height: 44px; transform: rotate(-90deg); }
+    .timer-arc circle { fill: none; stroke-width: 3; transition: stroke-dashoffset .9s linear; }
+    .timer-arc .bg-arc { stroke: var(--surface-3); }
+    .timer-arc .fg-arc { stroke: var(--accent); stroke-dasharray: 125.6; }
+    .hint-btn { display: inline-flex; align-items: center; gap: 5px; padding: 5px 12px; font-size: 12px; font-weight: 500; background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; transition: all .15s; font-family: var(--font); }
+    .hint-btn:hover { border-color: var(--warn); color: var(--warn); }
+    .hint-box { padding: 12px 14px; margin-bottom: 1rem; background: var(--warn-dim); border: 1px solid rgba(251,191,36,.2); border-radius: var(--r-md); font-size: 13px; color: var(--warn); line-height: 1.6; display: none; animation: fadeIn .2s ease; }
+
+    .question-card { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; margin-bottom: 1rem; }
+    .question-label { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
+    .question-text { font-size: 16px; line-height: 1.7; font-weight: 400; }
+
+    .answer-wrap { position: relative; margin-bottom: .875rem; }
+    .answer-area { width: 100%; min-height: 120px; resize: vertical; padding: 13px 48px 13px 14px; font-size: 14px; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
+    .answer-area:focus { outline: none; border-color: var(--accent); background: var(--surface-3); }
+    .answer-area:disabled { opacity: .5; }
+    .answer-area::placeholder { color: var(--text-3); }
+    .voice-btn { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .voice-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .voice-btn.active { background: var(--danger); border-color: var(--danger); color: white; animation: voicePulse 1s ease infinite; }
+    @keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)} 50%{box-shadow:0 0 0 8px rgba(248,113,113,0)} }
+
+    .btn-row { display: flex; gap: 8px; align-items: center; }
+    .submit-btn { padding: 10px 22px; font-size: 14px; font-weight: 600; background: var(--accent); color: white; border: none; border-radius: var(--r-md); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: all .15s; font-family: var(--font); }
+    .submit-btn:hover { filter: brightness(1.1); }
+    .submit-btn:disabled { background: var(--surface-3); color: var(--text-3); cursor: not-allowed; }
+    .char-count { font-size: 12px; color: var(--text-3); font-family: var(--mono); margin-left: auto; }
+    .loading-row { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 13px; padding: .875rem 0; }
+    .spinner { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--surface-3); border-top-color: var(--accent); animation: spin .6s linear infinite; flex-shrink: 0; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Feedback card */
+    .feedback-card { margin-top: 1.25rem; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; animation: slideUp .3s cubic-bezier(.4,0,.2,1); }
+    @keyframes slideUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    .feedback-top { padding: .875rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .feedback-top-title { font-size: 14px; font-weight: 600; flex: 1; }
+    .score-badge { padding: 3px 12px; font-size: 13px; font-weight: 700; border-radius: 20px; font-family: var(--mono); }
+    .score-high { background: var(--success-dim); color: var(--success); }
+    .score-mid  { background: var(--warn-dim);    color: var(--warn); }
+    .score-low  { background: var(--danger-dim);  color: var(--danger); }
+    .feedback-body { padding: 1.25rem; }
+    .fb-section { margin-bottom: 1rem; }
+    .fb-section:last-child { margin-bottom: 0; }
+    .fb-section-title { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 7px; }
+    .fb-section p { font-size: 14px; line-height: 1.65; color: var(--text-2); }
+    .error-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .error-item { padding: 10px 12px; background: var(--danger-dim); border-left: 3px solid var(--danger); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 13px; line-height: 1.65; }
+    .error-correction { color: var(--success); font-weight: 600; }
+    .error-explain { color: var(--text-2); font-size: 12px; margin-top: 3px; }
+    .no-errors { padding: 10px 12px; background: var(--success-dim); border-left: 3px solid var(--success); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 13px; color: var(--success); }
+    .corrected-box { padding: 12px 14px; background: var(--surface-3); border-radius: var(--r-sm); font-size: 13px; line-height: 1.65; color: var(--text-2); font-style: italic; }
+    .tip-box { padding: 10px 12px; background: var(--success-dim); border-left: 3px solid var(--success); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 13px; color: var(--success); line-height: 1.65; }
+    .next-btn { margin-top: 1.25rem; padding: 10px 20px; font-size: 14px; font-weight: 600; background: transparent; color: var(--accent); border: 1px solid rgba(79,142,247,.35); border-radius: var(--r-md); cursor: pointer; display: inline-flex; align-items: center; gap: 7px; transition: all .15s; font-family: var(--font); }
+    .next-btn:hover { background: var(--accent-dim); border-color: var(--accent); }
+
+    /* ── AI Chat screen ── */
+    .chat-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 12px; background: var(--surface-2); }
+    .aria-avatar { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #4F8EF7, #9B7EF8); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #fff; flex-shrink: 0; box-shadow: 0 0 16px rgba(79,142,247,.4); }
+    .aria-info { flex: 1; }
+    .aria-name { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .aria-status { font-size: 12px; color: var(--success); display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+    .aria-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+    .persona-badge { padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .pb-friendly  { background: var(--success-dim); color: var(--success); }
+    .pb-strict    { background: var(--danger-dim);  color: var(--danger); }
+    .pb-corporate { background: var(--purple-dim);  color: var(--purple); }
+    .pb-demo      { background: var(--purple-dim);  color: var(--purple); }
+    .pb-hindi     { background: var(--warn-dim);    color: var(--warn); }
+    .chat-progress-track { height: 2px; background: var(--surface-3); }
+    .chat-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--purple)); transition: width .5s; box-shadow: 0 0 8px var(--accent-glow); }
+    .chat-body { height: 420px; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+    .chat-body::-webkit-scrollbar { width: 4px; }
+    .chat-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
+    .bubble-row { display: flex; gap: 10px; align-items: flex-end; animation: fadeIn .2s ease; }
+    .bubble-row.ai { flex-direction: row; }
+    .bubble-row.user { flex-direction: row-reverse; }
+    .bubble-avatar { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+    .bubble-avatar.ai   { background: linear-gradient(135deg, var(--accent), var(--purple)); color: #fff; }
+    .bubble-avatar.user { background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2); }
+    .bubble-content { max-width: 78%; }
+    .bubble { padding: 10px 14px; border-radius: var(--r-lg); font-size: 14px; line-height: 1.65; }
+    .bubble.ai   { background: var(--surface-2); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+    .bubble.user { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+    .bubble-time { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+    .bubble-row.user .bubble-time { text-align: right; }
+    .err-annotations { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+    .err-annotation { font-size: 12px; padding: 5px 10px; background: var(--danger-dim); border-radius: var(--r-sm); color: var(--text-2); line-height: 1.5; border-left: 2px solid var(--danger); }
+    .err-annotation .wrong { color: var(--danger); text-decoration: line-through; }
+    .err-annotation .right { color: var(--success); font-weight: 600; }
+    .typing-indicator { display: none; align-items: center; gap: 4px; padding: 10px 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-lg); border-bottom-left-radius: 4px; width: fit-content; }
+    .typing-indicator.show { display: flex; }
+    .t-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); animation: tbounce 1.2s ease infinite; }
+    .t-dot:nth-child(2) { animation-delay: .2s; }
+    .t-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes tbounce { 0%,80%,100%{transform:scale(.8);opacity:.5} 40%{transform:scale(1.2);opacity:1} }
+    .chat-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface); }
+    .chat-input-row { display: flex; gap: 8px; align-items: center; }
+    .chat-input { flex: 1; padding: 11px 14px; font-size: 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
+    .chat-input:focus { outline: none; border-color: var(--accent); }
+    .chat-input::placeholder { color: var(--text-3); }
+    .chat-input:disabled { opacity: .5; }
+    .chat-send-btn { width: 42px; height: 42px; border-radius: var(--r-md); background: var(--accent); border: none; color: #fff; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+    .chat-send-btn:hover { filter: brightness(1.1); }
+    .chat-send-btn:disabled { background: var(--surface-3); cursor: not-allowed; }
+    .chat-voice-btn { width: 42px; height: 42px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+    .chat-voice-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .chat-voice-btn.active { background: var(--danger); border-color: var(--danger); color: #fff; animation: voicePulse 1s ease infinite; }
+    .chat-hint-text { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 8px; }
+
+    /* ── Summary screen ── */
+    .summary-header { padding: 2rem 1.5rem 1rem; text-align: center; border-bottom: 1px solid var(--border); }
+    .check-ring { width: 60px; height: 60px; border-radius: 50%; background: var(--success-dim); border: 2px solid var(--success); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--success); margin: 0 auto 1rem; }
+    .summary-header h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .summary-header p { font-size: 14px; color: var(--text-2); }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .stat-block { text-align: center; padding: .75rem; background: var(--surface-2); border-radius: var(--r-md); }
+    .stat-num { font-size: 26px; font-weight: 700; font-family: var(--mono); }
+    .stat-label { font-size: 11px; color: var(--text-3); margin-top: 3px; text-transform: uppercase; letter-spacing: .06em; }
+    .chart-section { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
+    .chart-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 12px; }
+    canvas#scoreChart { width: 100%; height: 110px; }
+
+    /* ── Voice Analysis Card ── */
+    .va-card { margin-top: 1rem; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; animation: slideUp .35s cubic-bezier(.4,0,.2,1); }
+    .va-header { padding: .75rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .va-header i { color: var(--accent); font-size: 16px; }
+    .va-title { font-size: 13px; font-weight: 600; flex: 1; color: var(--text-1); }
+    .va-wave { display: flex; align-items: center; gap: 2px; height: 16px; }
+    .va-wave span { display: inline-block; width: 3px; border-radius: 2px; background: var(--accent); opacity: .7; animation: vawave .8s ease-in-out infinite; }
+    .va-wave span:nth-child(1){height:5px;animation-delay:0s} .va-wave span:nth-child(2){height:11px;animation-delay:.1s} .va-wave span:nth-child(3){height:16px;animation-delay:.2s} .va-wave span:nth-child(4){height:9px;animation-delay:.3s} .va-wave span:nth-child(5){height:13px;animation-delay:.4s} .va-wave span:nth-child(6){height:7px;animation-delay:.5s}
+    @keyframes vawave { 0%,100%{transform:scaleY(.4);opacity:.4} 50%{transform:scaleY(1);opacity:1} }
+    .va-body { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .7rem; }
+    .va-row { display: flex; align-items: center; gap: 10px; }
+    .va-label { font-size: 12px; color: var(--text-2); width: 90px; flex-shrink: 0; }
+    .va-bar-track { flex: 1; height: 5px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+    .va-bar-fill { height: 100%; border-radius: 3px; width: 0%; transition: width 1.1s cubic-bezier(.4,0,.2,1); }
+    .va-score-num { font-size: 12px; font-weight: 700; width: 34px; text-align: right; font-family: var(--mono); }
+    .va-fillers { margin-top: .3rem; padding: .6rem 1rem; background: var(--surface-3); border-radius: var(--r-sm); font-size: 12px; color: var(--text-2); line-height: 1.6; }
+    .va-fillers strong { color: var(--warn); }
+    .filler-tag { display: inline-block; background: var(--warn-dim); color: var(--warn); border-radius: 4px; padding: 1px 7px; margin: 2px 3px; font-size: 11px; font-family: var(--mono); border: 1px solid rgba(251,191,36,.2); }
+
+    /* ── Structure Breakdown ── */
+    .structure-block { margin-top: .875rem; padding: .875rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); }
+    .structure-top { display: flex; align-items: center; gap: 8px; margin-bottom: .6rem; }
+    .structure-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; flex: 1; }
+    .structure-score { font-size: 12px; font-weight: 700; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; }
+    .structure-parts { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: .6rem; }
+    .struct-part { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .struct-part.present { background: var(--success-dim); color: var(--success); border: 1px solid rgba(52,211,153,.2); }
+    .struct-part.missing { background: var(--danger-dim); color: var(--danger); border: 1px solid rgba(248,113,113,.2); }
+    .structure-fix { font-size: 12px; color: var(--text-2); line-height: 1.55; padding: .5rem .75rem; background: var(--surface-3); border-radius: var(--r-sm); border-left: 2px solid var(--warn); }
+
+    /* ── Model Answer Panels ── */
+    .model-answer-wrap { margin-top: .875rem; display: flex; flex-direction: column; gap: 6px; }
+    .ma-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; font-family: var(--font); text-align: left; }
+    .ma-toggle:hover { border-color: var(--accent); color: var(--text-1); }
+    .ma-toggle i { font-size: 14px; flex-shrink: 0; }
+    .ma-toggle .ma-chevron { margin-left: auto; font-size: 12px; color: var(--text-3); transition: transform .2s; }
+    .ma-toggle.open .ma-chevron { transform: rotate(180deg); }
+    .ma-toggle.good-toggle { border-color: rgba(52,211,153,.2); color: var(--success); }
+    .ma-toggle.good-toggle:hover { background: var(--success-dim); }
+    .ma-toggle.great-toggle { border-color: rgba(155,126,248,.2); color: var(--purple); }
+    .ma-toggle.great-toggle:hover { background: var(--purple-dim); }
+    .ma-panel { display: none; padding: .875rem 1rem; border-radius: var(--r-md); font-size: 13px; line-height: 1.7; animation: slideUp .2s ease; }
+    .ma-panel.good-panel { background: var(--success-dim); border: 1px solid rgba(52,211,153,.15); color: var(--text-1); }
+    .ma-panel.great-panel { background: var(--purple-dim); border: 1px solid rgba(155,126,248,.15); color: var(--text-1); }
+    .ma-panel-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; margin-bottom: .5rem; }
+    .good-panel .ma-panel-label { color: var(--success); }
+    .great-panel .ma-panel-label { color: var(--purple); }
+
+    /* ── Drill Cards (summary) ── */
+    .drill-section { margin-bottom: 1.25rem; }
+    .drill-section-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 10px; }
+    .drill-card { padding: .875rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; }
+    .drill-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-dim); color: var(--accent); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-family: var(--mono); }
+    .drill-num.grammar { background: var(--danger-dim); color: var(--danger); }
+    .drill-num.structure { background: var(--warn-dim); color: var(--warn); }
+    .drill-num.domain { background: var(--purple-dim); color: var(--purple); }
+    .drill-body { flex: 1; }
+    .drill-task { font-size: 13px; font-weight: 500; color: var(--text-1); margin-bottom: 4px; }
+    .drill-example { font-size: 12px; color: var(--text-3); font-family: var(--mono); padding: 3px 8px; background: var(--surface-3); border-radius: 4px; display: inline-block; margin-top: 2px; }
+
+    /* ── Coach Summary (end of chat session) ── */
+    .coach-summary-block { margin: 1.25rem 0; padding: 1rem 1.1rem; background: linear-gradient(135deg, var(--accent-dim), var(--purple-dim)); border: 1px solid rgba(79,142,247,.2); border-radius: var(--r-lg); }
+    .cs-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-bottom: .875rem; display: flex; align-items: center; gap: 6px; }
+    .cs-row { display: flex; gap: 8px; margin-bottom: 6px; font-size: 13px; line-height: 1.55; }
+    .cs-key { color: var(--text-3); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; width: 80px; flex-shrink: 0; margin-top: 2px; }
+    .cs-val { color: var(--text-1); flex: 1; }
+    .cs-closing { margin-top: .875rem; padding: .75rem .875rem; background: var(--surface); border-radius: var(--r-sm); font-size: 13px; color: var(--text-2); font-style: italic; border-left: 3px solid var(--purple); line-height: 1.6; }
+    .cs-closing-label { font-size: 10px; color: var(--purple); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .35rem; font-style: normal; }
+
+    /* ── Better Answer Button + Box (kept for compat) ── */
+    .better-btn { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-1); padding: 10px 16px; border-radius: var(--r-md); font-size: 13px; cursor: pointer; width: 100%; margin-top: .75rem; transition: border-color .2s, background .2s; font-family: var(--font); font-weight: 500; }
+    .better-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .better-btn i { color: var(--accent); font-size: 15px; flex-shrink: 0; }
+    .better-btn .btn-loading { display: none; }
+    .better-btn.loading .btn-text { display: none; }
+    .better-btn.loading .btn-loading { display: flex; align-items: center; gap: 8px; }
+    .better-answer-box { margin-top: .75rem; padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid rgba(79,142,247,.2); border-radius: var(--r-md); font-size: 13px; line-height: 1.7; color: var(--text-2); animation: slideUp .3s ease; display: none; }
+    .ba-label { font-size: 10px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; display: flex; align-items: center; gap: 5px; }
+
+    /* ── Progress Strip (last 5 scores) ── */
+    .progress-strip { margin-top: .75rem; padding: .75rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); display: flex; align-items: center; gap: 10px; }
+    .ps-label { font-size: 11px; color: var(--text-3); white-space: nowrap; text-transform: uppercase; letter-spacing: .06em; }
+    .ps-scores { display: flex; gap: 5px; align-items: center; flex: 1; }
+    .ps-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--mono); flex-shrink: 0; }
+    .ps-arrow { color: var(--text-3); font-size: 12px; }
+    .ps-trend { font-size: 11px; font-weight: 600; margin-left: auto; white-space: nowrap; }
+    .summary-body { padding: 1.25rem 1.5rem; }
+    .summary-section { margin-bottom: 1.25rem; }
+    .summary-section-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 10px; }
+    .mistake-item { padding: 10px 12px; background: var(--danger-dim); border-left: 3px solid var(--danger); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 13px; line-height: 1.65; margin-bottom: 6px; }
+    .tip-item { padding: 10px 12px; background: var(--surface-2); border-left: 3px solid var(--success); border-radius: 0 var(--r-sm) var(--r-sm) 0; font-size: 13px; line-height: 1.65; color: var(--text-2); margin-bottom: 6px; display: flex; align-items: flex-start; gap: 8px; }
+    .summary-actions { display: flex; gap: 10px; margin-top: .5rem; }
+    .restart-btn { flex: 1; padding: 11px; font-size: 14px; font-weight: 600; background: var(--accent); color: #fff; border: none; border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; box-shadow: 0 0 20px var(--accent-glow); transition: all .15s; font-family: var(--font); }
+    .restart-btn:hover { filter: brightness(1.1); }
+    .download-btn { flex: 1; padding: 11px; font-size: 14px; font-weight: 600; background: transparent; color: var(--text-2); border: 1px solid var(--border); border-radius: var(--r-md); cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; transition: all .15s; font-family: var(--font); }
+    .download-btn:hover { border-color: var(--border-hi); color: var(--text-1); }
+
+    /* History inside summary */
+    .history-inline { border-top: 1px solid var(--border); padding: 1rem 1.5rem; }
+    .history-toggle-btn { display: flex; align-items: center; justify-content: space-between; width: 100%; background: none; border: none; color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer; font-family: var(--font); margin-bottom: .5rem; }
+    .history-inline-list { display: none; }
+    .history-inline-list.open { display: block; }
+    .history-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--surface-2); border-radius: var(--r-sm); margin-bottom: 5px; }
+    .history-score { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; font-family: var(--mono); flex-shrink: 0; }
+    .history-field { font-size: 13px; font-weight: 500; }
+    .history-meta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+
+    /* ── Upgrade Modal ── */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); backdrop-filter: blur(6px); z-index: 1000; display: none; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.show { display: flex; animation: fadeIn .2s ease; }
+    .modal-card { background: var(--surface); border: 1px solid var(--border-hi); border-radius: var(--r-xl); padding: 2rem; max-width: 420px; width: 100%; text-align: center; position: relative; }
+    .modal-card .modal-icon { font-size: 40px; margin-bottom: 1rem; }
+    .modal-card h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .modal-card p { font-size: 14px; color: var(--text-2); line-height: 1.65; margin-bottom: 1.5rem; }
+    .modal-close { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-2); border: 1px solid var(--border); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-2); font-size: 14px; }
+    .modal-close:hover { color: var(--text-1); border-color: var(--border-hi); }
+    .upgrade-features { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; text-align: left; }
+    .upgrade-feature { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-2); padding: 8px 12px; background: var(--surface-2); border-radius: var(--r-sm); }
+    .upgrade-feature i { color: var(--success); font-size: 16px; flex-shrink: 0; }
+    .upgrade-btn { width: 100%; padding: 13px; font-size: 15px; font-weight: 700; background: linear-gradient(135deg, var(--accent), var(--purple)); color: #fff; border: none; border-radius: var(--r-md); cursor: pointer; font-family: var(--font); box-shadow: 0 0 24px var(--accent-glow); transition: all .15s; }
+    .upgrade-btn:hover { filter: brightness(1.1); }
+    .upgrade-dismiss { background: none; border: none; color: var(--text-3); font-size: 12px; cursor: pointer; margin-top: 12px; font-family: var(--font); }
+    .upgrade-dismiss:hover { color: var(--text-2); }
+    /* Usage counter in modal */
+    .usage-display { background: var(--surface-2); border-radius: var(--r-md); padding: 12px 16px; margin-bottom: 1.25rem; }
+    .usage-display .used { font-size: 28px; font-weight: 700; font-family: var(--mono); color: var(--warn); }
+    .usage-display .total { font-size: 14px; color: var(--text-3); }
+
+    /* ── Inline notification banner ── */
+    .usage-notice { width: 100%; max-width: 700px; background: var(--warn-dim); border: 1px solid rgba(251,191,36,.25); border-radius: var(--r-md); padding: .65rem 1.25rem; display: none; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--warn); margin-bottom: 1rem; }
+    .usage-notice button { padding: 4px 12px; background: var(--warn); color: #000; border: none; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font); white-space: nowrap; }
+
+    /* ── Responsive ── */
+    @media (max-width: 600px) {
+      body { padding: .5rem .5rem 3rem; }
+      #app { border-radius: var(--r-lg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+      .topbar { padding: 0 .5rem; margin-bottom: .75rem; }
+      .meta-bar { gap: 5px; margin-bottom: .875rem; }
+      .meta-pill { font-size: 11px; padding: 4px 9px; }
+      .mode-grid { grid-template-columns: 1fr; }
+      .setup-body { padding: 1.25rem; }
+      .interview-header { padding: 1rem 1.1rem .75rem; }
+      .interview-body { padding: 1.1rem; }
+      .question-text { font-size: 15px; }
+      .answer-area { min-height: 100px; font-size: 14px; }
+      .btn-row { flex-wrap: wrap; }
+      .submit-btn { width: 100%; justify-content: center; }
+      .chat-body { height: 340px; padding: 1rem; }
+      .chat-footer { padding: .75rem 1rem; }
+      .bubble { font-size: 13px; }
+      .summary-header { padding: 1.5rem 1rem .875rem; }
+      .stats-grid { padding: 1rem; gap: 8px; }
+      .stat-num { font-size: 22px; }
+      .summary-body { padding: 1rem; }
+      .summary-actions { flex-direction: column; }
+      .auth-screen-body { padding: 1.75rem 1.25rem; }
+      .feedback-body { padding: 1rem; }
+      .structure-parts { gap: 4px; }
+      .model-answer-wrap { gap: 5px; }
+      .drill-card { padding: .75rem .875rem; }
+    }
+    @media (max-width: 400px) {
+      body { padding: 0; }
+      #app { border-radius: 0; border-left: none; border-right: none; min-height: 100dvh; }
+      .topbar { padding: 0 .75rem; }
+      .chat-body { height: 300px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-dot"></div>
+    SpeakSmart
+  </div>
+  <div class="topbar-actions">
+    <button class="icon-btn" id="theme-btn" title="Toggle dark/light mode" onclick="toggleTheme()"><i class="ti ti-sun"></i></button>
+    <button class="icon-btn" title="Session history" onclick="toggleHistory()"><i class="ti ti-history"></i></button>
+    <div class="auth-pill" id="auth-pill" onclick="handleAuthPillClick()">
+      <i class="ti ti-user"></i>
+      <span id="auth-pill-label">Sign In</span>
+    </div>
+  </div>
+</div>
+
+<!-- Meta pills -->
+<div class="meta-bar">
+  <div class="meta-pill"><i class="ti ti-flame streak-fire"></i> Streak: <span class="val" id="streak-val">0</span></div>
+  <div class="meta-pill"><i class="ti ti-clipboard-list" style="color:var(--accent)"></i> Sessions: <span class="val" id="sessions-val">0</span></div>
+  <div class="meta-pill"><i class="ti ti-star" style="color:var(--warn)"></i> Best: <span class="val" id="best-val">—</span></div>
+</div>
+
+<!-- Demo banner (shown in demo mode) -->
+<div class="demo-banner" id="demo-banner" style="display:none;">
+  <span class="demo-badge">DEMO</span>
+  <span>You're in <strong>Demo Mode</strong> — using pre-written responses. <a href="#" onclick="showScreen('screen-auth');return false;" style="color:var(--accent)">Sign up free</a> to use real AI.</span>
+</div>
+
+<!-- Usage notice (shown near limit) -->
+<div class="usage-notice" id="usage-notice">
+  <span id="usage-notice-text">⚠️ You're running low on free AI sessions.</span>
+  <button onclick="showUpgradeModal()">Upgrade to Pro</button>
+</div>
+
+<!-- Main app card -->
+<div id="app">
+
+  <!-- ── AUTH SCREEN ── -->
+  <div id="screen-auth" class="screen active">
+    <div class="auth-screen-body">
+      <div class="auth-logo">🎙️</div>
+      <h1>SpeakSmart</h1>
+      <p>The AI interview coach with real conversational mode, live English corrections, Hindi/Hinglish support, and interviewer personalities. Built for Indian job seekers.</p>
+
+      <!-- Usage bar (shown when logged in) -->
+      <div class="usage-bar-wrap" id="usage-bar-wrap">
+        <div class="usage-bar-label">
+          <span>Free AI Sessions Used</span>
+          <span id="usage-bar-count">0 / 30</span>
+        </div>
+        <div class="usage-bar-track">
+          <div class="usage-bar-fill" id="usage-bar-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="auth-tabs" id="auth-tabs">
+        <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Sign In</button>
+        <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">Create Account</button>
+      </div>
+
+      <!-- Login panel -->
+      <div id="panel-login" class="auth-form-panel active">
+        <div class="auth-form">
+          <input type="email" class="auth-input" id="login-email" placeholder="Email address" autocomplete="email" />
+          <input type="password" class="auth-input" id="login-password" placeholder="Password" autocomplete="current-password" />
+          <button class="auth-btn" id="login-btn" onclick="doLogin()">
+            <i class="ti ti-login"></i> Sign In
+          </button>
+        </div>
+        <div id="login-error" class="auth-error-box"></div>
+      </div>
+
+      <!-- Signup panel -->
+      <div id="panel-signup" class="auth-form-panel">
+        <div class="auth-form">
+          <input type="text" class="auth-input" id="signup-name" placeholder="Your name" autocomplete="name" />
+          <input type="email" class="auth-input" id="signup-email" placeholder="Email address" autocomplete="email" />
+          <input type="password" class="auth-input" id="signup-password" placeholder="Password (min 6 chars)" autocomplete="new-password" />
+          <button class="auth-btn" id="signup-btn" onclick="doSignup()">
+            <i class="ti ti-user-plus"></i> Create Free Account
+          </button>
+        </div>
+        <div id="signup-error" class="auth-error-box"></div>
+        <div id="signup-success" class="auth-success-box"></div>
+      </div>
+
+      <div class="auth-divider"><span>or</span></div>
+      <button class="auth-demo-btn" onclick="startDemo()">
+        <i class="ti ti-eye"></i> Try Demo (no account needed)
+      </button>
+    </div>
+  </div>
+
+  <!-- ── SETUP SCREEN ── -->
+  <div id="screen-setup" class="screen">
+    <div class="setup-body">
+      <div id="demo-mode-indicator" style="display:none;">
+        <div class="demo-mode-pill"><i class="ti ti-eye"></i> Demo Mode — pre-written responses</div>
+      </div>
+      <div class="setup-hero">
+        <h1>Set Up Your Interview</h1>
+        <p>Choose your field and mode. <strong>AI Chat Mode</strong> is a real conversation with Aria — the most realistic practice you can get.</p>
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">Interview Mode</label>
+        <div class="mode-grid">
+          <div class="mode-card" id="mode-classic" onclick="selectMode('classic')">
+            <div class="mode-icon">📝</div>
+            <div class="mode-title">Classic Mode</div>
+            <div class="mode-desc">One question at a time. Detailed per-answer feedback with English corrections.</div>
+          </div>
+          <div class="mode-card selected" id="mode-chat" onclick="selectMode('chat')">
+            <div class="mode-icon">🤖</div>
+            <div class="mode-title">AI Chat Mode <span class="new-badge">NEW</span></div>
+            <div class="mode-desc">Real conversation with Aria. She reacts and asks follow-ups — like a real interview.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">Profession / Field</label>
+        <div class="chips" id="prof-chips">
+          <span class="chip" data-val="Software Developer">Software Developer</span>
+          <span class="chip" data-val="Java Developer">Java Developer</span>
+          <span class="chip" data-val="Government Job (SSC/UPSC)">Govt Job (SSC/UPSC)</span>
+          <span class="chip" data-val="Data Scientist">Data Scientist</span>
+          <span class="chip" data-val="Doctor / Medical">Doctor / Medical</span>
+          <span class="chip" data-val="Teacher">Teacher</span>
+          <span class="chip" data-val="Bank PO">Bank PO</span>
+          <span class="chip" data-val="Marketing Manager">Marketing</span>
+          <span class="chip" data-val="Full Stack Developer">Full Stack Dev</span>
+          <span class="chip" data-val="Police / Defence">Police / Defence</span>
+        </div>
+        <input type="text" class="text-input" id="custom-field" placeholder="Or type any field — MBA, Nurse, IAS Officer, CA…" />
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">Interview Type</label>
+        <div class="chips" id="type-chips">
+          <span class="chip selected" data-val="Technical">Technical</span>
+          <span class="chip" data-val="Behavioral">Behavioral (HR)</span>
+          <span class="chip" data-val="Mixed">Mixed</span>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <label class="form-label">Difficulty</label>
+        <div class="chips" id="diff-chips">
+          <span class="chip selected" data-val="beginner">Beginner</span>
+          <span class="chip" data-val="intermediate">Intermediate</span>
+          <span class="chip" data-val="advanced">Advanced</span>
+        </div>
+      </div>
+
+      <!-- Classic-only options -->
+      <div id="classic-opts" style="display:none;">
+        <div class="form-section">
+          <label class="form-label">Number of Questions</label>
+          <div class="chips" id="count-chips">
+            <span class="chip" data-val="3">3</span>
+            <span class="chip selected" data-val="5">5</span>
+            <span class="chip" data-val="8">8</span>
+            <span class="chip" data-val="10">10</span>
+          </div>
+        </div>
+        <div class="form-section">
+          <label class="form-label">Time per Question</label>
+          <div class="chips" id="timer-chips">
+            <span class="chip" data-val="0">No Timer</span>
+            <span class="chip selected" data-val="120">2 min</span>
+            <span class="chip" data-val="180">3 min</span>
+            <span class="chip" data-val="300">5 min</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat-only options -->
+      <div id="chat-opts">
+        <div class="form-section">
+          <label class="form-label">Interviewer Personality</label>
+          <div class="chips" id="persona-chips">
+            <span class="chip selected" data-val="friendly">😊 Friendly</span>
+            <span class="chip" data-val="strict">😤 Strict</span>
+            <span class="chip" data-val="corporate">💼 Corporate</span>
+          </div>
+        </div>
+        <div class="form-section">
+          <label class="form-label">Number of Exchanges</label>
+          <div class="chips" id="exchanges-chips">
+            <span class="chip" data-val="4">Short (4)</span>
+            <span class="chip selected" data-val="6">Medium (6)</span>
+            <span class="chip" data-val="9">Long (9)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Language selector (both modes) -->
+      <div class="form-section">
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;">
+          <div style="margin-bottom:10px;">
+            <h4 style="font-size:13px;font-weight:500;color:var(--text-1);margin-bottom:2px;">Interview Language &nbsp;<span class="persona-badge pb-hindi" style="font-size:11px">UNIQUE IN INDIA</span></h4>
+            <p style="font-size:12px;color:var(--text-2);">AI + voice input adapts to your chosen language</p>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;" id="lang-selector">
+            <button class="lang-opt active" data-lang="en" onclick="setLang('en')">
+              <span style="font-size:15px">🇬🇧</span>
+              <span class="lang-opt-label">English</span>
+            </button>
+            <button class="lang-opt" data-lang="hinglish" onclick="setLang('hinglish')">
+              <span style="font-size:15px">🔀</span>
+              <span class="lang-opt-label">Hinglish</span>
+            </button>
+            <button class="lang-opt" data-lang="hi" onclick="setLang('hi')">
+              <span style="font-size:15px">🇮🇳</span>
+              <span class="lang-opt-label">हिंदी</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="setup-error" class="error-box" style="display:none;margin-bottom:10px;"></div>
+      <button class="start-btn" id="start-btn" onclick="startSession()">
+        <i class="ti ti-player-play"></i> Start Interview
+      </button>
+      <div style="text-align:center;margin-top:14px;">
+        <button onclick="showScreen('screen-auth')" style="background:none;border:none;color:var(--text-3);font-size:12px;cursor:pointer;font-family:var(--font)">← Back / Account</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CLASSIC INTERVIEW SCREEN ── -->
+  <div id="screen-interview" class="screen">
+    <div class="interview-header">
+      <div class="interview-meta">
+        <strong id="meta-field">—</strong>&nbsp;·&nbsp;<span id="meta-diff">—</span>&nbsp;·&nbsp;<span id="meta-type">—</span>
+      </div>
+      <div class="q-badge" id="q-counter">Q 1 / 5</div>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    <div class="interview-body">
+      <div id="loading-questions" class="loading-row" style="display:none;">
+        <div class="spinner"></div> Generating questions…
+      </div>
+      <div id="question-area" style="display:none;">
+        <div class="timer-row" id="timer-row">
+          <div class="timer-display">
+            <svg class="timer-arc" viewBox="0 0 44 44">
+              <circle class="bg-arc" cx="22" cy="22" r="20"/>
+              <circle class="fg-arc" cx="22" cy="22" r="20" id="timer-arc-fg" stroke-dashoffset="0"/>
+            </svg>
+            <div>
+              <div class="timer-num" id="timer-num">—</div>
+              <div style="font-size:11px;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em">remaining</div>
+            </div>
+          </div>
+          <button class="hint-btn" onclick="loadHint()"><i class="ti ti-bulb"></i> Get Hint</button>
+        </div>
+        <div id="hint-box" class="hint-box"></div>
+        <div class="question-card">
+          <div class="question-label">Question</div>
+          <div class="question-text" id="question-text"></div>
+        </div>
+        <div class="answer-wrap">
+          <textarea class="answer-area" id="answer-input" placeholder="Type your answer in English…" oninput="updateCharCount(this)"></textarea>
+          <button class="voice-btn" id="voice-btn" onclick="toggleVoice('answer-input','voice-btn')" title="Voice input"><i class="ti ti-microphone"></i></button>
+        </div>
+        <div class="btn-row">
+          <button class="submit-btn" id="submit-btn" onclick="submitAnswer()"><i class="ti ti-send"></i> Submit Answer</button>
+          <span class="char-count" id="char-count">0 chars</span>
+        </div>
+        <div id="loading-feedback" class="loading-row" style="display:none;"><div class="spinner"></div> Analyzing your answer…</div>
+        <div id="feedback-area"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI CHAT SCREEN ── -->
+  <div id="screen-chat" class="screen">
+    <div class="chat-header">
+      <div class="aria-avatar">A</div>
+      <div class="aria-info">
+        <div class="aria-name">
+          Aria
+          <span id="aria-persona-badge" class="persona-badge pb-friendly">Friendly</span>
+          <span id="aria-hindi-badge" class="persona-badge pb-hindi" style="display:none">हिं</span>
+        </div>
+        <div class="aria-status" id="aria-status">Online · Ready to interview</div>
+      </div>
+      <div class="q-badge" id="chat-counter">0 / 6</div>
+    </div>
+    <div class="chat-progress-track"><div class="chat-progress-fill" id="chat-prog" style="width:0%"></div></div>
+    <div class="chat-body" id="chat-body">
+      <div class="bubble-row ai" id="typing-row" style="display:none;">
+        <div class="bubble-avatar ai">A</div>
+        <div class="bubble-content">
+          <div class="typing-indicator" id="typing-indicator"><div class="t-dot"></div><div class="t-dot"></div><div class="t-dot"></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="chat-footer">
+      <div class="chat-input-row">
+        <button class="chat-voice-btn" id="chat-voice-btn" onclick="toggleVoice('chat-input','chat-voice-btn')" title="Voice"><i class="ti ti-microphone"></i></button>
+        <input type="text" class="chat-input" id="chat-input" placeholder="Type your answer…" onkeydown="chatKeyDown(event)" />
+        <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMessage()"><i class="ti ti-send"></i></button>
+      </div>
+      <div class="chat-hint-text">Enter to send &nbsp;·&nbsp; 🎙 Mic for voice &nbsp;·&nbsp; <span style="color:var(--success)">Live English corrections appear below your messages</span></div>
+    </div>
+  </div>
+
+  <!-- ── SUMMARY SCREEN ── -->
+  <div id="screen-summary" class="screen">
+    <div class="summary-header">
+      <div class="check-ring"><i class="ti ti-check"></i></div>
+      <h2>Interview Complete!</h2>
+      <p id="summary-sub">Here's your performance report</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-block"><div class="stat-num" id="stat-score" style="color:var(--success)">—</div><div class="stat-label">Avg Score</div></div>
+      <div class="stat-block"><div class="stat-num" id="stat-errors" style="color:var(--danger)">—</div><div class="stat-label">Errors Found</div></div>
+      <div class="stat-block"><div class="stat-num" id="stat-qs" style="color:var(--accent)">—</div><div class="stat-label">Questions</div></div>
+    </div>
+    <div class="chart-section" id="chart-section" style="display:none;">
+      <div class="chart-title">Score per question</div>
+      <canvas id="scoreChart"></canvas>
+    </div>
+    <div class="summary-body">
+      <div class="summary-section">
+        <div class="summary-section-title">English Mistakes</div>
+        <div id="mistakes-list"></div>
+      </div>
+      <div class="summary-section">
+        <div class="summary-section-title">Improvement Tips</div>
+        <div id="loading-summary" class="loading-row" style="display:none;"><div class="spinner"></div> Generating personalised tips…</div>
+        <div id="tips-list"></div>
+      </div>
+      <!-- Coach Summary (chat mode only) -->
+      <div id="coach-summary-section" style="display:none;"></div>
+      <!-- Next Session Drills -->
+      <div id="drill-section" style="display:none;">
+        <div class="drill-section">
+          <div class="drill-section-title">Your Next Session — Practice These</div>
+          <div id="drill-list"></div>
+        </div>
+      </div>
+      <div class="summary-actions">
+        <button class="download-btn" onclick="downloadReport()"><i class="ti ti-download"></i> Download Report</button>
+        <button class="restart-btn" onclick="restart()"><i class="ti ti-refresh"></i> New Interview</button>
+      </div>
+    </div>
+    <div class="history-inline" id="history-inline" style="display:none;">
+      <button class="history-toggle-btn" onclick="toggleHistoryPanel()">
+        <span><i class="ti ti-history"></i> Past Sessions (<span id="history-count">0</span>)</span>
+        <i class="ti ti-chevron-down" id="history-chevron"></i>
+      </button>
+      <div class="history-inline-list" id="history-list"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- ── UPGRADE MODAL ── -->
+<div class="modal-overlay" id="upgrade-modal">
+  <div class="modal-card">
+    <button class="modal-close" onclick="closeUpgradeModal()"><i class="ti ti-x"></i></button>
+    <div class="modal-icon">🚀</div>
+    <h2>Upgrade to Pro</h2>
+
+    <div class="usage-display" id="modal-usage-display">
+      <div class="used" id="modal-calls-used">0</div>
+      <div class="total">of 30 free sessions used</div>
+    </div>
+
+    <p>You've reached your free limit. Upgrade for <strong>unlimited AI interviews</strong> and unlock your full potential.</p>
+    <div class="upgrade-features">
+      <div class="upgrade-feature"><i class="ti ti-infinity"></i> Unlimited AI interview sessions</div>
+      <div class="upgrade-feature"><i class="ti ti-history"></i> Full session history & progress tracking</div>
+      <div class="upgrade-feature"><i class="ti ti-chart-bar"></i> Advanced analytics dashboard</div>
+      <div class="upgrade-feature"><i class="ti ti-bolt"></i> Priority AI response speed</div>
+    </div>
+    <button class="upgrade-btn" onclick="handleUpgradeClick()">
+      <i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month
+    </button>
+    <br>
+    <button class="upgrade-dismiss" onclick="closeUpgradeModal()">Maybe later</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CONFIG — CHANGE THIS TO YOUR BACKEND URL
+// ══════════════════════════════════════════
+// When your backend is deployed, replace the URL below.
+// For local development: 'http://localhost:3000'
+// For production: 'https://your-backend.railway.app'
+const BACKEND_URL = 'https://speaksmart-backend-production.up.railway.app';
+const FREE_LIMIT = 30; // Must match backend FREE_LIMIT
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let S = {
+  // Auth
+  authToken: localStorage.getItem('ss_token') || null,
+  user: JSON.parse(localStorage.getItem('ss_user') || 'null'),
+  // App
+  isDemo: false,
+  mode: 'chat',
+  profession: '',
+  interviewType: 'Technical',
+  difficulty: 'beginner',
+  totalQ: 5,
+  timerSecs: 120,
+  persona: 'friendly',
+  maxExchanges: 6,
+  lang: 'en',  // 'en' | 'hinglish' | 'hi'
+  // classic
+  questions: [], currentQ: 0, allFeedbacks: [], allErrors: [],
+  timerInterval: null, timerRemaining: 0,
+  // chat
+  chatHistory: [], chatExchanges: 0, chatErrors: [], backendSessions: 0,
+  // voice
+  recognition: null, isListening: false,
+};
+let isDark = true;
+
+// ══════════════════════════════════════════
+//  DEMO DATA  — profession-specific, realistic
+// ══════════════════════════════════════════
+const DEMO_DB = {
+  "Software Developer": {
+    classic: [
+      "Explain the difference between a stack and a queue. When would you use each?",
+      "You pushed a bug to production on a Friday evening. Walk me through exactly what you do next.",
+      "What is the time complexity of binary search and why?",
+      "Describe a time you had a disagreement with a teammate about a technical approach. What happened?",
+      "How do you ensure code quality in your projects — what practices do you follow?"
+    ],
+    chat: [
+      "Hi! I'm Aria. Let's get started. Tell me — what programming languages are you most comfortable with, and which projects have you used them in?",
+      "Good. Now let's test your problem-solving. Suppose our API response time has suddenly spiked from 200ms to 2 seconds in production. What's your debugging process?",
+      "Nice approach. How comfortable are you with Git — specifically, can you walk me through how you'd handle a merge conflict in a feature branch?",
+      "That's solid. One last area — have you worked with any databases? Tell me about a time you optimized a slow query.",
+      "Great answers overall! You clearly have hands-on experience. Just to wrap up — are you comfortable working in an Agile environment with daily standups and sprint reviews?",
+      "Wonderful, that's all from me! You showed strong debugging instincts and good communication. I'll pass my notes to the hiring team. All the best! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 8, interview_feedback: "Solid technical answer. You explained the difference clearly and gave a good use-case for each. The example about using a queue for a task scheduler showed real practical understanding.", english_errors: [{ mistake: "Stack is used when we wants LIFO", correction: "Stack is used when we want LIFO", explanation: "'we' takes 'want' not 'wants' — subject-verb agreement." }], corrected_answer: "A stack follows LIFO (Last In, First Out) and is best used for function call management or undo operations. A queue follows FIFO and is ideal for task scheduling or print queues.", tip: "When answering data structure questions, always give a real-world example — it shows you've actually used these concepts, not just memorized them." },
+      { score: 7, interview_feedback: "Good incident response outline. You mentioned checking logs, rolling back, and notifying the team. You could strengthen this by also mentioning how you'd write a post-mortem to prevent recurrence — that's what senior engineers do.", english_errors: [{ mistake: "I will immediately rollback the code", correction: "I will immediately roll back the code", explanation: "'roll back' is two words as a verb. 'rollback' is the noun form." }], corrected_answer: "First I would check the error logs, identify the breaking commit, and roll back the deployment. Then I would notify the team and write a post-mortem.", tip: "Always mention post-mortems and blameless culture when answering incident questions — it signals seniority." },
+      { score: 6, interview_feedback: "You got the answer right — O(log n) — but the explanation was brief. The interviewer wants to see that you understand *why*, not just *what*. Walk through the halving logic step by step next time.", english_errors: [], corrected_answer: null, tip: "For algorithm complexity questions, always explain the reasoning: 'Because we eliminate half the search space each step, we go from n → n/2 → n/4… which gives us log₂(n) steps.'" },
+      { score: 9, interview_feedback: "Excellent answer. You described the conflict clearly, showed maturity by focusing on the technical merits rather than egos, and the outcome was constructive. This is exactly what interviewers want to hear for behavioral questions.", english_errors: [], corrected_answer: null, tip: "Your conflict resolution story was strong. In future answers, also mention what you *learned* from the disagreement — it adds depth." },
+      { score: 7, interview_feedback: "Good coverage of code reviews and unit tests. Mentioning linting tools was a nice touch. To score higher, talk about test coverage thresholds, CI/CD pipelines, or peer review standards you've enforced or contributed to.", english_errors: [{ mistake: "I always do the code review before merging", correction: "I always perform a code review before merging", explanation: "'Perform a review' is the standard professional phrasing — 'do a review' sounds informal." }], corrected_answer: "I follow TDD where possible, enforce code reviews on all PRs, use ESLint for static analysis, and ensure CI pipelines run all tests before merging.", tip: "Mention specific tools by name — ESLint, Jest, SonarQube, GitHub Actions — it makes your answer sound experienced and concrete." }
+    ],
+    chatErrors: [
+      { wrong: "I am knowing this language since college", correct: "I have known this language since college" },
+      { wrong: "We debugged it and it got fixed", correct: "We debugged it and fixed it" }
+    ],
+    tips: [
+      "For every technical question, use the 'explain → example → edge case' structure — it shows depth, not just memorization.",
+      "Practice coding on a whiteboard or notepad, not just an IDE. Interviews often don't give you autocomplete.",
+      "When you don't know an answer, say 'I haven't used this directly but I'd approach it by…' — it shows problem-solving instinct.",
+      "Study the company's tech stack before the interview. If they use React and you know Vue, mention the parallels.",
+      "Read 'Designing Data-Intensive Applications' by Kleppmann — it's the single best book for senior engineering interviews."
+    ]
+  },
+  "Java Developer": {
+    classic: [
+      "What is the difference between HashMap and ConcurrentHashMap? When would you choose one over the other?",
+      "Explain Java's memory model — what is the difference between heap and stack memory?",
+      "What are the SOLID principles? Give me a real example of where you applied one of them.",
+      "How does the garbage collector work in Java, and how can you avoid common GC-related performance issues?",
+      "You have a REST API endpoint that's timing out under load. What steps do you take to diagnose and fix it?"
+    ],
+    chat: [
+      "Hello! I'm Aria. Let's begin. How many years have you worked with Java, and what's the most complex Java application you've built or contributed to?",
+      "Good context. Now let's get technical — can you explain the difference between an interface and an abstract class in Java, and when you'd use each?",
+      "Nice. Let's talk about concurrency — if two threads try to update the same object simultaneously, what problems can arise and how do you prevent them?",
+      "That's a solid answer. Have you used Spring Boot? Tell me about a REST API you built with it — what did the architecture look like?",
+      "Good. Last question — how do you approach performance tuning in a Java application? Give me a specific example if you can.",
+      "That concludes our interview. You showed strong core Java knowledge and good real-world experience. I'll share my assessment with the team. Best of luck! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 8, interview_feedback: "Excellent answer. You correctly identified thread safety as the key reason to use ConcurrentHashMap and gave a realistic scenario. Mentioning lock-striping as the internal mechanism showed depth beyond the textbook answer.", english_errors: [{ mistake: "ConcurrentHashMap allows thread safe operations", correction: "ConcurrentHashMap allows thread-safe operations", explanation: "'Thread-safe' is a compound adjective modifying 'operations' — it needs a hyphen." }], corrected_answer: "ConcurrentHashMap is designed for concurrent access and uses lock-striping to allow multiple threads to read and write simultaneously without blocking each other, unlike HashMap which is not thread-safe.", tip: "Always mention the internal mechanism (lock-striping vs. full synchronization) when comparing concurrent collections — it's what separates a strong answer from an average one." },
+      { score: 7, interview_feedback: "Good explanation of heap vs stack. You covered the key points: stack for method calls and primitives, heap for objects. You could improve by mentioning thread-local stack vs shared heap, and common issues like StackOverflowError.", english_errors: [], corrected_answer: null, tip: "Tie your heap/stack answer to real debugging experience — for example, 'I once diagnosed a memory leak by profiling heap usage with VisualVM' — it makes you memorable." },
+      { score: 9, interview_feedback: "Outstanding answer on SOLID. You didn't just define the principles — you gave a concrete refactoring example applying the Single Responsibility Principle. That's exactly what the interviewer is looking for.", english_errors: [{ mistake: "I have applied this principle many a times", correction: "I have applied this principle many times", explanation: "'Many a times' is incorrect — the correct phrase is simply 'many times'." }], corrected_answer: "I applied the Single Responsibility Principle when refactoring a monolithic service class into separate classes for authentication, logging, and data access.", tip: "When explaining SOLID principles, always link them to a code smell they fix — e.g., SRP fixes the 'God Class' anti-pattern." },
+      { score: 6, interview_feedback: "You named the garbage collector correctly and mentioned GC pauses, which is good. But the answer lacked depth on *why* GC pauses happen and practical mitigation strategies like tuning heap size, choosing GC algorithms, or minimizing object creation.", english_errors: [{ mistake: "Garbage collector collect the unused objects", correction: "The garbage collector collects unused objects", explanation: "Missing article 'the' before 'garbage collector', and 'collect' should be 'collects' (third person singular)." }], corrected_answer: "The garbage collector identifies and reclaims memory used by unreachable objects. To reduce GC overhead, I avoid creating unnecessary objects in hot paths and tune the heap size based on profiling data.", tip: "Study G1GC vs ZGC vs Parallel GC trade-offs — interviewers love when candidates know which GC to recommend for latency-sensitive vs throughput-heavy applications." },
+      { score: 7, interview_feedback: "Good systematic approach to the timeout issue — checking logs, profiling DB queries, checking thread pool size. Adding mention of APM tools like Datadog or New Relic, or load testing with JMeter, would push this to a top-tier answer.", english_errors: [], corrected_answer: null, tip: "For performance debugging questions, structure your answer in layers: application layer → database layer → infrastructure layer. Interviewers want to see you think end-to-end." }
+    ],
+    chatErrors: [
+      { wrong: "Interface is used when we wants multiple inheritance", correct: "An interface is used when we want multiple inheritance" },
+      { wrong: "I have did this in my previous project", correct: "I have done this in my previous project" }
+    ],
+    tips: [
+      "Master Java's memory model before any interview — heap, stack, metaspace, and GC algorithms come up in almost every mid-to-senior Java interview.",
+      "Build a sample project using Spring Boot + JPA + REST + JWT auth and be able to walk through every design decision.",
+      "Practice explaining concurrency concepts out loud — synchronized, volatile, locks, deadlocks. These are tricky to articulate clearly under pressure.",
+      "Learn to read a thread dump and a heap dump. Interviewers at product companies often ask 'how would you debug a production hang?'",
+      "Study common Java anti-patterns alongside design patterns — knowing what NOT to do impresses interviewers as much as knowing what to do."
+    ]
+  },
+  "Data Scientist": {
+    classic: [
+      "Explain the bias-variance tradeoff. How do you identify which problem you're facing in a model?",
+      "Your model has 97% accuracy on the training set but only 61% on the test set. What happened and how do you fix it?",
+      "Walk me through how you would handle a dataset where 98% of records belong to one class.",
+      "What's the difference between L1 and L2 regularization? When would you choose each?",
+      "You're asked to build a churn prediction model for an e-commerce company. Walk me through your full approach end-to-end."
+    ],
+    chat: [
+      "Hi, I'm Aria! Let's start with the basics — what programming languages and ML libraries do you primarily work with, and what's a recent project you're proud of?",
+      "Interesting! Now, say I hand you a raw dataset of 500,000 customer transactions. What's your step-by-step process before you even start building a model?",
+      "Good. Let's go technical — can you explain how a Random Forest works and why it's often better than a single Decision Tree?",
+      "Nice explanation. How do you evaluate whether a model is actually good enough to deploy? What metrics matter most to you and why?",
+      "Great. Final question — how do you communicate model results to a non-technical stakeholder like a business manager?",
+      "That's a wrap! You demonstrated both technical depth and business awareness — a rare combination. I'll be recommending you to the next round. Good luck! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 9, interview_feedback: "Excellent answer on bias-variance. You explained both concepts clearly, correctly described the tradeoff as a U-shaped test error curve, and gave practical diagnostics — learning curves and validation set performance.", english_errors: [], corrected_answer: null, tip: "To make this answer even stronger, mention regularization and ensemble methods as your go-to tools for balancing bias vs variance. It closes the loop perfectly." },
+      { score: 8, interview_feedback: "You correctly identified overfitting and gave the right remedies: more data, dropout, regularization, simpler model. Good answer. You could also mention cross-validation and early stopping.", english_errors: [{ mistake: "The model has memorised the training datas", correction: "The model has memorized the training data", explanation: "'Data' is an uncountable noun in this context — 'datas' is incorrect." }], corrected_answer: "The model has overfit — it memorized the training data rather than learning generalizable patterns. I'd address this with regularization, dropout, cross-validation, or collecting more diverse training data.", tip: "When you identify overfitting in an answer, immediately follow with 'Here's how I'd diagnose it first' — show the interviewer you wouldn't just blindly apply fixes." },
+      { score: 7, interview_feedback: "Good awareness of class imbalance. You mentioned SMOTE and class weights, which is solid. To score higher, also discuss the correct evaluation metrics for imbalanced data — accuracy is misleading here.", english_errors: [{ mistake: "We can oversample the minority class using SMOTE technique", correction: "We can oversample the minority class using the SMOTE technique", explanation: "Use 'the' before a specific named technique." }], corrected_answer: "With 98% class imbalance, accuracy is a useless metric. I'd use SMOTE for oversampling, apply class weights in the model, and evaluate using precision-recall AUC and F1-score.", tip: "Whenever class imbalance comes up, lead with metrics first — say 'first, I'd stop using accuracy as my metric' — it immediately signals senior-level thinking." },
+      { score: 7, interview_feedback: "You correctly explained L1's sparsity property and L2's weight shrinkage. Good. Where you can improve: explain intuitively *why* L1 produces zeros.", english_errors: [], corrected_answer: null, tip: "Memorize this: 'L1 for feature selection (sparse weights), L2 for when all features might matter (smooth weights), ElasticNet when you're unsure.' That one sentence answers 80% of regularization interview questions." },
+      { score: 8, interview_feedback: "Strong end-to-end answer. You covered data collection, EDA, feature engineering, model selection, and evaluation. You even mentioned deploying the model as an API and monitoring for data drift — that's senior-level thinking.", english_errors: [{ mistake: "I would used logistic regression as baseline", correction: "I would use logistic regression as a baseline", explanation: "After modal verbs like 'would', use the base form 'use' not 'used'. Also 'a baseline' needs the article 'a'." }], corrected_answer: "I'd start with EDA and data cleaning, then engineer features like recency, frequency, and monetary value (RFM). I'd use logistic regression as a baseline and then try gradient boosting.", tip: "Always end an ML project walkthrough by mentioning monitoring — 'How do I know the model stays good over time?' It's the most-overlooked part and immediately impresses interviewers." }
+    ],
+    chatErrors: [
+      { wrong: "I have did exploratory data analysis first", correct: "I would do exploratory data analysis first" },
+      { wrong: "Random forest make many trees and take average", correct: "A random forest builds many trees and takes an average (or majority vote)" }
+    ],
+    tips: [
+      "Master the classic ML concepts cold: bias-variance, overfitting, regularization, cross-validation. Every data science interview starts here.",
+      "Practice explaining models to non-technical people. If you can't explain Random Forest to a 10-year-old, you don't fully understand it yet.",
+      "Build a Kaggle portfolio with 2–3 completed projects, including a write-up.",
+      "Study SQL deeply — window functions, CTEs, joins. Most data science roles still require heavy SQL.",
+      "Learn to confidently say 'It depends.' The best data scientists don't have one-size-fits-all answers."
+    ]
+  },
+  "Government Job (SSC/UPSC)": {
+    classic: [
+      "Why do you want to join the civil services / government sector instead of a private sector job?",
+      "What do you understand by the term 'public service'? How does it differ from working in the private sector?",
+      "India is facing increasing urbanization. What are the three biggest challenges it creates and how should they be addressed?",
+      "Tell me about a recent government scheme that you found particularly impactful. Explain its objectives and results.",
+      "You are a Block Development Officer and you find that a local contractor has submitted inflated bills for a public works project. What steps do you take?"
+    ],
+    chat: [
+      "Good morning! I'm Aria, conducting your civil services interview. Let's begin — please introduce yourself, your academic background, and tell me what motivated you to appear for this examination.",
+      "Thank you. India is a vast and diverse nation. What do you believe is the single most pressing challenge facing India today, and what would be your approach to addressing it if you were in a position of authority?",
+      "Thoughtful answer. Let's test your knowledge of governance — can you explain the role of the District Collector? What makes it such a critical position in India's administrative structure?",
+      "Good. Now a practical scenario — you are posted as a Sub-Divisional Magistrate and there is communal tension brewing in a village following a dispute over a religious procession route. What is your immediate course of action?",
+      "Commendable approach. One last question — what do you think is the biggest weakness in India's public delivery system, and what one reform would you prioritize?",
+      "Excellent interview. You showed clarity of thought, knowledge of governance, and a genuine commitment to public service. All the best! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 9, interview_feedback: "Excellent answer. You articulated a genuine, specific motivation rooted in impact and service — not a vague 'I want to serve the country.' You backed it with a personal anecdote which made it authentic and memorable.", english_errors: [{ mistake: "I have always wanted to serving the people", correction: "I have always wanted to serve the people", explanation: "After 'wanted to', use the base form of the verb — 'serve', not 'serving'." }], corrected_answer: "I have always wanted to serve the people in a meaningful, direct capacity. Seeing the impact of a government scheme in my own village shaped my belief that the civil services are the most powerful platform for systemic change.", tip: "Your motivation answer should always end with a forward-looking statement — not just why you want to join, but what you intend to achieve once you're there." },
+      { score: 7, interview_feedback: "Good conceptual answer on public service. You identified accountability to citizens and the absence of a profit motive as key differences.", english_errors: [{ mistake: "Government servants are more accountable then private employees", correction: "Government servants are more accountable than private employees", explanation: "'Than' is used for comparisons, not 'then' (which indicates time)." }], corrected_answer: "Public service is fundamentally about serving citizens equitably and being accountable to the Constitution and the public, rather than to shareholders or profit targets.", tip: "In public service questions, always reference the constitutional framework — Articles 309–311, the IAS conduct rules — it shows you've gone beyond general awareness." },
+      { score: 8, interview_feedback: "Strong analysis of urbanization challenges — you covered housing, infrastructure, and unemployment in a structured way. Your recommendation on satellite towns and Smart Cities showed policy awareness.", english_errors: [], corrected_answer: null, tip: "Structure your answers using a 3-part framework: Problem → Root Cause → Solution. It makes your reasoning transparent and easy for the board to follow." },
+      { score: 6, interview_feedback: "You correctly named the PM Awas Yojana and described its objectives. However, you only mentioned government claims about coverage without acknowledging any implementation gaps.", english_errors: [{ mistake: "The scheme have benefited many peoples", correction: "The scheme has benefited many people", explanation: "'Scheme' is singular — use 'has'. 'People' is already plural — 'peoples' is incorrect." }], corrected_answer: "PM Awas Yojana has benefited many families by providing affordable housing, though implementation has been uneven — urban and rural components face different challenges including land availability and beneficiary identification.", tip: "Never give one-sided answers in the UPSC interview. The board specifically looks for balance — acknowledge the limitation in every policy or scheme you discuss." },
+      { score: 9, interview_feedback: "Outstanding answer on the corruption scenario. You correctly prioritized gathering evidence before acting, involved higher authorities appropriately, and mentioned audit mechanisms.", english_errors: [], corrected_answer: null, tip: "In integrity/ethical dilemma questions, always show your process: (1) Verify the facts, (2) Follow the prescribed procedure, (3) Document everything, (4) Escalate if needed." }
+    ],
+    chatErrors: [
+      { wrong: "I am preparing for this exam since 2 years", correct: "I have been preparing for this exam for 2 years" },
+      { wrong: "The collector looks after all the works in the district", correct: "The District Collector oversees all administrative functions in the district" }
+    ],
+    tips: [
+      "Read a national newspaper daily — The Hindu or Indian Express. The UPSC interview board regularly asks about current affairs from the past 6 months.",
+      "Practice speaking your answers out loud, not just writing them.",
+      "Prepare a detailed answer about your home state, home district, and your graduation subject — these are almost always asked in the DAF-based interview.",
+      "Balance every policy answer — acknowledge both achievements AND shortcomings.",
+      "Know your optional subject thoroughly. Deep questions on your academic background or optional are common."
+    ]
+  },
+  "Bank PO": {
+    classic: [
+      "What is the current repo rate set by the RBI, and how does it impact loan interest rates for customers?",
+      "Explain the difference between NPA (Non-Performing Asset) and a standard asset. Why are NPAs a concern for banks?",
+      "A customer comes to your branch very upset because a transaction failed but money was debited from their account. How do you handle the situation?",
+      "What do you know about the PMJDY (Pradhan Mantri Jan Dhan Yojana) scheme and its impact on financial inclusion?",
+      "Why do you want to join banking specifically, and why this bank over others?"
+    ],
+    chat: [
+      "Welcome! I'm Aria. To begin — tell me a little about yourself and what drew you to banking as a career.",
+      "Good. Let's test your banking knowledge — can you explain the difference between CRR and SLR, and why the RBI uses these tools?",
+      "Nice. Let's go practical — a customer walks in wanting to open a savings account but they don't have an Aadhaar card. What do you tell them and what documents can you accept?",
+      "Good customer-handling instinct. Here's a harder scenario — you notice that a colleague is helping a customer bypass the standard KYC process 'as a favour.' What do you do?",
+      "That's exactly the right approach. Last question — where do you see the future of banking in India, given the rise of UPI and fintech companies?",
+      "That wraps up our interview. You showed strong banking fundamentals and excellent professional integrity. All the best! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 8, interview_feedback: "Very good. You gave the correct current rate and correctly explained the transmission mechanism — repo rate → bank borrowing cost → lending rates.", english_errors: [{ mistake: "When repo rate increase, loan EMIs also increases", correction: "When the repo rate increases, loan EMIs also increase", explanation: "Both 'rate' and 'EMIs' need consistent subject-verb agreement. 'EMIs' is plural — 'increase' not 'increases'." }], corrected_answer: "When the RBI increases the repo rate, banks' borrowing costs rise, which leads to higher lending rates and increased loan EMIs for customers.", tip: "Always stay updated on the latest RBI monetary policy — the current repo rate, inflation targets, and CRR/SLR changes are asked in almost every Bank PO interview." },
+      { score: 7, interview_feedback: "Correct definition of NPA and the 90-day rule. You also mentioned the impact on bank profitability and capital adequacy.", english_errors: [{ mistake: "NPA means the loan which is not paid for 90 days", correction: "An NPA is a loan on which the borrower has not made repayments for 90 days or more", explanation: "More precise and professional phrasing for a banking interview." }], corrected_answer: "An NPA, or Non-Performing Asset, is a loan where repayments of principal or interest have been overdue for 90 days or more.", tip: "Study the RBI's latest report on NPA trends in India. Quoting recent data in your answer immediately makes you stand out." },
+      { score: 9, interview_feedback: "Excellent handling of the customer complaint scenario. You showed empathy first, then process adherence — checking the transaction logs, assuring the customer, raising a chargeback request, and following up.", english_errors: [], corrected_answer: null, tip: "In customer service scenarios, always use the phrase 'I would assure the customer that their money is safe' early in your answer." },
+      { score: 7, interview_feedback: "Good awareness of PMJDY. You correctly cited the zero-balance account feature and RuPay card.", english_errors: [{ mistake: "This scheme help the poor peoples to open bank accounts", correction: "This scheme helps poor people open bank accounts", explanation: "'Scheme' is singular → 'helps'. 'Peoples' is incorrect — 'people' is already plural." }], corrected_answer: "PMJDY helps people from economically weaker sections access formal banking through zero-balance accounts, a RuPay debit card, and an overdraft facility.", tip: "Memorize 3–4 statistics about PMJDY and use them confidently. Numbers signal preparation." },
+      { score: 8, interview_feedback: "Strong personal motivation answer. You mentioned stability, community impact, and specifically researched this bank's focus on MSME lending.", english_errors: [{ mistake: "I have interest in finance since my graduation", correction: "I have been interested in finance since my graduation", explanation: "'Have interest' is incorrect — use 'have been interested in' for a state continuing from the past." }], corrected_answer: "I have been interested in finance since my graduation, and banking specifically appeals to me because of its direct community impact.", tip: "Research the bank's latest annual report before the interview — their NPA ratio, total branches, recent schemes." }
+    ],
+    chatErrors: [
+      { wrong: "CRR and SLR are same things", correct: "CRR and SLR are different tools — CRR is cash held with RBI, SLR is liquid assets maintained by the bank" },
+      { wrong: "I will told the customer to come tomorrow", correct: "I would ask the customer to come back tomorrow" }
+    ],
+    tips: [
+      "Study the current RBI monetary policy — repo rate, reverse repo, CRR, SLR — and be able to explain each in plain English.",
+      "Practice customer service roleplay scenarios out loud. 'Angry customer' and 'KYC issue' scenarios come up in almost every Bank PO interview.",
+      "Learn to speak confidently about recent banking news — mergers, digital banking initiatives, RBI regulations.",
+      "Know the bank's profile deeply — their total assets, number of branches, recent campaigns, and any CSR initiatives.",
+      "Work on eliminating grammatical errors in spoken English — banker communication is formal."
+    ]
+  },
+  "Teacher": {
+    classic: [
+      "A student in your class is consistently disruptive — interrupting lessons and distracting other students. How do you handle the situation without embarrassing the student?",
+      "How do you adapt your teaching style when some students in the same class are grasping concepts quickly while others are struggling?",
+      "What is the difference between formative and summative assessment? Give an example of each that you would use.",
+      "How do you make a dry or complex topic engaging for students who are uninterested?",
+      "Tell me about a time your lesson plan completely failed. What happened and what did you learn from it?"
+    ],
+    chat: [
+      "Hi, I'm Aria! Let's start — what subject would you be teaching and what age group do you enjoy working with most?",
+      "Good. Let's dive into pedagogy — can you walk me through how you would structure your very first lesson with a new class you've never met before?",
+      "Interesting approach. Now, imagine a bright student who constantly finishes early and starts disturbing the class out of boredom. What strategies do you use to keep them engaged?",
+      "Good thinking. Assessment time — a student fails your class test for the third time. How do you respond? What's your plan for that student?",
+      "Compassionate and structured answer. Last question — how do you think technology should be used in the classroom? What's the right balance?",
+      "That was a wonderful interview. You showed genuine care for students, strong pedagogical awareness, and a thoughtful approach. I'd strongly recommend you for the position. Best of luck! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 9, interview_feedback: "Outstanding answer. You addressed the disruptive student with empathy first — a private conversation rather than public correction — then used positive reinforcement, seat change as a neutral tool, and parent involvement as a last resort.", english_errors: [], corrected_answer: null, tip: "When answering classroom management questions, always demonstrate that you separate the behavior from the student — 'I address the action, not the child.' This shows child-centered pedagogy." },
+      { score: 8, interview_feedback: "Very good use of differentiated instruction concepts. You mentioned tiered activities and peer tutoring, which shows awareness of modern pedagogy.", english_errors: [{ mistake: "I give different works to different students", correction: "I assign differentiated tasks to different students", explanation: "'Differentiated tasks' is the correct pedagogical term. 'Give different works' sounds informal for a teacher interview." }], corrected_answer: "I use differentiated instruction — assigning tasks at different complexity levels based on each student's current understanding, while keeping the learning objective the same for the whole class.", tip: "Use correct educational terminology — 'differentiated instruction', 'scaffolding', 'formative assessment' — in every answer." },
+      { score: 7, interview_feedback: "Good definitions with appropriate examples — exit tickets for formative, unit tests for summative. To elevate this answer, discuss *how* you use formative assessment to change your next lesson.", english_errors: [{ mistake: "Formative assessment is done continuously and summative is done at last", correction: "Formative assessment is ongoing throughout the learning process, while summative assessment evaluates learning at the end of a unit or term.", explanation: "'Done at last' is incorrect phrasing. Use 'at the end of' instead." }], corrected_answer: "Formative assessment is ongoing — exit tickets, class polls, or quick quizzes during teaching. Summative assessment evaluates overall learning at the end — like a term exam.", tip: "Always explain what you DO with assessment results — not just that you conduct them." },
+      { score: 8, interview_feedback: "Creative answer. Connecting the topic to a current news story, using a hands-on activity, and incorporating student choice are all research-backed engagement strategies.", english_errors: [], corrected_answer: null, tip: "Collect 2–3 specific examples of your most engaging lessons before any interview. Concrete stories are far more memorable than abstract principles." },
+      { score: 9, interview_feedback: "Rare and impressive answer — you admitted failure openly, explained what went wrong clearly, and articulated what you changed in your practice afterward.", english_errors: [{ mistake: "I learnt that I should not to assume", correction: "I learned that I should not assume", explanation: "After 'should not', use the base form — 'assume', not 'to assume'." }], corrected_answer: "I learned that I should never assume prior knowledge. After that lesson failed, I started every new unit with a quick diagnostic activity to understand where students actually are.", tip: "Failure stories are your most powerful interview weapon if told correctly: Problem → What I did → What went wrong → What I changed." }
+    ],
+    chatErrors: [
+      { wrong: "I will make they do group work", correct: "I will have them do group work" },
+      { wrong: "The student is not understanding the concept", correct: "The student does not seem to understand the concept" }
+    ],
+    tips: [
+      "Learn the correct pedagogical vocabulary — Bloom's Taxonomy, differentiated instruction, scaffolding, formative vs summative, constructivism.",
+      "Prepare at least 3 specific stories from your teaching experience — a success, a failure, and a challenging student you turned around.",
+      "Research the school's philosophy and student demographic before the interview.",
+      "Practice your 'Why teaching?' answer until it's genuine and specific.",
+      "If you're a fresher, mention practicum or student teaching experiences with specific outcomes."
+    ]
+  },
+  "Doctor / Medical": {
+    classic: [
+      "A 45-year-old male presents with sudden onset severe chest pain radiating to the left arm, diaphoresis, and nausea. Walk me through your immediate assessment and management.",
+      "How do you explain a serious or terminal diagnosis to a patient in a way that is honest yet compassionate?",
+      "What is the difference between Type 1 and Type 2 diabetes in terms of pathophysiology, management, and patient counseling?",
+      "Describe a clinical situation where you had to make a difficult decision with incomplete information. What was your reasoning?",
+      "A patient refuses a blood transfusion on religious grounds, but without it they will likely die. How do you handle this ethically?"
+    ],
+    chat: [
+      "Hello Doctor, I'm Aria conducting your clinical interview. To begin — tell me about your medical training, your specialty interest, and what drove you to pursue medicine.",
+      "Interesting. Let's test your clinical reasoning — a 28-year-old female presents with sudden onset shortness of breath, pleuritic chest pain, and tachycardia. She recently returned from a 10-hour flight. What's your differential diagnosis?",
+      "Good reasoning. You've ordered a CT pulmonary angiogram and it confirms a pulmonary embolism. What's your immediate management plan?",
+      "Well structured. Let's shift to communication — how do you handle a patient who comes in with a diagnosis they found on Google and insists they have a rare disease that your examination does not support?",
+      "Good patient-centered approach. Final question — what do you think is the single biggest challenge in healthcare delivery in India today, and how would you address it in your own practice?",
+      "Excellent interview. Your clinical reasoning was sharp, your communication approach was empathetic, and your awareness of systemic healthcare issues was impressive. Very well done! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 9, interview_feedback: "Outstanding clinical answer. Your MONA protocol (Morphine, Oxygen, Nitrates, Aspirin), combined with the correct immediate ECG and troponin orders, was textbook.", english_errors: [], corrected_answer: null, tip: "In cardiac emergency questions, always mention the ECG as your very first investigation — before anything else. It takes 30 seconds and immediately classifies STEMI vs NSTEMI." },
+      { score: 8, interview_feedback: "Compassionate and structured approach — SPIKES protocol, sitting down, using plain language, checking understanding, involving family.", english_errors: [{ mistake: "I will told the patient in simple words", correction: "I will tell the patient in simple words", explanation: "After 'will', use the base form of the verb — 'tell', not 'told'." }], corrected_answer: "I would use the SPIKES protocol — set up a private setting, assess the patient's understanding, deliver information gradually in plain language, acknowledge emotions, and outline a clear plan.", tip: "Mention that you would never deliver a terminal diagnosis alone — always have a nurse present, ensure family can be there, and schedule an immediate follow-up appointment." },
+      { score: 7, interview_feedback: "Good pathophysiology on both types. The management section was strong on Type 2 but brief on Type 1.", english_errors: [{ mistake: "Type 2 diabetes is when the body not producing enough insulin", correction: "Type 2 diabetes occurs when the body does not produce enough insulin or cannot use it effectively", explanation: "'Is when' is casual phrasing — 'occurs when' is more precise clinical language." }], corrected_answer: "Type 1 diabetes is an autoimmune destruction of beta cells requiring lifelong insulin. Type 2 involves insulin resistance and progressive beta cell dysfunction, managed initially with lifestyle changes and Metformin.", tip: "In medical interviews, structure your answer as: Pathophysiology → Investigations → Management → Patient Counselling." },
+      { score: 8, interview_feedback: "Strong answer. You showed you can act decisively under uncertainty using the best available evidence, document your reasoning, seek senior guidance when appropriate, and communicate uncertainty honestly.", english_errors: [], corrected_answer: null, tip: "Decision-making under uncertainty questions are really testing your judgment process, not whether you got the 'right answer'. Structure your response: 'Here's what I knew, here's what I didn't know, here's why I chose X.'" },
+      { score: 9, interview_feedback: "Excellent ethical reasoning. You correctly identified patient autonomy as the guiding principle, outlined the process of ensuring informed refusal (capacity assessment, clear documentation, exploring alternatives).", english_errors: [], corrected_answer: null, tip: "Medical ethics questions always test autonomy, beneficence, non-maleficence, and justice. When you answer, explicitly name which principle you're prioritizing and why." }
+    ],
+    chatErrors: [
+      { wrong: "I am suspecting pulmonary embolism", correct: "I am suspecting a pulmonary embolism" },
+      { wrong: "Patient should given anticoagulation immediately", correct: "The patient should be given anticoagulation immediately" }
+    ],
+    tips: [
+      "Practice presenting clinical cases using a strict structure: Chief Complaint → History → Examination → Differential Diagnosis → Investigations → Management.",
+      "Review the SPIKES protocol for breaking bad news.",
+      "Medical ethics comes up in every interview. Study the four pillars — autonomy, beneficence, non-maleficence, justice.",
+      "For Indian government hospital / PG entrance interviews, know the National Health Mission, Ayushman Bharat, and key public health statistics.",
+      "When you don't know a clinical answer, never guess — say 'I'm not certain of the exact protocol, but my approach would be to stabilize the patient, consult senior support, and review current guidelines.'"
+    ]
+  },
+  "Marketing Manager": {
+    classic: [
+      "Walk me through a successful marketing campaign you conceptualized and executed. What was the objective, strategy, and outcome?",
+      "What metrics do you use to measure the success of a digital marketing campaign, and how do you decide which ones matter?",
+      "Our product's social media engagement has dropped 40% in the last quarter. How do you diagnose the problem and turn it around?",
+      "Explain the difference between brand marketing and performance marketing. When would you prioritize one over the other?",
+      "How do you build a marketing strategy for a product with a ₹0 budget?"
+    ],
+    chat: [
+      "Hi, I'm Aria! Let's begin. Walk me through your marketing background — what channels have you worked on and what's a campaign result you're genuinely proud of?",
+      "Nice. Let's say I give you ₹10 lakhs and ask you to drive leads for a new B2B SaaS product targeting HR managers in mid-size Indian companies. What's your strategy?",
+      "Good. You mentioned SEO — how do you approach keyword research for a new product category where there's very little existing search volume?",
+      "Smart thinking. Let's talk data — you're running three paid campaigns simultaneously and the overall ROAS is disappointing. How do you diagnose which campaign is the problem?",
+      "Good analytical approach. Final question — how do you balance short-term performance marketing that drives immediate leads with long-term brand building?",
+      "Excellent interview! You showed strategic thinking, channel expertise, and good data instincts. You'd be a strong fit for our growth team. Best of luck! [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 8, interview_feedback: "Strong answer with a clear STAR structure. Mentioning the specific ROI and CAC improvement figures immediately elevated this from a story to a case study.", english_errors: [{ mistake: "We increased the sale by 30 percent", correction: "We increased sales by 30 percent", explanation: "'Sales' (plural) is the standard business term for revenue activity. 'The sale' implies a single transaction." }], corrected_answer: "Through a targeted content and paid social campaign, we increased sales by 30% over 3 months, while reducing our customer acquisition cost by 18%.", tip: "Every marketing campaign answer should have numbers. If you don't have exact figures, estimate confidently: 'approximately a 25% lift in engagement.'" },
+      { score: 7, interview_feedback: "Good coverage of core metrics — CTR, CPC, ROAS, CAC, LTV. You correctly noted that the right metric depends on the campaign objective.", english_errors: [], corrected_answer: null, tip: "Learn to speak fluently about the CAC:LTV ratio. A 1:3 ratio means your business is healthy; below 1:1 means you're losing money on every customer." },
+      { score: 7, interview_feedback: "Good systematic diagnosis — you checked content quality, algorithm changes, posting frequency, and competitor activity.", english_errors: [{ mistake: "We should post more consistently and engage with the audiences", correction: "We should post more consistently and engage with our audience", explanation: "'Audience' is typically singular in marketing." }], corrected_answer: "I'd start with a content audit to identify what used to work, then check for algorithm changes, analyze competitors, and test new formats. I'd also use social listening to check for any negative sentiment.", tip: "When diagnosing a marketing problem, always start with 'what data do I need to look at first' before jumping to solutions." },
+      { score: 9, interview_feedback: "Excellent strategic answer. The analogy of brand marketing as a flywheel and performance marketing as fuel was memorable and showed real marketing maturity.", english_errors: [], corrected_answer: null, tip: "The brand vs performance question is really asking how you think about short-term vs long-term value. Practice articulating the 60/40 rule (60% brand, 40% performance)." },
+      { score: 8, interview_feedback: "Creative and practical answer. PR, content marketing, community building, and referral programs with ₹0 spend — all legitimate growth levers.", english_errors: [{ mistake: "We can leverage organic growth through contents", correction: "We can leverage organic growth through content", explanation: "'Content' is an uncountable noun in the marketing context — 'contents' is incorrect here." }], corrected_answer: "With zero budget, I'd focus on organic content, SEO, community building on relevant platforms, PR through HARO, and a referral program.", tip: "Zero-budget marketing questions are testing creativity AND prioritization. Always explain WHY you're choosing each channel." }
+    ],
+    chatErrors: [
+      { wrong: "I would target HR managers on LinkedIn by running ads", correct: "I would target HR managers on LinkedIn through sponsored content and InMail campaigns" },
+      { wrong: "We need to look at the datas from each campaign", correct: "We need to look at the data from each campaign" }
+    ],
+    tips: [
+      "Before any marketing interview, prepare 3 campaign case studies — one that succeeded with data, one that failed with what you learned, and one creative zero-budget win.",
+      "Know your metrics cold: CTR, CPC, CPM, ROAS, CAC, LTV, NPS, MQL, SQL.",
+      "Study the company's current marketing — their ads, social media, website SEO, email. Walk into every interview with 2–3 specific observations.",
+      "Practice writing a one-page marketing plan in 30 minutes: objective → target audience → channel strategy → KPIs → budget allocation.",
+      "Read 'Contagious' by Jonah Berger and 'Building a StoryBrand' by Donald Miller."
+    ]
+  },
+  "Full Stack Developer": {
+    classic: [
+      "Explain the difference between server-side rendering (SSR) and client-side rendering (CSR). When would you choose each?",
+      "Walk me through how a HTTP request travels from a browser to a database and back. What happens at each step?",
+      "You are designing a URL shortener like bit.ly. Walk me through the system design — database schema, API design, and scalability considerations.",
+      "What are the key security vulnerabilities you must guard against in a web application? Give examples of each.",
+      "Describe a time you had to debug a production issue. How did you identify the root cause?"
+    ],
+    chat: [
+      "Hey! I'm Aria. Let's kick off — what's your current tech stack (frontend + backend + database) and what's a full project you've built end-to-end?",
+      "Nice. Let's go into React — explain how the Virtual DOM works and why it makes React performant compared to direct DOM manipulation.",
+      "Good. Backend time — you need to design a REST API endpoint that allows users to upload profile photos. Walk me through your implementation from frontend to storage.",
+      "Solid. Now a database question — you have a Users table with 50 million rows and a query to find all users by email is running slowly. How do you fix it?",
+      "Perfect. Last question — how do you approach security in a full stack application? Name the top 3 vulnerabilities you always protect against.",
+      "That was excellent! You showed end-to-end thinking, strong fundamentals, and good security awareness. I'm happy to recommend you strongly for the next round. [INTERVIEW_COMPLETE]"
+    ],
+    feedbacks: [
+      { score: 8, interview_feedback: "Strong, nuanced answer. You correctly identified SSR's SEO advantage and faster first contentful paint, vs CSR's better interactivity after initial load.", english_errors: [], corrected_answer: null, tip: "When asked SSR vs CSR, always immediately connect it to the use case: 'For a blog or e-commerce site, SSR for SEO. For a SaaS dashboard with no SEO needs, CSR for UX.'" },
+      { score: 9, interview_feedback: "Outstanding system design walkthrough. DNS resolution → TCP handshake → HTTP request → reverse proxy → app server → ORM → database → response — you covered every layer.", english_errors: [{ mistake: "The request first goes to DNS server which resolve the domain", correction: "The request first goes to a DNS server, which resolves the domain to an IP address", explanation: "DNS 'resolves' (third person singular). Add 'to an IP address' for completeness." }], corrected_answer: "The browser checks DNS to resolve the domain to an IP, then establishes a TCP connection. The request hits a load balancer, is forwarded to an app server, which queries the database and returns a response through the same chain.", tip: "Practice drawing the full request lifecycle on paper until you can narrate it in under 2 minutes without hesitation." },
+      { score: 7, interview_feedback: "Good URL shortener design — hash function for short code, redirect table, and Redis for caching hot URLs.", english_errors: [{ mistake: "We store the original URL and short URL in database", correction: "We store the original URL and the short code in the database", explanation: "Be precise: you don't store the 'short URL' — you store the short code/hash." }], corrected_answer: "I'd use a hashing algorithm to generate a 6-character code, store the mapping in a relational database, add a unique index on the short code, and cache the most-accessed URLs in Redis.", tip: "For system design questions, always estimate scale first — QPS, storage, read/write ratio. Interviewers want to see you think in magnitudes before designing." },
+      { score: 8, interview_feedback: "Excellent security coverage — SQL injection, XSS, CSRF were all correct with good mitigation strategies.", english_errors: [], corrected_answer: null, tip: "Always mention OWASP Top 10 by name in security questions — it shows you follow industry standards, not just ad-hoc knowledge." },
+      { score: 7, interview_feedback: "Good debugging process — logs first, then narrow isolation. Using git bisect to find the breaking commit was a strong specific technique.", english_errors: [{ mistake: "I checked the logs and seen that the error was occurring", correction: "I checked the logs and saw that the error was occurring", explanation: "'Seen' requires an auxiliary verb — 'had seen'. In this context, simple past 'saw' is correct." }], corrected_answer: "I checked the application logs and saw the error pattern, used git bisect to identify the breaking commit, isolated it in a staging environment, and fixed and deployed with a hotfix branch.", tip: "Debugging stories are about showing your systematic process. The structure that always works: Observe → Hypothesize → Isolate → Fix → Verify → Document." }
+    ],
+    chatErrors: [
+      { wrong: "React uses virtual DOM for making it fast", correct: "React uses a virtual DOM to make rendering more efficient" },
+      { wrong: "I will stored the image in S3 bucket", correct: "I will store the image in an S3 bucket" }
+    ],
+    tips: [
+      "Practice system design for 3 common scenarios: URL shortener, chat application, and e-commerce product page.",
+      "Know your browser developer tools cold — Network tab, Performance tab, Console.",
+      "Study the OWASP Top 10 web vulnerabilities. SQL injection, XSS, and CSRF questions appear in virtually every full stack interview.",
+      "Build and deploy a personal project on a real domain with CI/CD, HTTPS, and a database.",
+      "Practice explaining complex concepts simply — 'How would you explain React hooks to a junior developer?' is a common full stack interview question."
+    ]
+  }
+};
+
+// Fallback for unknown professions
+const DEMO_FALLBACK = {
+  classic: [
+    "Tell me about yourself, your background, and what drew you to this field.",
+    "What is your biggest professional achievement so far, and what made it challenging?",
+    "Describe a situation where you had to work under significant pressure. How did you handle it?",
+    "Where do you see yourself professionally in the next 3–5 years?",
+    "Why should we hire you? What makes you different from other candidates?"
+  ],
+  chat: [
+    "Hi, I'm Aria! Let's get started. Tell me about yourself — your background, current role, and what brought you to this interview today.",
+    "Interesting! What would you say is the biggest challenge you've faced in your career, and how did you overcome it?",
+    "Good. Let's talk about teamwork — tell me about a time you had a disagreement with a colleague or manager. How did you resolve it?",
+    "Good interpersonal awareness. What does success look like to you in this role after your first 90 days?",
+    "Great thinking. Last one — what's a skill you've been actively developing recently and why?",
+    "That wraps up our interview! You came across as thoughtful, motivated, and self-aware. I'll be passing on my strong recommendation. Best of luck! [INTERVIEW_COMPLETE]"
+  ],
+  feedbacks: [
+    { score: 7, interview_feedback: "Good structured introduction. You covered your background clearly and showed genuine enthusiasm. To make it stronger, lead with your biggest relevant achievement before getting into your history.", english_errors: [{ mistake: "I am working in this field since 3 years", correction: "I have been working in this field for 3 years", explanation: "Use present perfect continuous ('have been working') with 'for' when describing duration of an ongoing activity." }], corrected_answer: "I have been working in this field for three years, focusing on building practical skills and delivering results in challenging environments.", tip: "Structure your 'tell me about yourself' as: Current role → Key achievement → Why this role. Keep it under 2 minutes and end with a hook." },
+    { score: 8, interview_feedback: "Strong answer with a concrete achievement and clear ownership. You quantified the impact well and showed what you personally contributed.", english_errors: [], corrected_answer: null, tip: "Always quantify achievements — even rough estimates. 'Improved efficiency by roughly 30%' is far stronger than 'significantly improved efficiency'." },
+    { score: 6, interview_feedback: "Decent answer — you stayed calm and delivered. But the answer was a bit surface-level. Interviewers want to know: what specifically stressed you, what was your internal thought process.", english_errors: [{ mistake: "I managed to completed the work on time", correction: "I managed to complete the work on time", explanation: "After 'managed to', use the base form of the verb — 'complete', not 'completed'." }], corrected_answer: "Under pressure, I prioritized the most critical tasks first, communicated proactively with my team about potential delays, and managed to complete the work on time without compromising quality.", tip: "For pressure/stress questions, use this structure: Situation → What made it hard → Your specific actions → Outcome → What you learned." },
+    { score: 7, interview_feedback: "Clear and realistic 5-year plan. You showed ambition without overreaching, and connected your growth goals to the company's direction.", english_errors: [{ mistake: "I see myself in a senior position after 5 year", correction: "I see myself in a senior position after 5 years", explanation: "'5 years' needs the plural form." }], corrected_answer: "In 5 years, I see myself in a senior role where I'm both contributing expertise and mentoring junior team members, having mastered the technical and strategic dimensions of this field.", tip: "Always tie your 5-year vision back to the role you're applying for — 'And that's why this position is the right first step for me.'" },
+    { score: 8, interview_feedback: "Good differentiation answer. You highlighted your combination of skills, attitude, and specific experience relevant to this role.", english_errors: [], corrected_answer: null, tip: "The 'why should we hire you' answer has one job: make the interviewer feel like hiring anyone else would be a mistake. Be confident, specific, and connect every point to a real example." }
+  ],
+  chatErrors: [
+    { wrong: "I am knowing how to handle pressure", correct: "I know how to handle pressure" },
+    { wrong: "I have did many projects in this area", correct: "I have done many projects in this area" }
+  ],
+  tips: [
+    "Prepare the STAR method (Situation, Task, Action, Result) for every behavioral question — it makes any answer structured and convincing.",
+    "Research the company and the role before the interview. Reference something specific — a product, a news article, a value they publish.",
+    "Practice your answers out loud, not just in your head. Speaking and thinking are different skills.",
+    "Prepare 3–4 smart questions to ask the interviewer at the end. 'What does success look like in this role?' is always a strong one.",
+    "Work on your English fluency daily — 15 minutes of spoken English practice makes a measurable difference within a month."
+  ]
+};
+
+function getDemoData() {
+  const prof = (S.profession || '').toLowerCase();
+  for (const [key, data] of Object.entries(DEMO_DB)) {
+    if (prof.includes(key.toLowerCase()) || key.toLowerCase().includes(prof.split(' ')[0])) {
+      return data;
+    }
+  }
+  return DEMO_FALLBACK;
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+(function init() {
+  setupChips('prof-chips',     v => { S.profession = v; document.getElementById('custom-field').value = ''; });
+  setupChips('type-chips',     v => { S.interviewType = v; });
+  setupChips('diff-chips',     v => { S.difficulty = v; });
+  setupChips('count-chips',    v => { S.totalQ = parseInt(v); });
+  setupChips('timer-chips',    v => { S.timerSecs = parseInt(v); });
+  setupChips('persona-chips',  v => { S.persona = v; });
+  setupChips('exchanges-chips',v => { S.maxExchanges = parseInt(v); });
+
+  loadHistory();
+  updateMetaPills();
+
+  // If user is already logged in (has stored token), restore their session
+  if (S.authToken && S.user) {
+    updateAuthUI();
+    refreshUserData(); // silently refresh usage counts
+    showScreen('screen-setup');
+  }
+})();
+
+function setupChips(id, cb) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  container.querySelectorAll('.chip').forEach(c => {
+    c.addEventListener('click', () => {
+      container.querySelectorAll('.chip').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected');
+      cb(c.dataset.val);
+    });
+  });
+}
+
+// ══════════════════════════════════════════
+//  AUTH — API CALLS
+// ══════════════════════════════════════════
+async function apiCall(endpoint, method = 'GET', body = null) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (S.authToken) headers['Authorization'] = `Bearer ${S.authToken}`;
+  const opts = { method, headers };
+  if (body) opts.body = JSON.stringify(body);
+  try {
+    const res = await fetch(`${BACKEND_URL}/api${endpoint}`, opts);
+    let data;
+    try { data = await res.json(); } catch { data = {}; }
+    return { ok: res.ok, status: res.status, data };
+  } catch (err) {
+    console.error('apiCall failed:', endpoint, err);
+    throw new Error('Could not connect to server. Please check your connection.');
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+
+  if (!email || !password) {
+    showAuthError('login-error', 'Please enter your email and password.');
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Signing in…';
+  errEl.style.display = 'none';
+
+  try {
+    const { ok, data } = await apiCall('/login', 'POST', { email, password });
+    if (!ok) {
+      showAuthError('login-error', data.error || 'Login failed. Please try again.');
+      return;
+    }
+    saveAuthSession(data.token, data.user);
+    showScreen('screen-setup');
+  } catch {
+    showAuthError('login-error', 'Could not connect to server. Check your connection.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-login"></i> Sign In';
+  }
+}
+
+async function doSignup() {
+  const name = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const btn = document.getElementById('signup-btn');
+
+  if (!name || !email || !password) {
+    showAuthError('signup-error', 'Please fill in all fields.');
+    return;
+  }
+  if (password.length < 6) {
+    showAuthError('signup-error', 'Password must be at least 6 characters.');
+    return;
+  }
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Creating account…';
+  document.getElementById('signup-error').style.display = 'none';
+  document.getElementById('signup-success').style.display = 'none';
+
+  try {
+    const { ok, data } = await apiCall('/register', 'POST', { name, email, password });
+    if (!ok) {
+      showAuthError('signup-error', data.error || 'Signup failed. Please try again.');
+      return;
+    }
+    saveAuthSession(data.token, data.user);
+    showScreen('screen-setup');
+  } catch {
+    showAuthError('signup-error', 'Could not connect to server. Check your connection.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-user-plus"></i> Create Free Account';
+  }
+}
+
+function saveAuthSession(token, user) {
+  S.authToken = token;
+  S.user = user;
+  S.isDemo = false;
+  localStorage.setItem('ss_token', token);
+  localStorage.setItem('ss_user', JSON.stringify(user));
+  updateAuthUI();
+}
+
+function logout() {
+  S.authToken = null;
+  S.user = null;
+  localStorage.removeItem('ss_token');
+  localStorage.removeItem('ss_user');
+  updateAuthUI();
+  showScreen('screen-auth');
+}
+
+async function refreshUserData() {
+  if (!S.authToken) return;
+  try {
+    const { ok, data } = await apiCall('/me');
+    if (ok && data.user) {
+      S.user = data.user;
+      localStorage.setItem('ss_user', JSON.stringify(data.user));
+      updateAuthUI();
+      updateUsageNotice(data.user.ai_calls);
+      if (data.stats) {
+        localStorage.setItem('ss_streak', data.stats.streak || 0);
+        localStorage.setItem('ss_best', data.stats.best_score || 0);
+        S.backendSessions = data.stats.sessions || 0;
+        updateMetaPills();
+      }
+    } else if (!ok && data.error === 'Invalid token') {
+      logout();
+    }
+  } catch { /* silently fail */ }
+}
+
+function updateAuthUI() {
+  const pill = document.getElementById('auth-pill');
+  const label = document.getElementById('auth-pill-label');
+  const tabsEl = document.getElementById('auth-tabs');
+  const usageWrap = document.getElementById('usage-bar-wrap');
+
+  if (S.user) {
+    pill.className = 'auth-pill logged-in';
+    const planBadge = S.user.plan === 'pro'
+      ? `<span class="plan-badge pro">PRO</span>`
+      : `<span class="plan-badge">FREE</span>`;
+    const displayName = S.user.name ? S.user.name.split(' ')[0] : (S.user.email || '').split('@')[0];
+    label.innerHTML = `${esc(displayName)} ${planBadge}`;
+    // On auth screen, hide tabs and show usage info
+    if (tabsEl) tabsEl.style.display = 'none';
+    if (usageWrap) {
+      usageWrap.style.display = 'block';
+      const used = S.user.ai_calls || 0;
+      const pct = Math.min((used / FREE_LIMIT) * 100, 100);
+      document.getElementById('usage-bar-count').textContent = `${used} / ${FREE_LIMIT}`;
+      const fill = document.getElementById('usage-bar-fill');
+      fill.style.width = pct + '%';
+      fill.className = 'usage-bar-fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warn' : '');
+    }
+  } else {
+    pill.className = 'auth-pill';
+    label.textContent = 'Sign In';
+    if (tabsEl) tabsEl.style.display = 'flex';
+    if (usageWrap) usageWrap.style.display = 'none';
+  }
+}
+
+function handleAuthPillClick() {
+  if (S.user) {
+    // Show a small logout option
+    if (confirm(`Signed in as ${S.user.email}.\n\nSign out?`)) logout();
+  } else {
+    showScreen('screen-auth');
+  }
+}
+
+function switchAuthTab(tab) {
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+  document.getElementById('panel-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('signup-error').style.display = 'none';
+  document.getElementById('signup-success').style.display = 'none';
+}
+
+function showAuthError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+// ══════════════════════════════════════════
+//  USAGE NOTICE (near-limit warning)
+// ══════════════════════════════════════════
+function updateUsageNotice(aiCalls) {
+  const notice = document.getElementById('usage-notice');
+  const text = document.getElementById('usage-notice-text');
+  const remaining = FREE_LIMIT - (aiCalls || 0);
+  if (S.user && S.user.plan !== 'pro' && remaining <= 5 && remaining > 0) {
+    text.textContent = `⚠️ Only ${remaining} free AI session${remaining === 1 ? '' : 's'} remaining.`;
+    notice.style.display = 'flex';
+  } else {
+    notice.style.display = 'none';
+  }
+}
+
+// ══════════════════════════════════════════
+//  UPGRADE MODAL
+// ══════════════════════════════════════════
+function showUpgradeModal() {
+  const used = S.user?.ai_calls || 0;
+  document.getElementById('modal-calls-used').textContent = used;
+  document.getElementById('upgrade-modal').classList.add('show');
+}
+function closeUpgradeModal() {
+  document.getElementById('upgrade-modal').classList.remove('show');
+}
+async function handleUpgradeClick() {
+  if (!S.authToken || !S.user) {
+    alert('Please sign in first to upgrade.');
+    closeUpgradeModal();
+    showScreen('screen-auth');
+    return;
+  }
+  const btn = document.querySelector('.upgrade-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px"></div> Creating order…';
+  try {
+    const { ok, data } = await apiCall('/payment/create-order', 'POST', {});
+    if (!ok) throw new Error(data.error || 'Could not create order');
+    const options = {
+      key: data.key,
+      amount: data.amount,
+      currency: data.currency,
+      name: 'SpeakSmart',
+      description: 'Pro Plan — Unlimited AI Interviews',
+      order_id: data.order_id,
+      prefill: { email: S.user.email },
+      theme: { color: '#4F8EF7' },
+      handler: async function(response) {
+        // Payment done — verify on backend
+        btn.innerHTML = '<div class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px"></div> Verifying…';
+        try {
+          const { ok: vok, data: vdata } = await apiCall('/payment/verify', 'POST', {
+            razorpay_order_id:   response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature:  response.razorpay_signature,
+          });
+          if (!vok) throw new Error(vdata.error || 'Verification failed');
+          // Upgrade success — update local state
+          S.authToken = vdata.token;
+          S.user.plan = 'pro';
+          localStorage.setItem('ss_token', vdata.token);
+          localStorage.setItem('ss_user', JSON.stringify(S.user));
+          updateAuthUI();
+          closeUpgradeModal();
+          alert('🎉 Welcome to Pro! You now have unlimited AI interviews.');
+        } catch(e) {
+          alert('Payment received but verification failed. Please contact support with your payment ID: ' + response.razorpay_payment_id);
+        }
+      },
+      modal: { ondismiss: () => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month';
+      }}
+    };
+    if (!window.Razorpay) {
+      // Load Razorpay script dynamically
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+    }
+    new window.Razorpay(options).open();
+  } catch(e) {
+    alert('Could not start payment: ' + e.message);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month';
+  }
+}
+
+// ══════════════════════════════════════════
+//  DEMO MODE
+// ══════════════════════════════════════════
+function startDemo() {
+  S.isDemo = true;
+  document.getElementById('demo-banner').style.display = 'flex';
+  document.getElementById('demo-mode-indicator').style.display = 'block';
+  showScreen('screen-setup');
+}
+
+// ══════════════════════════════════════════
+//  MODE & THEME
+// ══════════════════════════════════════════
+function selectMode(m) {
+  S.mode = m;
+  document.getElementById('mode-classic').classList.toggle('selected', m === 'classic');
+  document.getElementById('mode-chat').classList.toggle('selected', m === 'chat');
+  document.getElementById('classic-opts').style.display = m === 'classic' ? 'block' : 'none';
+  document.getElementById('chat-opts').style.display = m === 'chat' ? 'block' : 'none';
+}
+
+function setLang(lang) {
+  S.lang = lang;
+  document.querySelectorAll('#lang-selector .lang-opt').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  // Update aria hindi badge in interview header
+  const badge = document.getElementById('aria-hindi-badge');
+  if (badge) badge.style.display = (lang !== 'en') ? 'inline' : 'none';
+}
+
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  document.getElementById('theme-btn').innerHTML = isDark ? '<i class="ti ti-sun"></i>' : '<i class="ti ti-moon"></i>';
+}
+
+// ══════════════════════════════════════════
+//  AI CALL — proxied through backend (Groq/Llama)
+// ══════════════════════════════════════════
+async function callAI(systemPrompt, userMsg, messages = null) {
+  if (S.isDemo) throw new Error('DEMO_MODE');
+
+  const body = {
+    messages: messages || [{ role: 'user', content: userMsg }],
+    max_tokens: 1200
+  };
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (S.authToken) headers['Authorization'] = `Bearer ${S.authToken}`;
+
+  let res, data;
+  try {
+    res = await fetch(`${BACKEND_URL}/api/ai`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+    data = await res.json();
+  } catch {
+    throw new Error('Could not connect to server. Please check your connection.');
+  }
+
+  // Handle free plan limit reached
+  if (res.status === 403 && data.error === 'limit_reached') {
+    if (S.user) {
+      S.user.ai_calls = data.limit; // Update locally
+      localStorage.setItem('ss_user', JSON.stringify(S.user));
+    }
+    showUpgradeModal();
+    throw new Error('LIMIT_REACHED');
+  }
+
+  if (!res.ok) {
+    throw new Error(data.error?.message || data.error || `AI service error (${res.status})`);
+  }
+
+  // Update local usage count
+  if (S.user) {
+    S.user.ai_calls = (S.user.ai_calls || 0) + 1;
+    localStorage.setItem('ss_user', JSON.stringify(S.user));
+    updateUsageNotice(S.user.ai_calls);
+    updateAuthUI();
+  }
+
+  return data.text;
+}
+
+async function quickErrorCheck(text) {
+  try {
+    const r = await callAI(
+      'You are an English error checker. Return ONLY valid JSON: {"errors":[{"wrong":"...","correct":"..."}]}. If no errors return {"errors":[]}. Max 3 most important errors.',
+      `Text: "${text}"`);
+    return JSON.parse(r.replace(/```json|```/g, '').trim()).errors || [];
+  } catch { return []; }
+}
+
+// ══════════════════════════════════════════
+//  SESSION START
+// ══════════════════════════════════════════
+function startSession() {
+  const custom = document.getElementById('custom-field').value.trim();
+  if (custom) {
+    S.profession = custom;
+    document.getElementById('prof-chips').querySelectorAll('.chip').forEach(x => x.classList.remove('selected'));
+  }
+  if (!S.profession) {
+    const err = document.getElementById('setup-error');
+    err.textContent = 'Please select or type a profession first.';
+    err.style.display = 'block'; return;
+  }
+  document.getElementById('setup-error').style.display = 'none';
+  document.getElementById('start-btn').disabled = true;
+  if (S.mode === 'classic') startClassicMode();
+  else startChatMode();
+}
+
+// ══════════════════════════════════════════
+//  CLASSIC MODE
+// ══════════════════════════════════════════
+async function startClassicMode() {
+  S.questions = []; S.currentQ = 0; S.allFeedbacks = []; S.allErrors = [];
+  showScreen('screen-interview');
+  document.getElementById('meta-field').textContent = S.profession;
+  document.getElementById('meta-diff').textContent = S.difficulty;
+  document.getElementById('meta-type').textContent = S.interviewType;
+  document.getElementById('loading-questions').style.display = 'flex';
+  document.getElementById('question-area').style.display = 'none';
+  updateProgress(0);
+
+  if (S.isDemo) {
+    await sleep(1200);
+    const dd = getDemoData();
+    S.questions = dd.classic.slice(0, S.totalQ || 3);
+    S.totalQ = S.questions.length;
+    document.getElementById('loading-questions').style.display = 'none';
+    document.getElementById('question-area').style.display = 'block';
+    showQuestion();
+    return;
+  }
+  try {
+    const hn = S.lang !== 'en' ? 'The candidate may answer in Hindi or Hinglish.' : '';
+    const raw = await callAI(
+      `You are an expert interviewer. Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession} candidate. ${hn} Return ONLY a valid JSON array of strings. No markdown.`,
+      'Generate the questions.');
+    S.questions = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    document.getElementById('loading-questions').style.display = 'none';
+    document.getElementById('question-area').style.display = 'block';
+    showQuestion();
+  } catch(e) {
+    document.getElementById('loading-questions').style.display = 'none';
+    if (e.message !== 'LIMIT_REACHED') {
+      document.getElementById('question-area').innerHTML = `<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message || 'Failed to load questions.')}</div>`;
+      document.getElementById('question-area').style.display = 'block';
+    }
+    document.getElementById('start-btn').disabled = false;
+    showScreen('screen-setup');
+  }
+}
+
+function showQuestion() {
+  const n = S.currentQ;
+  document.getElementById('q-counter').textContent = `Q ${n+1} / ${S.totalQ}`;
+  document.getElementById('question-text').textContent = S.questions[n];
+  document.getElementById('answer-input').value = '';
+  document.getElementById('answer-input').disabled = false;
+  document.getElementById('feedback-area').innerHTML = '';
+  document.getElementById('submit-btn').disabled = false;
+  document.getElementById('loading-feedback').style.display = 'none';
+  document.getElementById('hint-box').style.display = 'none';
+  document.getElementById('char-count').textContent = '0 chars';
+  updateProgress(n / S.totalQ * 100);
+  stopTimer();
+  if (S.timerSecs > 0) { document.getElementById('timer-row').style.display = 'flex'; startTimer(); }
+  else document.getElementById('timer-row').style.display = 'none';
+}
+
+async function submitAnswer() {
+  const answer = document.getElementById('answer-input').value.trim();
+  if (!answer) return;
+  stopTimer();
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('answer-input').disabled = true;
+  document.getElementById('loading-feedback').style.display = 'flex';
+  document.getElementById('feedback-area').innerHTML = '';
+
+  if (S.isDemo) {
+    await sleep(1500);
+    const dd = getDemoData();
+    const fb = dd.feedbacks[S.currentQ % dd.feedbacks.length];
+    const fbWithData = { ...fb, q: S.questions[S.currentQ], answer };
+    S.allFeedbacks.push(fbWithData);
+    if (fb.english_errors) S.allErrors.push(...fb.english_errors);
+    document.getElementById('loading-feedback').style.display = 'none';
+    renderClassicFeedback(fb);
+    return;
+  }
+  try {
+    const hn = S.lang !== 'en' ? 'Candidate may have used Hinglish — accept it but correct to proper English.' : '';
+    const raw = await callAI(
+      `You are an AI interviewer and English coach. ${hn}
+Return ONLY valid JSON (no markdown, no extra keys):
+{
+  "score":<1-10>,
+  "interview_feedback":"<2-3 sentences of specific feedback>",
+  "english_errors":[{"mistake":"...","correction":"...","explanation":"..."}],
+  "corrected_answer":"<corrected version or null>",
+  "tip":"<one actionable tip>",
+  "structure":{
+    "type":"<STAR|PREP|Direct|Conceptual depending on question type>",
+    "score":<1-10>,
+    "present_parts":["<e.g. Situation","Action>"],
+    "missing_parts":["<e.g. Result>"],
+    "fix":"<one sentence: exactly what was missing and how to fix it>"
+  },
+  "model_answer":{
+    "good":"<A solid 3-4 line answer for this exact question and profession. Realistic, not perfect.>",
+    "great":"<A 4-5 line high-impact version: specific metrics, strong structure, memorable close.>"
+  }
+}`,
+      `Profession: ${S.profession}\nType: ${S.interviewType}\nQuestion: ${S.questions[S.currentQ]}\nAnswer: ${answer}`);
+    const fb = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    S.allFeedbacks.push({ q: S.questions[S.currentQ], answer, ...fb });
+    if (fb.english_errors) S.allErrors.push(...fb.english_errors);
+    document.getElementById('loading-feedback').style.display = 'none';
+    renderClassicFeedback(fb);
+  } catch(e) {
+    document.getElementById('loading-feedback').style.display = 'none';
+    if (e.message !== 'LIMIT_REACHED') {
+      document.getElementById('feedback-area').innerHTML = `<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message || 'Could not analyze answer. Try again.')}</div>`;
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('answer-input').disabled = false;
+    }
+  }
+}
+
+function renderClassicFeedback(fb) {
+  const sc = fb.score >= 7 ? 'score-high' : fb.score >= 4 ? 'score-mid' : 'score-low';
+  const isLast = S.currentQ >= S.totalQ - 1;
+
+  // English errors
+  const errorsHtml = (fb.english_errors && fb.english_errors.length)
+    ? `<ul class="error-list">${fb.english_errors.map(e =>
+        `<li class="error-item"><span style="text-decoration:line-through;color:var(--danger)">${esc(e.mistake)}</span> &rarr; <span class="error-correction">${esc(e.correction)}</span><div class="error-explain">${esc(e.explanation)}</div></li>`).join('')}</ul>`
+    : `<div class="no-errors"><i class="ti ti-check"></i> No significant errors — well done!</div>`;
+
+  // Structure breakdown
+  let structureHtml = '';
+  if (fb.structure) {
+    const st = fb.structure;
+    const stSc = st.score >= 7 ? 'score-high' : st.score >= 4 ? 'score-mid' : 'score-low';
+    const presentHtml = (st.present_parts || []).map(p =>
+      `<span class="struct-part present"><i class="ti ti-check" style="font-size:10px"></i>${esc(p)}</span>`).join('');
+    const missingHtml = (st.missing_parts || []).map(p =>
+      `<span class="struct-part missing"><i class="ti ti-x" style="font-size:10px"></i>${esc(p)}</span>`).join('');
+    structureHtml = `
+      <div class="fb-section">
+        <div class="structure-block">
+          <div class="structure-top">
+            <span class="structure-label">Structure · ${esc(st.type || 'STAR')}</span>
+            <span class="score-badge ${stSc} structure-score">${st.score}/10</span>
+          </div>
+          <div class="structure-parts">${presentHtml}${missingHtml}</div>
+          ${st.fix ? `<div class="structure-fix"><i class="ti ti-arrow-right" style="font-size:11px;margin-right:4px"></i>${esc(st.fix)}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // Model answer panels
+  let modelHtml = '';
+  if (fb.model_answer) {
+    const uid = 'ma' + Date.now();
+    modelHtml = `
+      <div class="fb-section">
+        <div class="fb-section-title">Model Answers</div>
+        <div class="model-answer-wrap">
+          <button class="ma-toggle good-toggle" onclick="toggleMA('${uid}-good',this)">
+            <i class="ti ti-check-circle"></i> See a solid answer
+            <i class="ti ti-chevron-down ma-chevron"></i>
+          </button>
+          <div class="ma-panel good-panel" id="${uid}-good">
+            <div class="ma-panel-label">Good — 7/10 level</div>
+            ${esc(fb.model_answer.good)}
+          </div>
+          <button class="ma-toggle great-toggle" onclick="toggleMA('${uid}-great',this)">
+            <i class="ti ti-star"></i> See a top-tier answer
+            <i class="ti ti-chevron-down ma-chevron"></i>
+          </button>
+          <div class="ma-panel great-panel" id="${uid}-great">
+            <div class="ma-panel-label">Great — 9/10 level</div>
+            ${esc(fb.model_answer.great)}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('feedback-area').innerHTML = `
+    <div class="feedback-card">
+      <div class="feedback-top">
+        <i class="ti ti-message-circle" style="color:var(--accent);font-size:16px"></i>
+        <span class="feedback-top-title">Feedback</span>
+        <span class="score-badge ${sc}">${fb.score}/10</span>
+      </div>
+      <div class="feedback-body">
+        <div class="fb-section">
+          <div class="fb-section-title">Interview Quality</div>
+          <p>${esc(fb.interview_feedback)}</p>
+        </div>
+        ${structureHtml}
+        <div class="fb-section">
+          <div class="fb-section-title">English Errors</div>
+          ${errorsHtml}
+        </div>
+        ${fb.corrected_answer ? `<div class="fb-section"><div class="fb-section-title">Corrected Answer</div><div class="corrected-box">${esc(fb.corrected_answer)}</div></div>` : ''}
+        ${modelHtml}
+        <div class="fb-section">
+          <div class="fb-section-title">Tip</div>
+          <div class="tip-box"><i class="ti ti-bulb"></i> ${esc(fb.tip)}</div>
+        </div>
+      </div>
+    </div>
+    <button class="next-btn" onclick="${isLast ? 'showClassicSummary()' : 'nextQuestion()'}">
+      ${isLast ? '<i class="ti ti-report-analytics"></i> See Full Report' : 'Next Question <i class="ti ti-arrow-right"></i>'}
+    </button>`;
+  updateProgress((S.currentQ + 1) / S.totalQ * 100);
+}
+
+function toggleMA(id, btn) {
+  const panel = document.getElementById(id);
+  const isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
+}
+
+function nextQuestion() { S.currentQ++; showQuestion(); }
+
+// ══════════════════════════════════════════
+//  CHAT MODE
+// ══════════════════════════════════════════
+async function startChatMode() {
+  S.chatHistory = []; S.chatExchanges = 0; S.chatErrors = [];
+  const personaLabels = { friendly: 'Friendly', strict: 'Strict', corporate: 'Corporate' };
+  document.getElementById('aria-persona-badge').textContent = personaLabels[S.persona] || 'Friendly';
+  document.getElementById('aria-persona-badge').className = `persona-badge pb-${S.isDemo ? 'demo' : S.persona}`;
+  document.getElementById('aria-hindi-badge').style.display = S.lang !== 'en' ? 'inline' : 'none';
+  document.getElementById('chat-counter').textContent = `0 / ${S.maxExchanges}`;
+  document.getElementById('chat-prog').style.width = '0%';
+
+  const cb = document.getElementById('chat-body');
+  const typingRow = document.getElementById('typing-row');
+  cb.innerHTML = '';
+  cb.appendChild(typingRow);
+
+  addBubble('user', `Please start the ${S.interviewType} interview for ${S.profession} at ${S.difficulty} level. Ask the first question now.`, null, true);
+  S.chatHistory = [{ role: 'user', content: `Please start the ${S.interviewType} interview for ${S.profession} at ${S.difficulty} level. Ask the first question now.` }];
+
+  showScreen('screen-chat');
+  await sleep(600);
+  await ariaRespond(true);
+}
+
+function chatKeyDown(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }
+
+async function sendChatMessage() {
+  const inp = document.getElementById('chat-input');
+  const txt = inp.value.trim();
+  if (!txt || document.getElementById('chat-send-btn').disabled) return;
+  inp.value = '';
+  document.getElementById('chat-send-btn').disabled = true;
+  document.getElementById('chat-input').disabled = true;
+
+  const bid = 'ub' + Date.now();
+  addBubble('user', txt, bid);
+  S.chatHistory.push({ role: 'user', content: txt });
+  S.chatExchanges++;
+  updateChatCounter();
+
+  // Parallel English check (real mode only)
+  if (!S.isDemo) {
+    quickErrorCheck(txt).then(errs => {
+      if (errs.length) {
+        S.chatErrors.push(...errs);
+        const el = document.getElementById('anno-' + bid);
+        if (el) el.innerHTML = errs.map(e => `<div class="err-annotation"><span class="wrong">${esc(e.wrong)}</span> → <span class="right">${esc(e.correct)}</span></div>`).join('');
+      }
+    });
+  } else {
+    // Demo: randomly inject a sample error for the first answer
+    if (S.chatExchanges === 1) {
+      const dd = getDemoData();
+      if (dd.chatErrors && dd.chatErrors.length) {
+        setTimeout(() => {
+          const el = document.getElementById('anno-' + bid);
+          const ce = dd.chatErrors[0];
+          if (el) el.innerHTML = `<div class="err-annotation"><span class="wrong">${esc(ce.wrong)}</span> → <span class="right">${esc(ce.correct)}</span></div>`;
+          S.chatErrors.push({ wrong: ce.wrong, correct: ce.correct });
+        }, 800);
+      }
+    }
+  }
+  await ariaRespond(false);
+}
+
+async function ariaRespond(isFirst) {
+  setTyping(true);
+  document.getElementById('aria-status').textContent = 'Aria is thinking…';
+
+  if (S.isDemo) {
+    await sleep(1400);
+    const dd = getDemoData();
+    const idx = isFirst ? 0 : S.chatExchanges;
+    const reply = dd.chat[Math.min(idx, dd.chat.length - 1)];
+    S.chatHistory.push({ role: 'assistant', content: reply });
+    setTyping(false);
+    document.getElementById('aria-status').textContent = 'Online · Listening';
+    const done = reply.includes('[INTERVIEW_COMPLETE]');
+    addBubble('ai', reply.replace('[INTERVIEW_COMPLETE]', '').trim());
+    if (done || S.chatExchanges >= S.maxExchanges) {
+      document.getElementById('chat-send-btn').disabled = true;
+      document.getElementById('chat-input').disabled = true;
+      setTimeout(showChatSummary, 1500);
+    } else {
+      document.getElementById('chat-send-btn').disabled = false;
+      document.getElementById('chat-input').disabled = false;
+      document.getElementById('chat-input').focus();
+    }
+    return;
+  }
+
+  const personaDesc = { friendly: 'warm, encouraging, and supportive', strict: 'demanding, direct, and exacting', corporate: 'formal, professional, and business-like' }[S.persona] || 'professional';
+  const hn = S.lang !== 'en' ? 'The candidate may answer in Hindi or Hinglish. Accept this gracefully.' : 'The candidate should answer in English.';
+  const isLast = S.chatExchanges >= S.maxExchanges;
+  const sys = `You are Aria, a professional AI interviewer. Your personality is ${personaDesc}.
+Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty} level). ${hn}
+RULES:
+1. Keep messages concise — 2-4 sentences max.
+2. React briefly to their answer (1 sentence), then ask the next question or a follow-up.
+3. ${isLast ? 'This is the LAST exchange. Wrap up warmly, thank the candidate, and add [INTERVIEW_COMPLETE] at the very end.' : `Continue the interview naturally. You have ${S.maxExchanges - S.chatExchanges} more exchanges.`}
+4. Do NOT grade or evaluate their English — just interview naturally.
+5. Stay fully in character as Aria.`;
+  try {
+    const reply = await callAI(sys, null, S.chatHistory);
+    S.chatHistory.push({ role: 'assistant', content: reply });
+    setTyping(false);
+    document.getElementById('aria-status').textContent = 'Online · Listening';
+    const done = reply.includes('[INTERVIEW_COMPLETE]');
+    addBubble('ai', reply.replace('[INTERVIEW_COMPLETE]', '').trim());
+    if (done || S.chatExchanges >= S.maxExchanges) {
+      document.getElementById('chat-send-btn').disabled = true;
+      document.getElementById('chat-input').disabled = true;
+      setTimeout(showChatSummary, 1500);
+    } else {
+      document.getElementById('chat-send-btn').disabled = false;
+      document.getElementById('chat-input').disabled = false;
+      document.getElementById('chat-input').focus();
+    }
+  } catch(e) {
+    setTyping(false);
+    if (e.message !== 'LIMIT_REACHED') {
+      addBubble('ai', `Technical issue: ${esc(e.message)}. Please try again.`);
+      document.getElementById('chat-send-btn').disabled = false;
+      document.getElementById('chat-input').disabled = false;
+    }
+    document.getElementById('aria-status').textContent = 'Online · Ready to interview';
+  }
+}
+
+function addBubble(role, text, id = null, hidden = false) {
+  const cb = document.getElementById('chat-body');
+  const tr = document.getElementById('typing-row');
+  const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const div = document.createElement('div');
+  div.className = `bubble-row ${role}`;
+  if (hidden) { div.style.display = 'none'; }
+  if (role === 'ai') {
+    div.innerHTML = `<div class="bubble-avatar ai">A</div><div class="bubble-content"><div class="bubble ai">${esc(text)}</div><div class="bubble-time">${now}</div></div>`;
+  } else {
+    div.innerHTML = `<div class="bubble-content"><div class="bubble user">${esc(text)}</div><div class="bubble-time">${now}</div>${id ? `<div class="err-annotations" id="anno-${id}"></div>` : ''}</div><div class="bubble-avatar user"><i class="ti ti-user"></i></div>`;
+  }
+  cb.insertBefore(div, tr);
+  cb.scrollTop = cb.scrollHeight;
+}
+
+function setTyping(show) {
+  const tr = document.getElementById('typing-row');
+  tr.style.display = show ? 'flex' : 'none';
+  document.getElementById('typing-indicator').classList.toggle('show', show);
+  if (show) { const cb = document.getElementById('chat-body'); cb.scrollTop = cb.scrollHeight; }
+}
+
+function updateChatCounter() {
+  document.getElementById('chat-counter').textContent = `${S.chatExchanges} / ${S.maxExchanges}`;
+  document.getElementById('chat-prog').style.width = (S.chatExchanges / S.maxExchanges * 100) + '%';
+}
+
+// ══════════════════════════════════════════
+//  SUMMARY
+// ══════════════════════════════════════════
+async function showClassicSummary() {
+  stopTimer();
+  showScreen('screen-summary');
+  document.getElementById('coach-summary-section').style.display = 'none';
+  const avg = Math.round(S.allFeedbacks.reduce((s, f) => s + f.score, 0) / S.allFeedbacks.length);
+  document.getElementById('stat-score').textContent = avg + '/10';
+  document.getElementById('stat-errors').textContent = S.allErrors.length;
+  document.getElementById('stat-qs').textContent = S.totalQ;
+  document.getElementById('summary-sub').textContent = `${S.profession} · ${S.difficulty} · ${S.interviewType}`;
+  renderMistakes(S.allErrors);
+  drawScoreChart(S.allFeedbacks.map(f => f.score));
+  saveSessionLocal(avg);
+  // Save to backend if logged in
+  if (S.authToken && !S.isDemo) {
+    saveSessionToBackend(avg, S.allFeedbacks, S.allErrors);
+  }
+  await genTips(S.allFeedbacks.map((f, i) => `Q${i+1}: ${f.q}\nAnswer: ${f.answer}\nScore: ${f.score}`).join('\n\n'));
+}
+
+async function showChatSummary() {
+  const userMsgs = S.chatHistory.filter((m, i) => m.role === 'user' && i > 0);
+  const transcript = userMsgs.map((m, i) => `Answer ${i+1}: ${m.content}`).join('\n\n');
+  S.allErrors = S.chatErrors.map(e => ({ mistake: e.wrong, correction: e.correct, explanation: '' }));
+  document.getElementById('chart-section').style.display = 'none';
+  document.getElementById('stat-qs').textContent = S.chatExchanges;
+  document.getElementById('summary-sub').textContent = `${S.profession} · ${S.persona} · AI Chat`;
+  document.getElementById('coach-summary-section').style.display = 'none';
+  document.getElementById('coach-summary-section').innerHTML = '';
+  showScreen('screen-summary');
+  renderMistakes(S.allErrors);
+  document.getElementById('stat-errors').textContent = S.chatErrors.length;
+  document.getElementById('stat-score').textContent = '…';
+
+  if (S.isDemo) {
+    await sleep(1200);
+    document.getElementById('stat-score').textContent = '7/10';
+    saveSessionLocal(7);
+    await genTips(transcript);
+    return;
+  }
+  try {
+    const raw = await callAI(
+      `You are an expert interview coach. Evaluate this full interview session.
+Return ONLY valid JSON (no markdown):
+{
+  "score":<1-10>,
+  "biggest_strength":"<one specific sentence>",
+  "biggest_weakness":"<one specific sentence>",
+  "pattern":"<a recurring behaviour you noticed across multiple answers>",
+  "final_advice":"<one concrete thing to focus on before next interview>",
+  "model_closing_line":"<an example sentence showing how to close an answer with measurable impact>"
+}`,
+      `Profession: ${S.profession}\n\nTranscript:\n${transcript}`);
+    const ev = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    document.getElementById('stat-score').textContent = (ev.score || '—') + '/10';
+    saveSessionLocal(ev.score || 0);
+    if (S.authToken) saveSessionToBackend(ev.score || 0, [], S.allErrors);
+    // Render coach summary block
+    const cs = document.getElementById('coach-summary-section');
+    cs.style.display = 'block';
+    cs.innerHTML = `
+      <div class="coach-summary-block">
+        <div class="cs-title"><i class="ti ti-user-check"></i> Coach Summary</div>
+        ${ev.biggest_strength ? `<div class="cs-row"><span class="cs-key">Strength</span><span class="cs-val">${esc(ev.biggest_strength)}</span></div>` : ''}
+        ${ev.biggest_weakness ? `<div class="cs-row"><span class="cs-key">Weakness</span><span class="cs-val">${esc(ev.biggest_weakness)}</span></div>` : ''}
+        ${ev.pattern ? `<div class="cs-row"><span class="cs-key">Pattern</span><span class="cs-val">${esc(ev.pattern)}</span></div>` : ''}
+        ${ev.final_advice ? `<div class="cs-row"><span class="cs-key">Focus on</span><span class="cs-val">${esc(ev.final_advice)}</span></div>` : ''}
+        ${ev.model_closing_line ? `<div class="cs-closing"><div class="cs-closing-label">Example closing line</div>"${esc(ev.model_closing_line)}"</div>` : ''}
+      </div>`;
+  } catch { document.getElementById('stat-score').textContent = 'N/A'; }
+  await genTips(transcript);
+}
+
+async function saveSessionToBackend(avgScore, feedbacks, errors) {
+  try {
+    const result = await apiCall('/sessions', 'POST', {
+      profession:     S.profession,
+      mode:           S.mode,
+      interview_type: S.interviewType,
+      difficulty:     S.difficulty,
+      personality:    S.persona,
+      score:          avgScore,
+      exchanges:      S.totalQ || S.chatExchanges || 0,
+      duration_secs:  S.timerSecs ? (S.timerSecs - (S.timerRemaining || 0)) : 0,
+      hindi_mode:     (S.lang !== 'en') || false,
+      feedbacks:      feedbacks || [],
+    });
+    // Update local stats from backend response
+    if (result.ok && result.data) {
+      localStorage.setItem('ss_streak', result.data.streak || 0);
+      localStorage.setItem('ss_best', result.data.best_score || 0);
+      S.backendSessions = result.data.sessions || 0;
+      updateMetaPills();
+    }
+  } catch { /* silently fail — local save already done */ }
+}
+
+function renderMistakes(errors) {
+  const ml = document.getElementById('mistakes-list');
+  ml.innerHTML = errors.length === 0
+    ? `<div class="tip-item" style="border-left-color:var(--success)"><i class="ti ti-check" style="color:var(--success);flex-shrink:0"></i><span>No English errors detected! Excellent work.</span></div>`
+    : errors.map(e => `<div class="mistake-item"><span style="text-decoration:line-through;color:var(--danger)">${esc(e.mistake)}</span> → <span style="color:var(--success);font-weight:600">${esc(e.correction)}</span>${e.explanation ? `<div style="font-size:12px;color:var(--text-3);margin-top:3px">${esc(e.explanation)}</div>` : ''}</div>`).join('');
+}
+
+async function genTips(sessionData) {
+  document.getElementById('loading-summary').style.display = 'flex';
+  document.getElementById('tips-list').innerHTML = '';
+  document.getElementById('drill-section').style.display = 'none';
+  if (S.isDemo) {
+    await sleep(1800);
+    const dd = getDemoData();
+    document.getElementById('loading-summary').style.display = 'none';
+    document.getElementById('tips-list').innerHTML = dd.tips.map(t =>
+      `<div class="tip-item"><i class="ti ti-bulb" style="color:var(--success);flex-shrink:0;margin-top:1px"></i><span>${esc(t)}</span></div>`).join('');
+    return;
+  }
+  try {
+    const raw = await callAI(
+      `You are an interview and English coach. Based on this session, generate exactly 3 specific practice drills for the next session.
+Return ONLY valid JSON (no markdown):
+[
+  {"type":"grammar","task":"<specific task in one sentence>","example":"<concrete short example, e.g. wrong → correct>"},
+  {"type":"structure","task":"<specific task in one sentence>","example":"<concrete short example>"},
+  {"type":"domain","task":"<specific task relevant to their profession>","example":"<concrete short example>"}
+]
+Make drills specific to the actual errors and gaps in this session. Do NOT give generic advice.`,
+      `Profession: ${S.profession}\n\nSession:\n${sessionData}\n\nErrors found: ${JSON.stringify(S.allErrors)}`);
+    const drills = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    document.getElementById('loading-summary').style.display = 'none';
+    // Render drills
+    const drillEl = document.getElementById('drill-section');
+    const drillList = document.getElementById('drill-list');
+    drillList.innerHTML = drills.map((d, i) =>
+      `<div class="drill-card">
+        <div class="drill-num ${esc(d.type)}">${i + 1}</div>
+        <div class="drill-body">
+          <div class="drill-task">${esc(d.task)}</div>
+          ${d.example ? `<div class="drill-example">${esc(d.example)}</div>` : ''}
+        </div>
+      </div>`).join('');
+    drillEl.style.display = 'block';
+  } catch {
+    document.getElementById('loading-summary').style.display = 'none';
+    document.getElementById('tips-list').innerHTML = '<div class="tip-item"><i class="ti ti-bulb" style="color:var(--success)"></i><span>Practice speaking and writing English daily to build fluency and confidence.</span></div>';
+  }
+}
+
+// ══════════════════════════════════════════
+//  SCORE CHART
+// ══════════════════════════════════════════
+function drawScoreChart(scores) {
+  if (!scores || !scores.length) return;
+  document.getElementById('chart-section').style.display = 'block';
+  const canvas = document.getElementById('scoreChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth || 640; canvas.height = 110;
+  const W = canvas.width, H = 110, n = scores.length;
+  const bW = Math.min(44, (W / n) - 12), gap = (W - bW * n) / (n + 1);
+  ctx.clearRect(0, 0, W, H);
+  scores.forEach((sc, i) => {
+    const x = gap + i * (bW + gap), bH = (sc / 10) * (H - 32), y = H - bH - 22;
+    const col = sc >= 7 ? '#34D399' : sc >= 4 ? '#FBBF24' : '#F87171';
+    ctx.fillStyle = col + '28'; rRect(ctx, x, y, bW, bH, 4);
+    ctx.fillStyle = col; rRect(ctx, x, y, bW, 4, 2);
+    ctx.fillStyle = col; ctx.font = '600 11px JetBrains Mono,monospace'; ctx.textAlign = 'center';
+    ctx.fillText(sc + '/10', x + bW / 2, y - 5);
+    ctx.fillStyle = '#555A6A'; ctx.font = '11px Sora,sans-serif';
+    ctx.fillText('Q' + (i + 1), x + bW / 2, H - 4);
+  });
+}
+function rRect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath(); ctx.fill(); }
+
+// ══════════════════════════════════════════
+//  HINT (classic mode)
+// ══════════════════════════════════════════
+async function loadHint() {
+  const hintBox = document.getElementById('hint-box');
+  hintBox.style.display = 'block';
+  hintBox.textContent = 'Loading hint…';
+  if (S.isDemo) {
+    await sleep(800);
+    hintBox.textContent = '💡 Think of a specific example from your experience. Use the STAR method: Situation, Task, Action, Result.';
+    return;
+  }
+  try {
+    const hint = await callAI(
+      'You are an interview coach. Give a brief 1-2 sentence hint on how to approach the following interview question. Be concise and practical.',
+      `Profession: ${S.profession}\nQuestion: ${S.questions[S.currentQ]}`);
+    hintBox.textContent = '💡 ' + hint;
+  } catch(e) {
+    if (e.message !== 'LIMIT_REACHED') hintBox.textContent = 'Could not load hint.';
+  }
+}
+
+// ══════════════════════════════════════════
+//  TIMER
+// ══════════════════════════════════════════
+function startTimer() {
+  S.timerRemaining = S.timerSecs;
+  updateTimerDisplay(S.timerSecs, S.timerSecs);
+  S.timerInterval = setInterval(() => {
+    S.timerRemaining--;
+    updateTimerDisplay(S.timerRemaining, S.timerSecs);
+    if (S.timerRemaining <= 0) { stopTimer(); autoSubmit(); }
+  }, 1000);
+}
+function stopTimer() { if (S.timerInterval) { clearInterval(S.timerInterval); S.timerInterval = null; } }
+function updateTimerDisplay(rem, total) {
+  const el = document.getElementById('timer-num');
+  const arc = document.getElementById('timer-arc-fg');
+  if (!el || !arc) return;
+  el.textContent = `${Math.floor(rem/60)}:${String(rem%60).padStart(2,'0')}`;
+  el.className = 'timer-num' + (rem <= 30 ? ' danger' : rem <= 60 ? ' warning' : '');
+  const offset = 125.66 * (1 - rem / total);
+  arc.style.strokeDashoffset = offset;
+  arc.style.stroke = rem <= 30 ? 'var(--danger)' : rem <= 60 ? 'var(--warn)' : 'var(--accent)';
+}
+function autoSubmit() {
+  if (!document.getElementById('answer-input').value.trim())
+    document.getElementById('answer-input').value = '[No answer provided — time ran out]';
+  submitAnswer();
+}
+function updateProgress(pct) { document.getElementById('progress-fill').style.width = pct + '%'; }
+function updateCharCount(el) { document.getElementById('char-count').textContent = el.value.length + ' chars'; }
+
+// ══════════════════════════════════════════
+//  VOICE INPUT
+// ══════════════════════════════════════════
+function toggleVoice(targetId, btnId) {
+  const btn = document.getElementById(btnId);
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  // If already recording — stop
+  if (S.recognition) {
+    S.recognition.stop();
+    S.recognition = null;
+    btn.classList.remove('active');
+    return;
+  }
+
+  // No Speech API available — show inline fallback instead of alert
+  if (!SR) {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.focus();
+      // Show a small tooltip/note near the button
+      const existing = document.getElementById('voice-fallback-note');
+      if (!existing) {
+        const note = document.createElement('div');
+        note.id = 'voice-fallback-note';
+        note.style.cssText = 'position:absolute;bottom:calc(100% + 6px);right:0;background:var(--surface-3);border:1px solid var(--border-hi);border-radius:var(--r-sm);padding:6px 10px;font-size:11px;color:var(--text-2);white-space:nowrap;z-index:10;pointer-events:none;';
+        note.textContent = 'Voice not supported — type your answer';
+        btn.style.position = 'relative';
+        btn.appendChild(note);
+        setTimeout(() => note.remove(), 3000);
+      }
+    }
+    return;
+  }
+
+  const r = new SR();
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = S.lang === 'en' ? 'en-IN' : 'hi-IN';  // en-IN for Indian accent English; hi-IN handles both Hindi & Hinglish
+  r.onresult = e => {
+    let t = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
+    const el = document.getElementById(targetId);
+    if (el) { el.value = t; if (targetId === 'answer-input') updateCharCount(el); }
+  };
+  r.onend = () => { btn.classList.remove('active'); S.recognition = null; };
+  r.onerror = (e) => {
+    btn.classList.remove('active');
+    S.recognition = null;
+    // notAllowed = user denied mic permission
+    if (e.error === 'not-allowed') {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.placeholder = 'Mic access denied — please type your answer';
+        el.focus();
+      }
+    }
+  };
+  r.start();
+  S.recognition = r;
+  btn.classList.add('active');
+}
+
+// ══════════════════════════════════════════
+//  DOWNLOAD REPORT
+// ══════════════════════════════════════════
+function downloadReport() {
+  const lines = [
+    `SPEAKSMART — PERFORMANCE REPORT`,
+    `=`.repeat(42),
+    `Date: ${new Date().toLocaleDateString()}`,
+    `Profession: ${S.profession}`,
+    `Mode: ${S.mode}  Type: ${S.interviewType}  Difficulty: ${S.difficulty}`,
+    S.isDemo ? `[DEMO MODE — pre-written responses]` : '',
+    ``,
+    `ENGLISH ERRORS FOUND`,
+    `-`.repeat(24),
+    ...(S.allErrors.length ? S.allErrors.map(e => `• ${e.mistake} → ${e.correction}${e.explanation ? ' (' + e.explanation + ')' : ''}`) : ['No errors found!']),
+    ``,
+    `DETAILED FEEDBACK`,
+    `-`.repeat(24),
+    ...S.allFeedbacks.map((f, i) => `Q${i+1} [${f.score}/10]: ${f.q}\nAnswer: ${f.answer}\nFeedback: ${f.interview_feedback}\nTip: ${f.tip}\n`)
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `speaksmart-${S.profession.replace(/\s+/g, '-')}-${Date.now()}.txt`;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+//  HISTORY & STREAKS  (local + backend)
+// ══════════════════════════════════════════
+function saveSessionLocal(avgScore) {
+  if (S.isDemo) {
+    // Demo sessions count locally so users can't bypass limit by staying in demo
+    const demoCount = parseInt(localStorage.getItem('ss_demo_count') || '0') + 1;
+    localStorage.setItem('ss_demo_count', demoCount);
+    updateMetaPills();
+    return;
+  }
+  const history = JSON.parse(localStorage.getItem('ss_history') || '[]');
+  history.unshift({ date: new Date().toLocaleDateString(), profession: S.profession, difficulty: S.difficulty, type: S.interviewType, mode: S.mode, score: avgScore, errors: S.allErrors.length });
+  if (history.length > 20) history.pop();
+  localStorage.setItem('ss_history', JSON.stringify(history));
+  let streak = parseInt(localStorage.getItem('ss_streak') || '0');
+  const lastDate = localStorage.getItem('ss_lastdate'), today = new Date().toDateString();
+  if (lastDate !== today) { streak++; localStorage.setItem('ss_streak', streak); localStorage.setItem('ss_lastdate', today); }
+  const best = parseInt(localStorage.getItem('ss_best') || '0');
+  if (avgScore > best) localStorage.setItem('ss_best', avgScore);
+  loadHistory(); updateMetaPills();
+  document.getElementById('history-inline').style.display = 'block';
+}
+
+function loadHistory() {
+  // If logged in, load from backend; otherwise use localStorage
+  if (S.authToken) {
+    loadHistoryFromBackend();
+    return;
+  }
+  const history = JSON.parse(localStorage.getItem('ss_history') || '[]');
+  if (!history.length) return;
+  document.getElementById('history-inline').style.display = 'block';
+  document.getElementById('history-count').textContent = history.length;
+  document.getElementById('history-list').innerHTML = history.map(h => {
+    const sc = h.score >= 7 ? 'score-high' : h.score >= 4 ? 'score-mid' : 'score-low';
+    return `<div class="history-item"><span class="history-score ${sc}">${h.score}/10</span><div><div class="history-field">${esc(h.profession)}</div><div class="history-meta">${h.mode||'classic'} · ${h.type} · ${h.difficulty} · ${h.errors} errors · ${h.date}</div></div></div>`;
+  }).join('');
+}
+
+async function loadHistoryFromBackend() {
+  try {
+    const { ok, data } = await apiCall('/sessions');
+    if (!ok || !data.sessions || !data.sessions.length) return;
+    const sessions = data.sessions;
+    document.getElementById('history-inline').style.display = 'block';
+    document.getElementById('history-count').textContent = sessions.length;
+    document.getElementById('history-list').innerHTML = sessions.map(h => {
+      const sc = h.score >= 7 ? 'score-high' : h.score >= 4 ? 'score-mid' : 'score-low';
+      const date = new Date(h.created_at).toLocaleDateString();
+      return `<div class="history-item"><span class="history-score ${sc}">${h.score}/10</span><div><div class="history-field">${esc(h.profession)}</div><div class="history-meta">${h.mode||'classic'} · ${h.interview_type} · ${h.difficulty} · ${date}</div></div></div>`;
+    }).join('');
+  } catch { /* fallback to local */ }
+}
+
+function updateMetaPills() {
+  document.getElementById('streak-val').textContent = localStorage.getItem('ss_streak') || '0';
+  const sessionCount = (typeof S !== 'undefined' && S.backendSessions) ? S.backendSessions : JSON.parse(localStorage.getItem('ss_history') || '[]').length;
+  document.getElementById('sessions-val').textContent = sessionCount;
+  const best = localStorage.getItem('ss_best');
+  document.getElementById('best-val').textContent = best ? best + '/10' : '—';
+}
+
+function toggleHistory() {
+  loadHistory();
+  const el = document.getElementById('history-inline');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleHistoryPanel() {
+  const list = document.getElementById('history-list');
+  const chevron = document.getElementById('history-chevron');
+  list.classList.toggle('open');
+  chevron.className = list.classList.contains('open') ? 'ti ti-chevron-up' : 'ti ti-chevron-down';
+}
+
+// ══════════════════════════════════════════
+//  RESTART
+// ══════════════════════════════════════════
+function restart() {
+  stopTimer();
+  S.profession = ''; S.allFeedbacks = []; S.allErrors = []; S.questions = []; S.currentQ = 0;
+  S.chatHistory = []; S.chatExchanges = 0; S.chatErrors = [];
+  document.getElementById('start-btn').disabled = false;
+  document.getElementById('prof-chips').querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+  document.getElementById('custom-field').value = '';
+  showScreen('screen-setup');
+  window.scrollTo(0, 0);
+}
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+</script>
+</body>
+</html>
