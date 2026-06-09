@@ -107,6 +107,11 @@ app.post('/api/register', async (req, res) => {
     if (password.length < 6)
       return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email))
+      return res.status(400).json({ error: 'Invalid email format' });
+
     // Check duplicate email
     const check = await sb(`/users?email=eq.${encodeURIComponent(email)}&select=id`);
     if (check.data && check.data.length > 0)
@@ -317,20 +322,18 @@ app.post('/api/sessions', authMiddleware, async (req, res) => {
     if (!ok) return res.status(500).json({ error: 'Failed to save session' });
     const session = sessionData[0];
 
-    // Save per-question feedback rows
+    // Save per-question feedback rows in parallel
     if (feedbacks && feedbacks.length > 0) {
-      for (const f of feedbacks) {
-        await sb('/feedback', 'POST', {
-          session_id:   session.id,
-          question:     f.q || f.question || '',
-          answer:       f.answer        || '',
-          score:        f.score         || 0,
-          corrections:  JSON.stringify(f.english_errors || f.corrections || []),
-          tips:         f.tip  || f.tips || '',
-          structure:    JSON.stringify(f.structure    || {}),
-          model_answer: JSON.stringify(f.model_answer || {}),
-        });
-      }
+      await Promise.all(feedbacks.map(f => sb('/feedback', 'POST', {
+        session_id:   session.id,
+        question:     f.q || f.question || '',
+        answer:       f.answer        || '',
+        score:        f.score         || 0,
+        corrections:  JSON.stringify(f.english_errors || f.corrections || []),
+        tips:         f.tip  || f.tips || '',
+        structure:    JSON.stringify(f.structure    || {}),
+        model_answer: JSON.stringify(f.model_answer || {}),
+      })));
     }
 
     // Update streak + stats
