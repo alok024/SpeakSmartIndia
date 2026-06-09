@@ -505,6 +505,10 @@
   <div class="meta-pill"><i class="ti ti-flame streak-fire"></i> Streak: <span class="val" id="streak-val">0</span></div>
   <div class="meta-pill"><i class="ti ti-clipboard-list" style="color:var(--accent)"></i> Sessions: <span class="val" id="sessions-val">0</span></div>
   <div class="meta-pill"><i class="ti ti-star" style="color:var(--warn)"></i> Best: <span class="val" id="best-val">—</span></div>
+  <div class="meta-pill" id="usage-pill" style="display:none">
+    <i class="ti ti-bolt" id="usage-pill-icon" style="color:var(--success)"></i>
+    AI: <span class="val" id="usage-pill-val">0/30</span>
+  </div>
 </div>
 
 <!-- Demo banner (shown in demo mode) -->
@@ -722,7 +726,10 @@
       <div class="interview-meta">
         <strong id="meta-field">—</strong>&nbsp;·&nbsp;<span id="meta-diff">—</span>&nbsp;·&nbsp;<span id="meta-type">—</span>
       </div>
-      <div class="q-badge" id="q-counter">Q 1 / 5</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="interview-usage-pill" style="display:none;font-size:11px;color:var(--text-3);font-family:var(--mono)"></span>
+        <div class="q-badge" id="q-counter">Q 1 / 5</div>
+      </div>
     </div>
     <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
     <div class="interview-body">
@@ -1461,6 +1468,23 @@ function updateAuthUI() {
       fill.style.width = pct + '%';
       fill.className = 'usage-bar-fill' + (pct >= 90 ? ' danger' : pct >= 70 ? ' warn' : '');
     }
+    // Usage pill in meta bar
+    const pill2 = document.getElementById('usage-pill');
+    const pillVal = document.getElementById('usage-pill-val');
+    const pillIcon = document.getElementById('usage-pill-icon');
+    if (pill2 && pillVal) {
+      if (S.user.plan === 'pro') {
+        pill2.style.display = 'none';
+      } else {
+        const used2 = S.user.ai_calls || 0;
+        const remaining = Math.max(0, FREE_LIMIT - used2);
+        pillVal.textContent = `${used2}/${FREE_LIMIT}`;
+        const col = remaining <= 5 ? 'var(--danger)' : remaining <= 10 ? 'var(--warn)' : 'var(--success)';
+        pillVal.style.color = col;
+        if (pillIcon) pillIcon.style.color = col;
+        pill2.style.display = 'flex';
+      }
+    }
   } else {
     pill.className = 'auth-pill';
     label.textContent = 'Sign In';
@@ -1558,6 +1582,8 @@ async function handleUpgradeClick() {
           localStorage.setItem('ss_token', vdata.token);
           localStorage.setItem('ss_user', JSON.stringify(S.user));
           updateAuthUI();
+          updateUsageNotice(0);
+          document.getElementById('usage-notice').style.display = 'none';
           closeUpgradeModal();
           alert('🎉 Welcome to Pro! You now have unlimited AI interviews.');
         } catch(e) {
@@ -1761,6 +1787,14 @@ function showQuestion() {
   stopTimer();
   if (S.timerSecs > 0) { document.getElementById('timer-row').style.display = 'flex'; startTimer(); }
   else document.getElementById('timer-row').style.display = 'none';
+  // Mid-session usage pill
+  const uPill = document.getElementById('interview-usage-pill');
+  if (uPill && S.user && S.user.plan !== 'pro') {
+    const remaining = Math.max(0, FREE_LIMIT - (S.user.ai_calls || 0));
+    uPill.textContent = `${remaining} AI calls left`;
+    uPill.style.color = remaining <= 5 ? 'var(--danger)' : remaining <= 10 ? 'var(--warn)' : 'var(--text-3)';
+    uPill.style.display = 'inline';
+  }
 }
 
 async function submitAnswer() {
@@ -2023,7 +2057,7 @@ Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty} level). $
 RULES:
 1. Keep messages concise — 2-4 sentences max.
 2. React briefly to their answer (1 sentence), then ask the next question or a follow-up.
-3. ${isLast ? 'This is the LAST exchange. Wrap up warmly, thank the candidate, and add [INTERVIEW_COMPLETE] at the very end.' : `Continue the interview naturally. You have ${S.maxExchanges - S.chatExchanges} more exchanges.`}
+3. ${isLast ? 'This is the LAST exchange. Wrap up warmly, thank the candidate, give one honest line of overall impression, then add [INTERVIEW_COMPLETE] at the very end.' : isFirst ? 'This is the VERY FIRST message. DO NOT introduce yourself at length. ONE short greeting sentence maximum, then immediately ask your first interview question. Get straight to it.' : `Continue naturally. You have ${S.maxExchanges - S.chatExchanges} more exchanges.`}
 4. Do NOT grade or evaluate their English — just interview naturally.
 5. Stay fully in character as Aria.`;
   try {
@@ -2095,10 +2129,22 @@ async function showClassicSummary() {
   document.getElementById('summary-sub').textContent = `${S.profession} · ${S.difficulty} · ${S.interviewType}`;
   renderMistakes(S.allErrors);
   drawScoreChart(S.allFeedbacks.map(f => f.score));
+  // Progress feedback: compare with last saved score
+  const lastScore = parseInt(localStorage.getItem('ss_last_score') || '0');
+  if (lastScore && avg > lastScore) {
+    document.getElementById('summary-sub').textContent += ` · ↑ ${lastScore} → ${avg} improved!`;
+  }
   saveSessionLocal(avg);
-  // Save to backend if logged in
-  if (S.authToken && !S.isDemo) {
-    saveSessionToBackend(avg, S.allFeedbacks, S.allErrors);
+  if (S.authToken && !S.isDemo) saveSessionToBackend(avg, S.allFeedbacks, S.allErrors);
+  // Smart upgrade nudge: show after good score, not just on limit
+  if (!S.isDemo && S.user && S.user.plan !== 'pro' && avg >= 8) {
+    const remaining = Math.max(0, FREE_LIMIT - (S.user.ai_calls || 0));
+    if (remaining <= 15) {
+      setTimeout(() => {
+        document.getElementById('modal-calls-used').textContent = S.user.ai_calls || 0;
+        showUpgradeModal();
+      }, 2000);
+    }
   }
   await genTips(S.allFeedbacks.map((f, i) => `Q${i+1}: ${f.q}\nAnswer: ${f.answer}\nScore: ${f.score}`).join('\n\n'));
 }
@@ -2141,6 +2187,16 @@ Return ONLY valid JSON (no markdown):
     document.getElementById('stat-score').textContent = (ev.score || '—') + '/10';
     saveSessionLocal(ev.score || 0);
     if (S.authToken) saveSessionToBackend(ev.score || 0, [], S.allErrors);
+    // Smart upgrade nudge after good chat score
+    if (S.user && S.user.plan !== 'pro' && (ev.score || 0) >= 8) {
+      const remaining = Math.max(0, FREE_LIMIT - (S.user.ai_calls || 0));
+      if (remaining <= 15) {
+        setTimeout(() => {
+          document.getElementById('modal-calls-used').textContent = S.user.ai_calls || 0;
+          showUpgradeModal();
+        }, 2500);
+      }
+    }
     // Render coach summary block
     const cs = document.getElementById('coach-summary-section');
     cs.style.display = 'block';
@@ -2412,6 +2468,8 @@ function saveSessionLocal(avgScore) {
     return;
   }
   const history = JSON.parse(localStorage.getItem('ss_history') || '[]');
+  // Save last score before pushing new one (for progress feedback)
+  if (history.length > 0) localStorage.setItem('ss_last_score', history[0].score || 0);
   history.unshift({ date: new Date().toLocaleDateString(), profession: S.profession, difficulty: S.difficulty, type: S.interviewType, mode: S.mode, score: avgScore, errors: S.allErrors.length });
   if (history.length > 20) history.pop();
   localStorage.setItem('ss_history', JSON.stringify(history));
