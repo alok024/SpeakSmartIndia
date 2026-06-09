@@ -2057,7 +2057,7 @@ Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty} level). $
 RULES:
 1. Keep messages concise — 2-4 sentences max.
 2. React briefly to their answer (1 sentence), then ask the next question or a follow-up.
-3. ${isLast ? 'This is the LAST exchange. Wrap up warmly, thank the candidate, give one honest line of overall impression, then add [INTERVIEW_COMPLETE] at the very end.' : isFirst ? 'This is the VERY FIRST message. DO NOT introduce yourself at length. ONE short greeting sentence maximum, then immediately ask your first interview question. Get straight to it.' : `Continue naturally. You have ${S.maxExchanges - S.chatExchanges} more exchanges.`}
+3. ${isLast ? 'This is the LAST exchange. Wrap up warmly, thank the candidate, give one honest line of overall impression, then add [INTERVIEW_COMPLETE] at the very end.' : isFirst ? 'FIRST MESSAGE RULES — STRICTLY FOLLOW: (1) Max one 5-word greeting. (2) Then ONE interview question. (3) NOTHING else. No format instructions. No "remember". No "please respond as if". No explaining what you will do. Just: greeting + question. Stop.' : `Continue naturally. You have ${S.maxExchanges - S.chatExchanges} more exchanges.`}
 4. Do NOT grade or evaluate their English — just interview naturally.
 5. Stay fully in character as Aria.`;
   try {
