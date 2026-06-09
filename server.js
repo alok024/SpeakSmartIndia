@@ -36,6 +36,7 @@ const PRO_PRICE_PAISE = 29900; // ₹299
 //  APP SETUP
 // ══════════════════════════════════════════
 const app = express();
+app.set('trust proxy', 1); // Required for Railway (sits behind a proxy)
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
