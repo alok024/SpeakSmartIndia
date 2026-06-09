@@ -38,7 +38,7 @@
       --text-1: #111318; --text-2: #5A6070; --text-3: #9AA0B0;
       --accent-dim: rgba(79,142,247,.1); --success-dim: rgba(52,211,153,.1);
       --warn-dim: rgba(251,191,36,.1); --danger-dim: rgba(248,113,113,.1);
-      --purple-dim: rgba(155,126,248,.1);
+       --purple-dim: rgba(155,126,248,.1);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--font); background: var(--bg); color: var(--text-1); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem 4rem; transition: background .3s, color .3s; }
@@ -153,6 +153,10 @@
     .toggle-switch.on { background: var(--accent); }
     .toggle-switch::after { content: ''; width: 18px; height: 18px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: 2px; transition: transform .2s; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
     .toggle-switch.on::after { transform: translateX(20px); }
+    .lang-opt { display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:var(--r-md);border:1px solid var(--border);background:var(--surface-3);cursor:pointer;font-family:var(--font);transition:all .15s;color:var(--text-2); }
+    .lang-opt:hover { border-color:var(--accent);color:var(--text-1); }
+    .lang-opt.active { border-color:var(--accent);background:var(--accent-dim);color:var(--accent); }
+    .lang-opt-label { font-size:11.5px;font-weight:500; }
 
     .text-input { width: 100%; padding: 10px 13px; font-size: 14px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; margin-top: 10px; }
     .text-input:focus { outline: none; border-color: var(--accent); }
@@ -308,6 +312,93 @@
     .chart-section { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
     .chart-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 12px; }
     canvas#scoreChart { width: 100%; height: 110px; }
+
+    /* ── Voice Analysis Card ── */
+    .va-card { margin-top: 1rem; border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; animation: slideUp .35s cubic-bezier(.4,0,.2,1); }
+    .va-header { padding: .75rem 1.25rem; background: var(--surface-2); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+    .va-header i { color: var(--accent); font-size: 16px; }
+    .va-title { font-size: 13px; font-weight: 600; flex: 1; color: var(--text-1); }
+    .va-wave { display: flex; align-items: center; gap: 2px; height: 16px; }
+    .va-wave span { display: inline-block; width: 3px; border-radius: 2px; background: var(--accent); opacity: .7; animation: vawave .8s ease-in-out infinite; }
+    .va-wave span:nth-child(1){height:5px;animation-delay:0s} .va-wave span:nth-child(2){height:11px;animation-delay:.1s} .va-wave span:nth-child(3){height:16px;animation-delay:.2s} .va-wave span:nth-child(4){height:9px;animation-delay:.3s} .va-wave span:nth-child(5){height:13px;animation-delay:.4s} .va-wave span:nth-child(6){height:7px;animation-delay:.5s}
+    @keyframes vawave { 0%,100%{transform:scaleY(.4);opacity:.4} 50%{transform:scaleY(1);opacity:1} }
+    .va-body { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .7rem; }
+    .va-row { display: flex; align-items: center; gap: 10px; }
+    .va-label { font-size: 12px; color: var(--text-2); width: 90px; flex-shrink: 0; }
+    .va-bar-track { flex: 1; height: 5px; background: var(--surface-3); border-radius: 3px; overflow: hidden; }
+    .va-bar-fill { height: 100%; border-radius: 3px; width: 0%; transition: width 1.1s cubic-bezier(.4,0,.2,1); }
+    .va-score-num { font-size: 12px; font-weight: 700; width: 34px; text-align: right; font-family: var(--mono); }
+    .va-fillers { margin-top: .3rem; padding: .6rem 1rem; background: var(--surface-3); border-radius: var(--r-sm); font-size: 12px; color: var(--text-2); line-height: 1.6; }
+    .va-fillers strong { color: var(--warn); }
+    .filler-tag { display: inline-block; background: var(--warn-dim); color: var(--warn); border-radius: 4px; padding: 1px 7px; margin: 2px 3px; font-size: 11px; font-family: var(--mono); border: 1px solid rgba(251,191,36,.2); }
+
+    /* ── Structure Breakdown ── */
+    .structure-block { margin-top: .875rem; padding: .875rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); }
+    .structure-top { display: flex; align-items: center; gap: 8px; margin-bottom: .6rem; }
+    .structure-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; flex: 1; }
+    .structure-score { font-size: 12px; font-weight: 700; font-family: var(--mono); padding: 2px 9px; border-radius: 20px; }
+    .structure-parts { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: .6rem; }
+    .struct-part { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .struct-part.present { background: var(--success-dim); color: var(--success); border: 1px solid rgba(52,211,153,.2); }
+    .struct-part.missing { background: var(--danger-dim); color: var(--danger); border: 1px solid rgba(248,113,113,.2); }
+    .structure-fix { font-size: 12px; color: var(--text-2); line-height: 1.55; padding: .5rem .75rem; background: var(--surface-3); border-radius: var(--r-sm); border-left: 2px solid var(--warn); }
+
+    /* ── Model Answer Panels ── */
+    .model-answer-wrap { margin-top: .875rem; display: flex; flex-direction: column; gap: 6px; }
+    .ma-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; border-radius: var(--r-md); border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; font-family: var(--font); text-align: left; }
+    .ma-toggle:hover { border-color: var(--accent); color: var(--text-1); }
+    .ma-toggle i { font-size: 14px; flex-shrink: 0; }
+    .ma-toggle .ma-chevron { margin-left: auto; font-size: 12px; color: var(--text-3); transition: transform .2s; }
+    .ma-toggle.open .ma-chevron { transform: rotate(180deg); }
+    .ma-toggle.good-toggle { border-color: rgba(52,211,153,.2); color: var(--success); }
+    .ma-toggle.good-toggle:hover { background: var(--success-dim); }
+    .ma-toggle.great-toggle { border-color: rgba(155,126,248,.2); color: var(--purple); }
+    .ma-toggle.great-toggle:hover { background: var(--purple-dim); }
+    .ma-panel { display: none; padding: .875rem 1rem; border-radius: var(--r-md); font-size: 13px; line-height: 1.7; animation: slideUp .2s ease; }
+    .ma-panel.good-panel { background: var(--success-dim); border: 1px solid rgba(52,211,153,.15); color: var(--text-1); }
+    .ma-panel.great-panel { background: var(--purple-dim); border: 1px solid rgba(155,126,248,.15); color: var(--text-1); }
+    .ma-panel-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; margin-bottom: .5rem; }
+    .good-panel .ma-panel-label { color: var(--success); }
+    .great-panel .ma-panel-label { color: var(--purple); }
+
+    /* ── Drill Cards (summary) ── */
+    .drill-section { margin-bottom: 1.25rem; }
+    .drill-section-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 10px; }
+    .drill-card { padding: .875rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); margin-bottom: 8px; display: flex; gap: 12px; align-items: flex-start; }
+    .drill-num { width: 24px; height: 24px; border-radius: 50%; background: var(--accent-dim); color: var(--accent); font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; font-family: var(--mono); }
+    .drill-num.grammar { background: var(--danger-dim); color: var(--danger); }
+    .drill-num.structure { background: var(--warn-dim); color: var(--warn); }
+    .drill-num.domain { background: var(--purple-dim); color: var(--purple); }
+    .drill-body { flex: 1; }
+    .drill-task { font-size: 13px; font-weight: 500; color: var(--text-1); margin-bottom: 4px; }
+    .drill-example { font-size: 12px; color: var(--text-3); font-family: var(--mono); padding: 3px 8px; background: var(--surface-3); border-radius: 4px; display: inline-block; margin-top: 2px; }
+
+    /* ── Coach Summary (end of chat session) ── */
+    .coach-summary-block { margin: 1.25rem 0; padding: 1rem 1.1rem; background: linear-gradient(135deg, var(--accent-dim), var(--purple-dim)); border: 1px solid rgba(79,142,247,.2); border-radius: var(--r-lg); }
+    .cs-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--accent); margin-bottom: .875rem; display: flex; align-items: center; gap: 6px; }
+    .cs-row { display: flex; gap: 8px; margin-bottom: 6px; font-size: 13px; line-height: 1.55; }
+    .cs-key { color: var(--text-3); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; width: 80px; flex-shrink: 0; margin-top: 2px; }
+    .cs-val { color: var(--text-1); flex: 1; }
+    .cs-closing { margin-top: .875rem; padding: .75rem .875rem; background: var(--surface); border-radius: var(--r-sm); font-size: 13px; color: var(--text-2); font-style: italic; border-left: 3px solid var(--purple); line-height: 1.6; }
+    .cs-closing-label { font-size: 10px; color: var(--purple); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .35rem; font-style: normal; }
+
+    /* ── Better Answer Button + Box (kept for compat) ── */
+    .better-btn { display: flex; align-items: center; gap: 8px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-1); padding: 10px 16px; border-radius: var(--r-md); font-size: 13px; cursor: pointer; width: 100%; margin-top: .75rem; transition: border-color .2s, background .2s; font-family: var(--font); font-weight: 500; }
+    .better-btn:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .better-btn i { color: var(--accent); font-size: 15px; flex-shrink: 0; }
+    .better-btn .btn-loading { display: none; }
+    .better-btn.loading .btn-text { display: none; }
+    .better-btn.loading .btn-loading { display: flex; align-items: center; gap: 8px; }
+    .better-answer-box { margin-top: .75rem; padding: 1rem 1.1rem; background: var(--surface-2); border: 1px solid rgba(79,142,247,.2); border-radius: var(--r-md); font-size: 13px; line-height: 1.7; color: var(--text-2); animation: slideUp .3s ease; display: none; }
+    .ba-label { font-size: 10px; color: var(--accent); font-weight: 600; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .5rem; display: flex; align-items: center; gap: 5px; }
+
+    /* ── Progress Strip (last 5 scores) ── */
+    .progress-strip { margin-top: .75rem; padding: .75rem 1rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); display: flex; align-items: center; gap: 10px; }
+    .ps-label { font-size: 11px; color: var(--text-3); white-space: nowrap; text-transform: uppercase; letter-spacing: .06em; }
+    .ps-scores { display: flex; gap: 5px; align-items: center; flex: 1; }
+    .ps-dot { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; font-family: var(--mono); flex-shrink: 0; }
+    .ps-arrow { color: var(--text-3); font-size: 12px; }
+    .ps-trend { font-size: 11px; font-weight: 600; margin-left: auto; white-space: nowrap; }
     .summary-body { padding: 1.25rem 1.5rem; }
     .summary-section { margin-bottom: 1.25rem; }
     .summary-section-title { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .09em; margin-bottom: 10px; }
@@ -355,10 +446,39 @@
     .usage-notice button { padding: 4px 12px; background: var(--warn); color: #000; border: none; border-radius: 20px; font-size: 11px; font-weight: 700; cursor: pointer; font-family: var(--font); white-space: nowrap; }
 
     /* ── Responsive ── */
-    @media (max-width: 500px) {
-      body { padding: 0; }
-      #app { border-radius: 0; border-left: none; border-right: none; min-height: 100vh; }
+    @media (max-width: 600px) {
+      body { padding: .5rem .5rem 3rem; }
+      #app { border-radius: var(--r-lg); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+      .topbar { padding: 0 .5rem; margin-bottom: .75rem; }
+      .meta-bar { gap: 5px; margin-bottom: .875rem; }
+      .meta-pill { font-size: 11px; padding: 4px 9px; }
       .mode-grid { grid-template-columns: 1fr; }
+      .setup-body { padding: 1.25rem; }
+      .interview-header { padding: 1rem 1.1rem .75rem; }
+      .interview-body { padding: 1.1rem; }
+      .question-text { font-size: 15px; }
+      .answer-area { min-height: 100px; font-size: 14px; }
+      .btn-row { flex-wrap: wrap; }
+      .submit-btn { width: 100%; justify-content: center; }
+      .chat-body { height: 340px; padding: 1rem; }
+      .chat-footer { padding: .75rem 1rem; }
+      .bubble { font-size: 13px; }
+      .summary-header { padding: 1.5rem 1rem .875rem; }
+      .stats-grid { padding: 1rem; gap: 8px; }
+      .stat-num { font-size: 22px; }
+      .summary-body { padding: 1rem; }
+      .summary-actions { flex-direction: column; }
+      .auth-screen-body { padding: 1.75rem 1.25rem; }
+      .feedback-body { padding: 1rem; }
+      .structure-parts { gap: 4px; }
+      .model-answer-wrap { gap: 5px; }
+      .drill-card { padding: .75rem .875rem; }
+    }
+    @media (max-width: 400px) {
+      body { padding: 0; }
+      #app { border-radius: 0; border-left: none; border-right: none; min-height: 100dvh; }
+      .topbar { padding: 0 .75rem; }
+      .chat-body { height: 300px; }
     }
   </style>
 </head>
@@ -562,14 +682,27 @@
         </div>
       </div>
 
-      <!-- Hindi/Hinglish toggle (both modes) -->
+      <!-- Language selector (both modes) -->
       <div class="form-section">
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <h4>Hindi / Hinglish Mode &nbsp;<span class="persona-badge pb-hindi" style="font-size:11px">UNIQUE IN INDIA</span></h4>
-            <p>AI understands mixed Hindi-English. Corrects Hinglish → proper English.</p>
+        <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md);padding:12px 14px;">
+          <div style="margin-bottom:10px;">
+            <h4 style="font-size:13px;font-weight:500;color:var(--text-1);margin-bottom:2px;">Interview Language &nbsp;<span class="persona-badge pb-hindi" style="font-size:11px">UNIQUE IN INDIA</span></h4>
+            <p style="font-size:12px;color:var(--text-2);">AI + voice input adapts to your chosen language</p>
           </div>
-          <div class="toggle-switch" id="hindi-toggle" onclick="toggleHindi()"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;" id="lang-selector">
+            <button class="lang-opt active" data-lang="en" onclick="setLang('en')">
+              <span style="font-size:15px">🇬🇧</span>
+              <span class="lang-opt-label">English</span>
+            </button>
+            <button class="lang-opt" data-lang="hinglish" onclick="setLang('hinglish')">
+              <span style="font-size:15px">🔀</span>
+              <span class="lang-opt-label">Hinglish</span>
+            </button>
+            <button class="lang-opt" data-lang="hi" onclick="setLang('hi')">
+              <span style="font-size:15px">🇮🇳</span>
+              <span class="lang-opt-label">हिंदी</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -688,6 +821,15 @@
         <div id="loading-summary" class="loading-row" style="display:none;"><div class="spinner"></div> Generating personalised tips…</div>
         <div id="tips-list"></div>
       </div>
+      <!-- Coach Summary (chat mode only) -->
+      <div id="coach-summary-section" style="display:none;"></div>
+      <!-- Next Session Drills -->
+      <div id="drill-section" style="display:none;">
+        <div class="drill-section">
+          <div class="drill-section-title">Your Next Session — Practice These</div>
+          <div id="drill-list"></div>
+        </div>
+      </div>
       <div class="summary-actions">
         <button class="download-btn" onclick="downloadReport()"><i class="ti ti-download"></i> Download Report</button>
         <button class="restart-btn" onclick="restart()"><i class="ti ti-refresh"></i> New Interview</button>
@@ -758,7 +900,7 @@ let S = {
   timerSecs: 120,
   persona: 'friendly',
   maxExchanges: 6,
-  hindi: false,
+  lang: 'en',  // 'en' | 'hinglish' | 'hi'
   // classic
   questions: [], currentQ: 0, allFeedbacks: [], allErrors: [],
   timerInterval: null, timerRemaining: 0,
@@ -1283,8 +1425,14 @@ async function refreshUserData() {
       localStorage.setItem('ss_user', JSON.stringify(data.user));
       updateAuthUI();
       updateUsageNotice(data.user.ai_calls);
-    } else if (!ok && data.error === 'Invalid or expired token') {
-      logout(); // Token expired
+      if (data.stats) {
+        localStorage.setItem('ss_streak', data.stats.streak || 0);
+        localStorage.setItem('ss_best', data.stats.best_score || 0);
+        S.backendSessions = data.stats.sessions || 0;
+        updateMetaPills();
+      }
+    } else if (!ok && data.error === 'Invalid token') {
+      logout();
     }
   } catch { /* silently fail */ }
 }
@@ -1300,7 +1448,8 @@ function updateAuthUI() {
     const planBadge = S.user.plan === 'pro'
       ? `<span class="plan-badge pro">PRO</span>`
       : `<span class="plan-badge">FREE</span>`;
-    label.innerHTML = `${esc((S.user.name || S.user.email || '').split(/[ @]/)[0])} ${planBadge}`;
+    const displayName = S.user.name ? S.user.name.split(' ')[0] : (S.user.email || '').split('@')[0];
+    label.innerHTML = `${esc(displayName)} ${planBadge}`;
     // On auth screen, hide tabs and show usage info
     if (tabsEl) tabsEl.style.display = 'none';
     if (usageWrap) {
@@ -1458,9 +1607,14 @@ function selectMode(m) {
   document.getElementById('chat-opts').style.display = m === 'chat' ? 'block' : 'none';
 }
 
-function toggleHindi() {
-  S.hindi = !S.hindi;
-  document.getElementById('hindi-toggle').classList.toggle('on', S.hindi);
+function setLang(lang) {
+  S.lang = lang;
+  document.querySelectorAll('#lang-selector .lang-opt').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  // Update aria hindi badge in interview header
+  const badge = document.getElementById('aria-hindi-badge');
+  if (badge) badge.style.display = (lang !== 'en') ? 'inline' : 'none';
 }
 
 function toggleTheme() {
@@ -1574,7 +1728,7 @@ async function startClassicMode() {
     return;
   }
   try {
-    const hn = S.hindi ? 'The candidate may answer in Hindi or Hinglish.' : '';
+    const hn = S.lang !== 'en' ? 'The candidate may answer in Hindi or Hinglish.' : '';
     const raw = await callClaude(
       `You are an expert interviewer. Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession} candidate. ${hn} Return ONLY a valid JSON array of strings. No markdown.`,
       'Generate the questions.');
@@ -1631,11 +1785,28 @@ async function submitAnswer() {
     return;
   }
   try {
-    const hn = S.hindi ? 'Candidate may have used Hinglish — accept it but correct to proper English.' : '';
+    const hn = S.lang !== 'en' ? 'Candidate may have used Hinglish — accept it but correct to proper English.' : '';
     const raw = await callClaude(
       `You are an AI interviewer and English coach. ${hn}
-Return ONLY valid JSON (no markdown):
-{"score":<1-10>,"interview_feedback":"<2-3 sentences>","english_errors":[{"mistake":"...","correction":"...","explanation":"..."}],"corrected_answer":"<full corrected answer or null>","tip":"<one actionable tip>"}`,
+Return ONLY valid JSON (no markdown, no extra keys):
+{
+  "score":<1-10>,
+  "interview_feedback":"<2-3 sentences of specific feedback>",
+  "english_errors":[{"mistake":"...","correction":"...","explanation":"..."}],
+  "corrected_answer":"<corrected version or null>",
+  "tip":"<one actionable tip>",
+  "structure":{
+    "type":"<STAR|PREP|Direct|Conceptual depending on question type>",
+    "score":<1-10>,
+    "present_parts":["<e.g. Situation","Action>"],
+    "missing_parts":["<e.g. Result>"],
+    "fix":"<one sentence: exactly what was missing and how to fix it>"
+  },
+  "model_answer":{
+    "good":"<A solid 3-4 line answer for this exact question and profession. Realistic, not perfect.>",
+    "great":"<A 4-5 line high-impact version: specific metrics, strong structure, memorable close.>"
+  }
+}`,
       `Profession: ${S.profession}\nType: ${S.interviewType}\nQuestion: ${S.questions[S.currentQ]}\nAnswer: ${answer}`);
     const fb = JSON.parse(raw.replace(/```json|```/g, '').trim());
     S.allFeedbacks.push({ q: S.questions[S.currentQ], answer, ...fb });
@@ -1655,10 +1826,63 @@ Return ONLY valid JSON (no markdown):
 function renderClassicFeedback(fb) {
   const sc = fb.score >= 7 ? 'score-high' : fb.score >= 4 ? 'score-mid' : 'score-low';
   const isLast = S.currentQ >= S.totalQ - 1;
+
+  // English errors
   const errorsHtml = (fb.english_errors && fb.english_errors.length)
     ? `<ul class="error-list">${fb.english_errors.map(e =>
         `<li class="error-item"><span style="text-decoration:line-through;color:var(--danger)">${esc(e.mistake)}</span> &rarr; <span class="error-correction">${esc(e.correction)}</span><div class="error-explain">${esc(e.explanation)}</div></li>`).join('')}</ul>`
     : `<div class="no-errors"><i class="ti ti-check"></i> No significant errors — well done!</div>`;
+
+  // Structure breakdown
+  let structureHtml = '';
+  if (fb.structure) {
+    const st = fb.structure;
+    const stSc = st.score >= 7 ? 'score-high' : st.score >= 4 ? 'score-mid' : 'score-low';
+    const presentHtml = (st.present_parts || []).map(p =>
+      `<span class="struct-part present"><i class="ti ti-check" style="font-size:10px"></i>${esc(p)}</span>`).join('');
+    const missingHtml = (st.missing_parts || []).map(p =>
+      `<span class="struct-part missing"><i class="ti ti-x" style="font-size:10px"></i>${esc(p)}</span>`).join('');
+    structureHtml = `
+      <div class="fb-section">
+        <div class="structure-block">
+          <div class="structure-top">
+            <span class="structure-label">Structure · ${esc(st.type || 'STAR')}</span>
+            <span class="score-badge ${stSc} structure-score">${st.score}/10</span>
+          </div>
+          <div class="structure-parts">${presentHtml}${missingHtml}</div>
+          ${st.fix ? `<div class="structure-fix"><i class="ti ti-arrow-right" style="font-size:11px;margin-right:4px"></i>${esc(st.fix)}</div>` : ''}
+        </div>
+      </div>`;
+  }
+
+  // Model answer panels
+  let modelHtml = '';
+  if (fb.model_answer) {
+    const uid = 'ma' + Date.now();
+    modelHtml = `
+      <div class="fb-section">
+        <div class="fb-section-title">Model Answers</div>
+        <div class="model-answer-wrap">
+          <button class="ma-toggle good-toggle" onclick="toggleMA('${uid}-good',this)">
+            <i class="ti ti-check-circle"></i> See a solid answer
+            <i class="ti ti-chevron-down ma-chevron"></i>
+          </button>
+          <div class="ma-panel good-panel" id="${uid}-good">
+            <div class="ma-panel-label">Good — 7/10 level</div>
+            ${esc(fb.model_answer.good)}
+          </div>
+          <button class="ma-toggle great-toggle" onclick="toggleMA('${uid}-great',this)">
+            <i class="ti ti-star"></i> See a top-tier answer
+            <i class="ti ti-chevron-down ma-chevron"></i>
+          </button>
+          <div class="ma-panel great-panel" id="${uid}-great">
+            <div class="ma-panel-label">Great — 9/10 level</div>
+            ${esc(fb.model_answer.great)}
+          </div>
+        </div>
+      </div>`;
+  }
+
   document.getElementById('feedback-area').innerHTML = `
     <div class="feedback-card">
       <div class="feedback-top">
@@ -1671,11 +1895,13 @@ function renderClassicFeedback(fb) {
           <div class="fb-section-title">Interview Quality</div>
           <p>${esc(fb.interview_feedback)}</p>
         </div>
+        ${structureHtml}
         <div class="fb-section">
           <div class="fb-section-title">English Errors</div>
           ${errorsHtml}
         </div>
         ${fb.corrected_answer ? `<div class="fb-section"><div class="fb-section-title">Corrected Answer</div><div class="corrected-box">${esc(fb.corrected_answer)}</div></div>` : ''}
+        ${modelHtml}
         <div class="fb-section">
           <div class="fb-section-title">Tip</div>
           <div class="tip-box"><i class="ti ti-bulb"></i> ${esc(fb.tip)}</div>
@@ -1686,6 +1912,13 @@ function renderClassicFeedback(fb) {
       ${isLast ? '<i class="ti ti-report-analytics"></i> See Full Report' : 'Next Question <i class="ti ti-arrow-right"></i>'}
     </button>`;
   updateProgress((S.currentQ + 1) / S.totalQ * 100);
+}
+ccC 
+function toggleMA(id, btn) {
+  const panel = document.getElementById(id);
+  const isOpen = panel.style.display === 'block';
+  panel.style.display = isOpen ? 'none' : 'block';
+  btn.classList.toggle('open', !isOpen);
 }
 
 function nextQuestion() { S.currentQ++; showQuestion(); }
@@ -1698,7 +1931,7 @@ async function startChatMode() {
   const personaLabels = { friendly: 'Friendly', strict: 'Strict', corporate: 'Corporate' };
   document.getElementById('aria-persona-badge').textContent = personaLabels[S.persona] || 'Friendly';
   document.getElementById('aria-persona-badge').className = `persona-badge pb-${S.isDemo ? 'demo' : S.persona}`;
-  document.getElementById('aria-hindi-badge').style.display = S.hindi ? 'inline' : 'none';
+  document.getElementById('aria-hindi-badge').style.display = S.lang !== 'en' ? 'inline' : 'none';
   document.getElementById('chat-counter').textContent = `0 / ${S.maxExchanges}`;
   document.getElementById('chat-prog').style.width = '0%';
 
@@ -1784,7 +2017,7 @@ async function ariaRespond(isFirst) {
   }
 
   const personaDesc = { friendly: 'warm, encouraging, and supportive', strict: 'demanding, direct, and exacting', corporate: 'formal, professional, and business-like' }[S.persona] || 'professional';
-  const hn = S.hindi ? 'The candidate may answer in Hindi or Hinglish. Accept this gracefully.' : 'The candidate should answer in English.';
+  const hn = S.lang !== 'en' ? 'The candidate may answer in Hindi or Hinglish. Accept this gracefully.' : 'The candidate should answer in English.';
   const isLast = S.chatExchanges >= S.maxExchanges;
   const sys = `You are Aria, a professional AI interviewer. Your personality is ${personaDesc}.
 Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty} level). ${hn}
@@ -1855,6 +2088,7 @@ function updateChatCounter() {
 async function showClassicSummary() {
   stopTimer();
   showScreen('screen-summary');
+  document.getElementById('coach-summary-section').style.display = 'none';
   const avg = Math.round(S.allFeedbacks.reduce((s, f) => s + f.score, 0) / S.allFeedbacks.length);
   document.getElementById('stat-score').textContent = avg + '/10';
   document.getElementById('stat-errors').textContent = S.allErrors.length;
@@ -1877,6 +2111,8 @@ async function showChatSummary() {
   document.getElementById('chart-section').style.display = 'none';
   document.getElementById('stat-qs').textContent = S.chatExchanges;
   document.getElementById('summary-sub').textContent = `${S.profession} · ${S.persona} · AI Chat`;
+  document.getElementById('coach-summary-section').style.display = 'none';
+  document.getElementById('coach-summary-section').innerHTML = '';
   showScreen('screen-summary');
   renderMistakes(S.allErrors);
   document.getElementById('stat-errors').textContent = S.chatErrors.length;
@@ -1891,27 +2127,58 @@ async function showChatSummary() {
   }
   try {
     const raw = await callClaude(
-      'Evaluate this interview session transcript. Return ONLY valid JSON: {"score":<1-10>}',
+      `You are an expert interview coach. Evaluate this full interview session.
+Return ONLY valid JSON (no markdown):
+{
+  "score":<1-10>,
+  "biggest_strength":"<one specific sentence>",
+  "biggest_weakness":"<one specific sentence>",
+  "pattern":"<a recurring behaviour you noticed across multiple answers>",
+  "final_advice":"<one concrete thing to focus on before next interview>",
+  "model_closing_line":"<an example sentence showing how to close an answer with measurable impact>"
+}`,
       `Profession: ${S.profession}\n\nTranscript:\n${transcript}`);
     const ev = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    document.getElementById('stat-score').textContent = ev.score + '/10';
-    saveSessionLocal(ev.score);
-    if (S.authToken) saveSessionToBackend(ev.score, [], S.allErrors);
+    document.getElementById('stat-score').textContent = (ev.score || '—') + '/10';
+    saveSessionLocal(ev.score || 0);
+    if (S.authToken) saveSessionToBackend(ev.score || 0, [], S.allErrors);
+    // Render coach summary block
+    const cs = document.getElementById('coach-summary-section');
+    cs.style.display = 'block';
+    cs.innerHTML = `
+      <div class="coach-summary-block">
+        <div class="cs-title"><i class="ti ti-user-check"></i> Coach Summary</div>
+        ${ev.biggest_strength ? `<div class="cs-row"><span class="cs-key">Strength</span><span class="cs-val">${esc(ev.biggest_strength)}</span></div>` : ''}
+        ${ev.biggest_weakness ? `<div class="cs-row"><span class="cs-key">Weakness</span><span class="cs-val">${esc(ev.biggest_weakness)}</span></div>` : ''}
+        ${ev.pattern ? `<div class="cs-row"><span class="cs-key">Pattern</span><span class="cs-val">${esc(ev.pattern)}</span></div>` : ''}
+        ${ev.final_advice ? `<div class="cs-row"><span class="cs-key">Focus on</span><span class="cs-val">${esc(ev.final_advice)}</span></div>` : ''}
+        ${ev.model_closing_line ? `<div class="cs-closing"><div class="cs-closing-label">Example closing line</div>"${esc(ev.model_closing_line)}"</div>` : ''}
+      </div>`;
   } catch { document.getElementById('stat-score').textContent = 'N/A'; }
   await genTips(transcript);
 }
 
 async function saveSessionToBackend(avgScore, feedbacks, errors) {
   try {
-    await apiCall('/sessions', 'POST', {
-      profession: S.profession,
-      mode: S.mode,
+    const result = await apiCall('/sessions', 'POST', {
+      profession:     S.profession,
+      mode:           S.mode,
       interview_type: S.interviewType,
-      difficulty: S.difficulty,
-      avg_score: avgScore,
-      feedbacks: feedbacks,
-      errors: errors
+      difficulty:     S.difficulty,
+      personality:    S.persona,
+      score:          avgScore,
+      exchanges:      S.totalQ || S.chatExchanges || 0,
+      duration_secs:  S.timerSecs ? (S.timerSecs - (S.timerRemaining || 0)) : 0,
+      hindi_mode:     (S.lang !== 'en') || false,
+      feedbacks:      feedbacks || [],
     });
+    // Update local stats from backend response
+    if (result.ok && result.data) {
+      localStorage.setItem('ss_streak', result.data.streak || 0);
+      localStorage.setItem('ss_best', result.data.best_score || 0);
+      S.backendSessions = result.data.sessions || 0;
+      updateMetaPills();
+    }
   } catch { /* silently fail — local save already done */ }
 }
 
@@ -1925,6 +2192,7 @@ function renderMistakes(errors) {
 async function genTips(sessionData) {
   document.getElementById('loading-summary').style.display = 'flex';
   document.getElementById('tips-list').innerHTML = '';
+  document.getElementById('drill-section').style.display = 'none';
   if (S.isDemo) {
     await sleep(1800);
     const dd = getDemoData();
@@ -1935,12 +2203,29 @@ async function genTips(sessionData) {
   }
   try {
     const raw = await callClaude(
-      'You are an interview and English coach. Give 4-5 specific actionable improvement tips based on this session. Return ONLY a JSON array of strings.',
-      `Profession: ${S.profession}\n\nSession:\n${sessionData}\n\nErrors: ${JSON.stringify(S.allErrors)}`);
-    const tips = JSON.parse(raw.replace(/```json|```/g, '').trim());
+      `You are an interview and English coach. Based on this session, generate exactly 3 specific practice drills for the next session.
+Return ONLY valid JSON (no markdown):
+[
+  {"type":"grammar","task":"<specific task in one sentence>","example":"<concrete short example, e.g. wrong → correct>"},
+  {"type":"structure","task":"<specific task in one sentence>","example":"<concrete short example>"},
+  {"type":"domain","task":"<specific task relevant to their profession>","example":"<concrete short example>"}
+]
+Make drills specific to the actual errors and gaps in this session. Do NOT give generic advice.`,
+      `Profession: ${S.profession}\n\nSession:\n${sessionData}\n\nErrors found: ${JSON.stringify(S.allErrors)}`);
+    const drills = JSON.parse(raw.replace(/```json|```/g, '').trim());
     document.getElementById('loading-summary').style.display = 'none';
-    document.getElementById('tips-list').innerHTML = tips.map(t =>
-      `<div class="tip-item"><i class="ti ti-bulb" style="color:var(--success);flex-shrink:0;margin-top:1px"></i><span>${esc(t)}</span></div>`).join('');
+    // Render drills
+    const drillEl = document.getElementById('drill-section');
+    const drillList = document.getElementById('drill-list');
+    drillList.innerHTML = drills.map((d, i) =>
+      `<div class="drill-card">
+        <div class="drill-num ${esc(d.type)}">${i + 1}</div>
+        <div class="drill-body">
+          <div class="drill-task">${esc(d.task)}</div>
+          ${d.example ? `<div class="drill-example">${esc(d.example)}</div>` : ''}
+        </div>
+      </div>`).join('');
+    drillEl.style.display = 'block';
   } catch {
     document.getElementById('loading-summary').style.display = 'none';
     document.getElementById('tips-list').innerHTML = '<div class="tip-item"><i class="ti ti-bulb" style="color:var(--success)"></i><span>Practice speaking and writing English daily to build fluency and confidence.</span></div>';
@@ -2030,15 +2315,41 @@ function updateCharCount(el) { document.getElementById('char-count').textContent
 //  VOICE INPUT
 // ══════════════════════════════════════════
 function toggleVoice(targetId, btnId) {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    alert('Voice input is not supported in this browser. Please use Chrome.'); return;
-  }
   const btn = document.getElementById(btnId);
-  if (S.recognition) { S.recognition.stop(); S.recognition = null; btn.classList.remove('active'); return; }
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  // If already recording — stop
+  if (S.recognition) {
+    S.recognition.stop();
+    S.recognition = null;
+    btn.classList.remove('active');
+    return;
+  }
+
+  // No Speech API available — show inline fallback instead of alert
+  if (!SR) {
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.focus();
+      // Show a small tooltip/note near the button
+      const existing = document.getElementById('voice-fallback-note');
+      if (!existing) {
+        const note = document.createElement('div');
+        note.id = 'voice-fallback-note';
+        note.style.cssText = 'position:absolute;bottom:calc(100% + 6px);right:0;background:var(--surface-3);border:1px solid var(--border-hi);border-radius:var(--r-sm);padding:6px 10px;font-size:11px;color:var(--text-2);white-space:nowrap;z-index:10;pointer-events:none;';
+        note.textContent = 'Voice not supported — type your answer';
+        btn.style.position = 'relative';
+        btn.appendChild(note);
+        setTimeout(() => note.remove(), 3000);
+      }
+    }
+    return;
+  }
+
   const r = new SR();
-  r.continuous = true; r.interimResults = true;
-  r.lang = S.hindi ? 'hi-IN' : 'en-US';
+  r.continuous = true;
+  r.interimResults = true;
+  r.lang = S.lang === 'en' ? 'en-IN' : 'hi-IN';  // en-IN for Indian accent English; hi-IN handles both Hindi & Hinglish
   r.onresult = e => {
     let t = '';
     for (let i = e.resultIndex; i < e.results.length; i++) t += e.results[i][0].transcript;
@@ -2046,8 +2357,21 @@ function toggleVoice(targetId, btnId) {
     if (el) { el.value = t; if (targetId === 'answer-input') updateCharCount(el); }
   };
   r.onend = () => { btn.classList.remove('active'); S.recognition = null; };
-  r.onerror = () => { btn.classList.remove('active'); S.recognition = null; };
-  r.start(); S.recognition = r; btn.classList.add('active');
+  r.onerror = (e) => {
+    btn.classList.remove('active');
+    S.recognition = null;
+    // notAllowed = user denied mic permission
+    if (e.error === 'not-allowed') {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.placeholder = 'Mic access denied — please type your answer';
+        el.focus();
+      }
+    }
+  };
+  r.start();
+  S.recognition = r;
+  btn.classList.add('active');
 }
 
 // ══════════════════════════════════════════
@@ -2075,7 +2399,7 @@ function downloadReport() {
   a.href = URL.createObjectURL(blob);
   a.download = `speaksmart-${S.profession.replace(/\s+/g, '-')}-${Date.now()}.txt`;
   a.click();
-}
+} 
 
 // ══════════════════════════════════════════
 //  HISTORY & STREAKS  (local + backend)
@@ -2102,6 +2426,11 @@ function saveSessionLocal(avgScore) {
 }
 
 function loadHistory() {
+  // If logged in, load from backend; otherwise use localStorage
+  if (S.authToken) {
+    loadHistoryFromBackend();
+    return;
+  }
   const history = JSON.parse(localStorage.getItem('ss_history') || '[]');
   if (!history.length) return;
   document.getElementById('history-inline').style.display = 'block';
@@ -2112,9 +2441,25 @@ function loadHistory() {
   }).join('');
 }
 
+async function loadHistoryFromBackend() {
+  try {
+    const { ok, data } = await apiCall('/sessions');
+    if (!ok || !data.sessions || !data.sessions.length) return;
+    const sessions = data.sessions;
+    document.getElementById('history-inline').style.display = 'block';
+    document.getElementById('history-count').textContent = sessions.length;
+    document.getElementById('history-list').innerHTML = sessions.map(h => {
+      const sc = h.score >= 7 ? 'score-high' : h.score >= 4 ? 'score-mid' : 'score-low';
+      const date = new Date(h.created_at).toLocaleDateString();
+      return `<div class="history-item"><span class="history-score ${sc}">${h.score}/10</span><div><div class="history-field">${esc(h.profession)}</div><div class="history-meta">${h.mode||'classic'} · ${h.interview_type} · ${h.difficulty} · ${date}</div></div></div>`;
+    }).join('');
+  } catch { /* fallback to local */ }
+}
+
 function updateMetaPills() {
   document.getElementById('streak-val').textContent = localStorage.getItem('ss_streak') || '0';
-  document.getElementById('sessions-val').textContent = JSON.parse(localStorage.getItem('ss_history') || '[]').length;
+  const sessionCount = (typeof S !== 'undefined' && S.backendSessions) ? S.backendSessions : JSON.parse(localStorage.getItem('ss_history') || '[]').length;
+  document.getElementById('sessions-val').textContent = sessionCount;
   const best = localStorage.getItem('ss_best');
   document.getElementById('best-val').textContent = best ? best + '/10' : '—';
 }
@@ -2127,7 +2472,7 @@ function toggleHistory() {
 
 function toggleHistoryPanel() {
   const list = document.getElementById('history-list');
-  const chevron = document.getElementById('history-chevron');
+  const chevron = document. getElementById('history-chevron');
   list.classList.toggle('open');
   chevron.className = list.classList.contains('open') ? 'ti ti-chevron-up' : 'ti ti-chevron-down';
 }
@@ -2158,4 +2503,4 @@ function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 </script>
 </body>
-</html>
+</html> 
