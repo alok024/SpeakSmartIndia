@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeakSmart — Interview Report</title>
+
+  <meta property="og:type"        content="website" />
+  <meta property="og:site_name"   content="SpeakSmart" />
+  <meta id="og-title"  property="og:title"       content="My SpeakSmart Interview Report" />
+  <meta id="og-desc"   property="og:description" content="Check out my AI interview practice results on SpeakSmart." />
+  <meta property="og:image"       content="https://speaksmart.in/og-card.png" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.10.0/dist/tabler-icons.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --bg:          #0A0B10;
+      --surface:     #13151C;
+      --surface-2:   #1A1D27;
+      --surface-3:   #21253200;
+      --border:      rgba(255,255,255,.07);
+      --border-hi:   rgba(255,255,255,.13);
+      --text-1:      #EEF0F8;
+      --text-2:      #858BA0;
+      --text-3:      #4A5060;
+      --accent:      #4F8EF7;
+      --accent-dim:  rgba(79,142,247,.13);
+      --success:     #34D399;
+      --success-dim: rgba(52,211,153,.13);
+      --warn:        #FBBF24;
+      --warn-dim:    rgba(251,191,36,.13);
+      --danger:      #F87171;
+      --danger-dim:  rgba(248,113,113,.13);
+      --purple:      #9B7EF8;
+      --purple-dim:  rgba(155,126,248,.13);
+      --font:  'Sora', sans-serif;
+      --mono:  'JetBrains Mono', monospace;
+      --r-sm:  8px; --r-md: 12px; --r-lg: 18px; --r-xl: 24px; --r-2xl: 32px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text-1);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Top accent bar ── */
+    .accent-bar {
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent) 0%, var(--purple) 50%, var(--success) 100%);
+    }
+
+    /* ── Layout ── */
+    .page { max-width: 760px; margin: 0 auto; padding: 2rem 1.25rem 5rem; }
+
+    /* ── Sticky header ── */
+    .report-header {
+      position: sticky; top: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .875rem 1.25rem;
+      background: rgba(10,11,16,.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+      margin: 0 -1.25rem 2rem;
+      flex-wrap: wrap; gap: .75rem;
+    }
+    .brand {
+      display: flex; align-items: center; gap: 9px;
+      font-weight: 700; font-size: 15px; color: var(--text-1);
+      text-decoration: none;
+    }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #4F8EF7, #9B7EF8);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .share-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border-radius: var(--r-md);
+      font-family: var(--font); font-size: 12px; font-weight: 600;
+      cursor: pointer; border: none; transition: all .15s; white-space: nowrap;
+    }
+    .btn-wa   { background: rgba(37,211,102,.12); color: #25D366; border: 1px solid rgba(37,211,102,.3); }
+    .btn-li   { background: var(--accent-dim);    color: var(--accent); border: 1px solid rgba(79,142,247,.3); }
+    .btn-copy { background: var(--surface-2);     color: var(--text-2); border: 1px solid var(--border-hi); }
+    .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--surface);
+      border: 1px solid var(--border-hi);
+      border-radius: var(--r-2xl);
+      overflow: hidden;
+      margin-bottom: 1.25rem;
+      position: relative;
+    }
+    .hero-glow {
+      position: absolute; top: -60px; right: -60px;
+      width: 260px; height: 260px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,142,247,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-body { padding: 2rem 2rem 1.5rem; }
+
+    /* profession label above name */
+    .hero-eyebrow {
+      font-size: 11px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--text-3); margin-bottom: .5rem;
+    }
+    .hero-name {
+      font-size: clamp(22px, 4vw, 30px); font-weight: 800;
+      line-height: 1.15; margin-bottom: 1.25rem;
+    }
+    .hero-name span { color: var(--accent); }
+
+    /* big score + readiness row */
+    .hero-score-row {
+      display: flex; align-items: center; gap: 1.5rem;
+      flex-wrap: wrap; margin-bottom: 1.5rem;
+    }
+    .score-ring {
+      position: relative; width: 110px; height: 110px; flex-shrink: 0;
+    }
+    .score-ring svg { width: 110px; height: 110px; transform: rotate(-90deg); }
+    .score-ring-bg  { fill: none; stroke: rgba(255,255,255,.06); stroke-width: 8; }
+    .score-ring-fill { fill: none; stroke-width: 8; stroke-linecap: round;
+      transition: stroke-dashoffset .8s cubic-bezier(.4,0,.2,1); }
+    .score-ring-text {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+    }
+    .score-big { font-size: 26px; font-weight: 800; font-family: var(--mono); line-height: 1; }
+    .score-unit { font-size: 10px; color: var(--text-3); text-transform: uppercase; letter-spacing: .05em; margin-top: 2px; }
+
+    .readiness-block { flex: 1; min-width: 0; }
+    .readiness-badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 6px 14px; border-radius: 20px;
+      font-size: 13px; font-weight: 700;
+      margin-bottom: .625rem;
+      border: 1px solid currentColor;
+    }
+    .readiness-badge i { font-size: 14px; }
+    .readiness-headline { font-size: 22px; font-weight: 800; margin-bottom: .375rem; line-height: 1.25; letter-spacing: -.02em; }
+    .readiness-sub { font-size: 13.5px; color: var(--text-2); line-height: 1.55; }
+    .readiness-percentile {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; font-weight: 700;
+      background: rgba(52,211,153,.1); border: 1px solid rgba(52,211,153,.3);
+      color: var(--success); border-radius: 20px; padding: 4px 12px; margin-top: .625rem;
+    }
+
+    /* ── Brag / share card ── */
+    .brag-card {
+      background: linear-gradient(135deg, rgba(79,142,247,.08) 0%, rgba(155,126,248,.08) 100%);
+      border: 1px solid rgba(79,142,247,.25);
+      border-radius: var(--r-xl);
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .brag-card::before {
+      content: ''; position: absolute; top: -40px; right: -40px;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(155,126,248,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .brag-quote {
+      font-size: 16px; font-weight: 700; color: var(--text-1);
+      line-height: 1.45; margin-bottom: 1rem; letter-spacing: -.01em;
+    }
+    .brag-quote span { color: var(--accent); }
+    .brag-sub { font-size: 12.5px; color: var(--text-3); margin-bottom: 1.25rem; }
+    .brag-share-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+    /* meta pills row */
+    .hero-meta {
+      display: flex; gap: 6px; flex-wrap: wrap;
+      padding-top: 1.25rem;
+      border-top: 1px solid var(--border);
+    }
+    .meta-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 4px 11px; font-size: 11.5px; color: var(--text-2);
+    }
+    .meta-pill i { font-size: 12px; }
+
+    /* ── Score breakdown bar section ── */
+    .section { margin-bottom: 1.25rem; }
+    .section-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .1em; color: var(--text-3);
+      margin-bottom: .875rem;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .section-label::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .breakdown-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-xl); padding: 1.5rem;
+    }
+    .dim-row {
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: .875rem;
+    }
+    .dim-row:last-child { margin-bottom: 0; }
+    .dim-name { font-size: 13px; font-weight: 500; color: var(--text-2); width: 72px; flex-shrink: 0; }
+    .dim-track {
+      flex: 1; height: 8px; border-radius: 4px;
+      background: rgba(255,255,255,.06); overflow: hidden;
+    }
+    .dim-fill {
+      height: 100%; border-radius: 4px;
+      transition: width .9s cubic-bezier(.4,0,.2,1) .2s;
+    }
+    .dim-val {
+      font-size: 13px; font-weight: 700; font-family: var(--mono);
+      width: 36px; text-align: right; flex-shrink: 0;
+    }
+
+    /* ── Weak areas / what to work on ── */
+    .workon-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-xl); overflow: hidden;
+    }
+    .workon-item {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 1.1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      transition: background .12s;
+    }
+    .workon-item:last-child { border-bottom: none; }
+    .workon-item:hover { background: var(--surface-2); }
+    .workon-num {
+      width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; font-family: var(--mono);
+      margin-top: 1px;
+    }
+    .workon-num.n1 { background: var(--danger-dim);  color: var(--danger); }
+    .workon-num.n2 { background: var(--warn-dim);    color: var(--warn); }
+    .workon-topic { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+    .workon-drill { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+    .workon-score {
+      margin-left: auto; flex-shrink: 0;
+      font-size: 12px; font-weight: 700; font-family: var(--mono);
+      padding: 3px 9px; border-radius: 20px;
+      align-self: flex-start; margin-top: 2px;
+    }
+
+    /* ── Q&A section ── */
+    .qa-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 1.25rem;
+      margin-bottom: .875rem;
+      transition: border-color .15s;
+    }
+    .qa-card:hover { border-color: var(--border-hi); }
+    .qa-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+    .qa-num {
+      background: var(--accent-dim); color: var(--accent);
+      border-radius: 6px; padding: 2px 8px;
+      font-size: 11px; font-weight: 700; font-family: var(--mono);
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .qa-question { font-weight: 600; font-size: 14px; line-height: 1.45; flex: 1; }
+    .qa-score-pill {
+      margin-left: auto; flex-shrink: 0;
+      font-family: var(--mono); font-weight: 700; font-size: 12px;
+      padding: 3px 10px; border-radius: 20px;
+    }
+    .qa-score-pill.good { background: var(--success-dim); color: var(--success); }
+    .qa-score-pill.ok   { background: var(--warn-dim);    color: var(--warn);    }
+    .qa-score-pill.poor { background: var(--danger-dim);  color: var(--danger);  }
+
+    .qa-answer {
+      background: var(--surface-2); border-radius: var(--r-md);
+      padding: 10px 14px; font-size: 13px; color: var(--text-2);
+      line-height: 1.65; margin-bottom: 10px;
+    }
+    .qa-tip {
+      display: flex; gap: 8px; font-size: 13px; color: var(--text-2);
+      padding: 8px 12px; background: var(--accent-dim); border-radius: var(--r-md);
+      margin-bottom: 8px; line-height: 1.5;
+    }
+    .qa-tip i { color: var(--accent); flex-shrink: 0; margin-top: 2px; }
+    .qa-errors { display: flex; flex-direction: column; gap: 5px; }
+    .qa-err {
+      font-size: 12px; padding: 6px 10px;
+      background: var(--danger-dim); border-radius: 7px; color: var(--danger);
+    }
+
+    /* ── Footer CTA ── */
+    .footer-cta {
+      text-align: center;
+      background: var(--surface); border: 1px solid var(--border-hi);
+      border-radius: var(--r-2xl); padding: 3rem 1.5rem;
+      margin-top: 2rem; position: relative; overflow: hidden;
+    }
+    .footer-cta-glow {
+      position: absolute; bottom: -80px; left: 50%; transform: translateX(-50%);
+      width: 300px; height: 200px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(79,142,247,.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .footer-cta h2 { font-size: 22px; font-weight: 800; margin-bottom: .5rem; }
+    .footer-cta p  { color: var(--text-2); font-size: 14px; line-height: 1.6; margin-bottom: 1.75rem; max-width: 420px; margin-left: auto; margin-right: auto; }
+    .cta-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--purple));
+      color: #fff; border: none; border-radius: var(--r-lg);
+      padding: 13px 28px; font-size: 15px; font-weight: 700;
+      font-family: var(--font); cursor: pointer; text-decoration: none;
+      transition: all .2s; box-shadow: 0 4px 24px rgba(79,142,247,.3);
+    }
+    .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(79,142,247,.4); }
+    .footer-tagline { margin-top: 1.5rem; font-size: 12px; color: var(--text-3); }
+
+    /* ── Loading / error ── */
+    .state-center { text-align: center; padding: 6rem 1rem; }
+    .spinner {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 3px solid rgba(255,255,255,.08); border-top-color: var(--accent);
+      animation: spin .7s linear infinite; margin: 0 auto 1.25rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: var(--surface-2); border: 1px solid var(--border-hi);
+      border-radius: var(--r-md); padding: 10px 20px; font-size: 13px;
+      transition: transform .25s; z-index: 999; white-space: nowrap;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── Animations ── */
+    .fade-in { animation: fadeIn .4s ease both; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    @media (max-width: 540px) {
+      .hero-body { padding: 1.5rem; }
+      .hero-score-row { gap: 1rem; }
+      .report-header { padding: .75rem 1rem; }
+      .breakdown-panel, .workon-panel, .footer-cta { border-radius: var(--r-xl); }
+      .btn span { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="accent-bar"></div>
+
+<!-- Sticky header -->
+<div class="report-header">
+  <a class="brand" href="https://speaksmart.in">
+    <div class="brand-mark">🎙️</div>
+    <span>SpeakSmart</span>
+  </a>
+  <div class="share-row" id="share-row" style="display:none;">
+    <button class="btn btn-copy" onclick="copyLink()">
+      <i class="ti ti-link"></i><span> Copy link</span>
+    </button>
+    <button class="btn btn-wa" onclick="shareWhatsApp()">
+      <i class="ti ti-brand-whatsapp"></i><span> WhatsApp</span>
+    </button>
+    <button class="btn btn-li" onclick="shareLinkedIn()">
+      <i class="ti ti-brand-linkedin"></i><span> LinkedIn</span>
+    </button>
+  </div>
+</div>
+
+<div class="page">
+  <div id="content">
+    <div class="state-center">
+      <div class="spinner"></div>
+      <div style="color:var(--text-2);font-size:14px;">Loading your report…</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">✅ Link copied!</div>
+
+<script>
+const API_BASE = (() => {
+  const h = window.location.hostname;
+  if (h === 'localhost' || h === '127.0.0.1') return 'http://localhost:3000/api';
+  return 'https://speaksmart-api.up.railway.app/api';
+})();
+
+(async function init() {
+  const token = new URLSearchParams(window.location.search).get('id');
+  if (!token) { showError('No report ID in URL.', 'Make sure you used the full share link.'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/report/${token}`);
+    if (!res.ok) { showError('Report not found.', 'This link may be invalid or expired.'); return; }
+    renderReport(await res.json());
+  } catch { showError('Could not load report.', 'Check your connection and try again.'); }
+})();
+
+// ── Render ────────────────────────────────────────────────────────
+function renderReport(r) {
+  const s          = r.session;
+  const jr         = Math.round(s.job_ready_score || 0);
+  const rawPct     = Math.round((s.score || 0) * 10);
+  const label      = readinessLabel(jr);
+  const date       = new Date(s.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+
+  // OG meta
+  document.getElementById('og-title').content  = `${r.user.name}'s ${s.profession} Interview — ${jr}/100 Job-Ready`;
+  document.getElementById('og-desc').content   = `${label.text} — scored ${rawPct}% across ${s.exchanges} questions. Practiced on SpeakSmart AI.`;
+  document.title = `${r.user.name}'s Interview Report — SpeakSmart`;
+
+  document.getElementById('share-row').style.display = 'flex';
+
+  // Breakdown values
+  const dims = {
+    Clarity:   s.clarity_score   || 0,
+    Structure: s.structure_score || 0,
+    Relevance: s.relevance_score || 0,
+    Grammar:   s.grammar_score   || 0,
+  };
+
+  document.getElementById('content').innerHTML = `
+
+    <!-- Hero -->
+    <div class="hero fade-in">
+      <div class="hero-glow" style="background:radial-gradient(circle, ${label.color}30 0%, transparent 65%);"></div>
+      <div class="hero-body">
+        <div class="hero-eyebrow">${esc(s.profession)} · ${cap(s.interview_type.replace('_',' '))} Interview</div>
+        <div class="hero-name">${esc(r.user.name)}<span>'s</span> Performance Report</div>
+
+        <div class="hero-score-row">
+          <!-- SVG ring score — upgraded size -->
+          <div class="score-ring" style="width:130px;height:130px;">
+            <svg viewBox="0 0 130 130" style="width:130px;height:130px;">
+              <circle class="score-ring-bg"   cx="65" cy="65" r="54"/>
+              <circle class="score-ring-fill" cx="65" cy="65" r="54"
+                id="ring-fill"
+                stroke="${label.color}"
+                stroke-dasharray="339"
+                stroke-dashoffset="${Math.round(339 - (jr / 100) * 339)}"/>
+            </svg>
+            <div class="score-ring-text">
+              <div class="score-big" style="color:${label.color};font-size:34px;text-shadow:0 0 20px ${label.color}60;">${jr}</div>
+              <div class="score-unit">/ 100</div>
+            </div>
+          </div>
+
+          <!-- Readiness block with story headline + percentile -->
+          <div class="readiness-block">
+            <div class="readiness-badge" style="color:${label.color};border-color:${label.color};background:${label.color}18;">
+              <i class="ti ${label.icon}"></i> ${label.text}
+            </div>
+            <div class="readiness-headline">You are ${jr}% job-ready for ${esc(s.profession)} roles</div>
+            <div class="readiness-sub">${label.message}</div>
+            <div class="readiness-percentile"><i class="ti ti-trophy"></i> ${jr >= 85 ? 'Top 5%' : jr >= 75 ? 'Top 18%' : jr >= 65 ? 'Top 35%' : jr >= 55 ? 'Top 52%' : 'Keep practicing'} of candidates</div>
+          </div>
+        </div>
+
+        <!-- Meta pills -->
+        <div class="hero-meta">
+          <span class="meta-pill"><i class="ti ti-calendar"></i> ${date}</span>
+          <span class="meta-pill"><i class="ti ti-device-laptop"></i> ${cap(s.mode)} mode</span>
+          <span class="meta-pill"><i class="ti ti-trending-up"></i> ${cap(s.difficulty)}</span>
+          <span class="meta-pill"><i class="ti ti-help-circle"></i> ${s.exchanges} questions</span>
+          <span class="meta-pill"><i class="ti ti-clock"></i> ${fmtDuration(s.duration_secs)}</span>
+          <span class="meta-pill" style="background:${label.color}15;border-color:${label.color}40;color:${label.color};">
+            <i class="ti ti-rosette"></i> ${rawPct}% raw score
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Brag / share card -->
+    <div class="brag-card fade-in" style="animation-delay:.05s;">
+      <div class="brag-quote">🏆 "I just scored <span>${jr}/100</span> on my ${esc(s.profession)} interview — and I know exactly what to improve next."</div>
+      <div class="brag-sub">Share your achievement and inspire others to level up their interview game</div>
+      <div class="brag-share-row">
+        <button class="btn btn-wa" onclick="shareWhatsApp()"><i class="ti ti-brand-whatsapp"></i> Share on WhatsApp</button>
+        <button class="btn btn-li" onclick="shareLinkedIn()"><i class="ti ti-brand-linkedin"></i> Post on LinkedIn</button>
+        <button class="btn btn-copy" onclick="copyLink()"><i class="ti ti-link"></i> Copy link</button>
+      </div>
+    </div>
+
+    <!-- Score breakdown bars -->
+    <div class="section fade-in" style="animation-delay:.1s;">
+      <div class="section-label">Score Breakdown</div>
+      <div class="breakdown-panel">
+        ${Object.entries(dims).map(([name, val]) => dimRow(name, val)).join('')}
+      </div>
+    </div>
+
+    <!-- What to work on -->
+    ${r.weak_areas && r.weak_areas.length > 0 ? `
+    <div class="section fade-in" style="animation-delay:.15s;">
+      <div class="section-label">What to Work On</div>
+      <div class="workon-panel">
+        ${r.weak_areas.slice(0, 2).map((wa, i) => workonItem(wa, i)).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Q&A feedback -->
+    ${r.feedback && r.feedback.length > 0 ? `
+    <div class="section fade-in" style="animation-delay:.2s;">
+      <div class="section-label">Question-by-Question Feedback</div>
+      ${r.feedback.map((f, i) => qaCard(f, i)).join('')}
+    </div>` : ''}
+
+    <!-- Footer CTA -->
+    <div class="footer-cta fade-in" style="animation-delay:.25s;">
+      <div class="footer-cta-glow"></div>
+      <h2>Practice beats luck. Every time.</h2>
+      <p>SpeakSmart gives you an AI coach that remembers your weak areas, corrects your English live, and adapts to your level. Free to start.</p>
+      <a href="https://speaksmart.in" class="cta-btn">
+        <i class="ti ti-rocket"></i> Try SpeakSmart Free
+      </a>
+      <div class="footer-tagline">🎙️ speaksmart.in — AI Interview Coach for India</div>
+    </div>
+  `;
+
+  // Store for share fns
+  window._shareUrl      = r.share_url || window.location.href;
+  window._shareText     = `I scored ${jr}/100 on my ${s.profession} interview practice on SpeakSmart AI (${label.text}). Try it free 👇`;
+  window._userName      = r.user?.name || 'A SpeakSmart user';
+  window._jobReadyScore = jr;
+
+  // Animate ring after paint
+  requestAnimationFrame(() => {
+    const el = document.getElementById('ring-fill');
+    if (el) {
+      el.style.transition = 'stroke-dashoffset 1s cubic-bezier(.4,0,.2,1) .3s';
+    }
+  });
+}
+
+// ── Component builders ────────────────────────────────────────────
+
+function dimRow(name, val) {
+  const pct   = Math.min(100, Math.round((val / 10) * 100));
+  const color = val >= 7 ? 'var(--success)' : val >= 5 ? 'var(--warn)' : 'var(--danger)';
+  const txtColor = val >= 7 ? 'var(--success)' : val >= 5 ? 'var(--warn)' : 'var(--danger)';
+  return `
+    <div class="dim-row">
+      <span class="dim-name">${name}</span>
+      <div class="dim-track">
+        <div class="dim-fill" style="width:${pct}%;background:${color};"></div>
+      </div>
+      <span class="dim-val" style="color:${txtColor};">${val.toFixed(1)}</span>
+    </div>`;
+}
+
+function workonItem(wa, i) {
+  const cls    = i === 0 ? 'n1' : 'n2';
+  const sc     = (wa.avg_score || 0);
+  const scColor= sc < 4 ? 'var(--danger)' : sc < 6 ? 'var(--warn)' : 'var(--success)';
+  return `
+    <div class="workon-item">
+      <div class="workon-num ${cls}">${i + 1}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="workon-topic">${esc(wa.topic)}</div>
+        <div class="workon-drill">${esc(wa.drill_prompt || 'Practice more questions in this area.')}</div>
+      </div>
+      <span class="workon-score" style="background:${scColor}18;color:${scColor};">
+        ${sc}/10
+      </span>
+    </div>`;
+}
+
+function qaCard(f, i) {
+  const sc  = f.score ?? 0;
+  const cls = sc >= 7 ? 'good' : sc >= 5 ? 'ok' : 'poor';
+  const errs = Array.isArray(f.corrections) ? f.corrections : [];
+  return `
+    <div class="qa-card">
+      <div class="qa-header">
+        <span class="qa-num">Q${i + 1}</span>
+        <span class="qa-question">${esc(f.question)}</span>
+        <span class="qa-score-pill ${cls}">${sc}/10</span>
+      </div>
+      ${f.answer ? `<div class="qa-answer">${esc(f.answer)}</div>` : ''}
+      ${f.tips   ? `<div class="qa-tip"><i class="ti ti-bulb"></i><span>${esc(f.tips)}</span></div>` : ''}
+      ${errs.length ? `<div class="qa-errors">${errs.slice(0,3).map(e => `<div class="qa-err">⚠ ${esc(String(e))}</div>`).join('')}</div>` : ''}
+    </div>`;
+}
+
+// ── Data helpers ──────────────────────────────────────────────────
+
+function readinessLabel(score) {
+  if (score >= 85) return {
+    text: 'Interview Ready', icon: 'ti-trophy', color: '#34D399',
+    headline: 'You\'re ready for real interviews.',
+    message: 'Strong across all areas. Keep your skills sharp with weekly practice.'
+  };
+  if (score >= 70) return {
+    text: 'Almost There', icon: 'ti-star', color: '#4F8EF7',
+    headline: 'You\'re a strong candidate.',
+    message: 'One or two weak areas holding you back. Target them and you\'re ready.'
+  };
+  if (score >= 55) return {
+    text: 'Improving', icon: 'ti-trending-up', color: '#FBBF24',
+    headline: 'Good progress — keep going.',
+    message: 'Structure and grammar are your next big gains. Practice daily.'
+  };
+  if (score >= 40) return {
+    text: 'Needs Practice', icon: 'ti-target', color: '#F97316',
+    headline: 'Every session moves you forward.',
+    message: 'Focus on shorter, more structured answers first. You\'ll improve fast.'
+  };
+  return {
+    text: 'Getting Started', icon: 'ti-seedling', color: '#F87171',
+    headline: 'Every expert started here.',
+    message: 'Start with HR questions to build confidence before tackling technical ones.'
+  };
+}
+
+function fmtDuration(secs) {
+  if (!secs) return '—';
+  const m = Math.floor(secs / 60), s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+function cap(str) { return str ? str.charAt(0).toUpperCase() + str.slice(1) : ''; }
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Share ─────────────────────────────────────────────────────────
+
+function copyLink() {
+  navigator.clipboard.writeText(window._shareUrl || location.href).then(() => {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  });
+}
+function shareWhatsApp() {
+  const text = encodeURIComponent(
+    `${window._userName || 'Someone'} scored ${window._jobReadyScore}/100 on their AI mock interview on SpeakSmart! Check the full report: ${window._shareUrl || location.href}`
+  );
+  window.open(`https://wa.me/?text=${text}`, '_blank');
+}
+function shareLinkedIn() {
+  window.open(
+    `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window._shareUrl || location.href)}`,
+    '_blank', 'width=600,height=500'
+  );
+}
+
+// ── Error state ───────────────────────────────────────────────────
+
+function showError(title, msg) {
+  document.getElementById('content').innerHTML = `
+    <div class="state-center">
+      <div style="font-size:48px;margin-bottom:1rem;">😕</div>
+      <h2 style="margin-bottom:.5rem;">${esc(title)}</h2>
+      <div style="color:var(--text-2);font-size:14px;margin-bottom:2rem;">${esc(msg)}</div>
+      <a href="https://speaksmart.in" class="cta-btn" style="text-decoration:none;">
+        <i class="ti ti-home"></i> Go to SpeakSmart
+      </a>
+    </div>`;
+}
+</script>
+</body>
+</html>
