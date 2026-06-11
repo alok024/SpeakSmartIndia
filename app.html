@@ -2179,10 +2179,13 @@ function startDemo() {
 // ══════════════════════════════════════════
 async function callAI(systemPrompt, userMsg, messages=null) {
   if (S.isDemo) throw new Error('DEMO_MODE');
-  const body = { messages: messages||[{role:'user',content:userMsg}], max_tokens:1200 };
+  const builtMessages = messages
+  ? (systemPrompt ? [{role:'system',content:systemPrompt}, ...messages] : messages)
+  : [{role:'user',content:userMsg}];
+const body = { messages: builtMessages, max_tokens:1200 };
   const headers = {'Content-Type':'application/json'};
   if (S.authToken) headers['Authorization']=`Bearer ${S.authToken}`;
-  let res,data;
+  let res,data; 
   try {
     res=await fetch(`${BACKEND_URL}/api/ai`,{method:'POST',headers,body:JSON.stringify(body)});
     data=await res.json();
