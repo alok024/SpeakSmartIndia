@@ -1725,6 +1725,8 @@ function setupChips(id, cb) {
 // ══════════════════════════════════════════
 //  SHELL / NAVIGATION
 // ══════════════════════════════════════════
+const PAGE_TITLES = { dashboard:'Dashboard', setup:'New Interview', interview:'Interview', chat:'AI Chat', summary:'Session Report', history:'Past Sessions', profile:'Profile & Plan' };
+
 function showShell() {
   document.getElementById('page-auth').classList.remove('active');
   document.getElementById('page-auth').style.display = 'none';
@@ -1732,8 +1734,6 @@ function showShell() {
   updateSidebarUser();
   navTo('dashboard');
 }
-
-const PAGE_TITLES = { dashboard:'Dashboard', setup:'New Interview', interview:'Interview', chat:'AI Chat', summary:'Session Report', history:'Past Sessions', profile:'Profile & Plan' };
 
 function navTo(page) {
   // Hide all pages
