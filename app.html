@@ -129,7 +129,7 @@
 
     /* Top bar (mobile + desktop) */
     #topbar {
-      position: sticky; top: 3px; z-index: 50;
+      position: sticky; top: 0; z-index: 50;
       background: rgba(14,15,20,.88); backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
       padding: 0 1.5rem; height: 52px;
@@ -532,11 +532,11 @@
     .question-label { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
     .question-text { font-size: 16px; line-height: 1.7; font-weight: 400; }
     .answer-wrap { position: relative; margin-bottom: .875rem; }
-    .answer-area { width: 100%; min-height: 120px; resize: vertical; padding: 13px 48px 13px 14px; font-size: 14px; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
+    .answer-area { width: 100%; min-height: 120px; resize: vertical; padding: 13px 52px 13px 14px; font-size: 14px; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
     .answer-area:focus { outline: none; border-color: var(--accent); background: var(--surface-3); }
     .answer-area:disabled { opacity: .5; }
     .answer-area::placeholder { color: var(--text-3); }
-    .voice-btn { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .voice-btn { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; z-index: 2; }
     .voice-btn:hover { border-color: var(--accent); color: var(--accent); }
     .voice-btn.active { background: var(--danger); border-color: var(--danger); color: white; animation: voicePulse 1s ease infinite; }
     @keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)} 50%{box-shadow:0 0 0 8px rgba(248,113,113,0)} }
@@ -613,7 +613,7 @@
     .pb-hindi     { background: var(--warn-dim);    color: var(--warn); }
     .chat-progress-track { height: 2px; background: var(--surface-3); }
     .chat-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--purple)); transition: width .5s; box-shadow: 0 0 8px var(--accent-glow); }
-    .chat-body { height: 420px; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+    .chat-body { height: clamp(220px, 40vh, 420px); overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
     .chat-body::-webkit-scrollbar { width: 4px; }
     .chat-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
     .bubble-row { display: flex; gap: 10px; align-items: flex-end; animation: fadeIn .2s ease; }
@@ -726,7 +726,7 @@
     @media (max-width: 768px) {
       #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
       #sidebar.open { transform: translateX(0); }
-      #sidebar-overlay { display: block; display: none; }
+      #sidebar-overlay { display: none; }
       #sidebar-overlay.show { display: block; }
       #main { margin-left: 0; }
       .hamburger { display: flex; }
@@ -734,7 +734,7 @@
       .stats-row { grid-template-columns: 1fr 1fr; }
       .profile-grid { grid-template-columns: 1fr; }
       .mode-grid { grid-template-columns: 1fr; }
-      .chat-body { height: 320px; }
+      .chat-body { height: clamp(220px, 35vh, 320px); }
       .summary-actions { flex-direction: column; }
       .plan-cols { grid-template-columns: 1fr; }
       .plan-col + .plan-col { border-left: none; border-top: 1px solid var(--border); }
@@ -744,6 +744,20 @@
     @media (max-width: 480px) {
       .stats-row { grid-template-columns: 1fr 1fr; }
       .summary-stats-row { grid-template-columns: 1fr 1fr 1fr; }
+      .feedback-text { font-size: 14px; line-height: 1.8; }
+      .answer-area { font-size: 15px; }
+      .question-text { font-size: 17px; }
+      .inner-card { margin: 0; border-radius: 12px; }
+      .interview-body { padding: 1rem; }
+    }
+    @media (max-width: 768px) {
+      .voice-btn { width: 44px; height: 44px; font-size: 18px; }
+      .hint-btn { padding: 8px 16px; font-size: 13px; }
+    }
+    @media (max-width: 768px) {
+      body.interview-active #topbar { display: none; }
+      body.interview-active .page { padding: 0; }
+      body.interview-active .inner-card { border-radius: 0; min-height: 100dvh; }
     }
 
 
@@ -1071,7 +1085,7 @@
         <div class="stat-card">
           <div class="stat-card-label">AI Sessions</div>
           <div class="stat-card-value" id="d-calls" style="color:var(--purple)">0</div>
-          <div class="stat-card-sub" id="d-calls-sub">of 30 free used</div>
+          <div class="stat-card-sub" id="d-calls-sub">of 7 free used</div>
         </div>
       </div>
 
@@ -1498,7 +1512,7 @@
           <div class="plan-col current" id="plan-col-free">
             <div class="plan-col-name">Free <span style="font-size:10px;background:var(--accent-dim);color:var(--accent);padding:2px 7px;border-radius:4px;margin-left:4px">Current</span></div>
             <div class="plan-col-price">₹0 <span>/ forever</span></div>
-            <div class="plan-feature"><i class="ti ti-check yes"></i>30 AI sessions / month</div>
+            <div class="plan-feature"><i class="ti ti-check yes"></i>7 AI sessions / month</div>
             <div class="plan-feature"><i class="ti ti-check yes"></i>All professions</div>
             <div class="plan-feature"><i class="ti ti-check yes"></i>English corrections</div>
             <div class="plan-feature"><i class="ti ti-check yes"></i>Score & feedback</div>
@@ -1627,7 +1641,7 @@
     <h2>Upgrade to Pro</h2>
     <div class="usage-display">
       <div class="used" id="modal-calls-used">0</div>
-      <div class="total">of 30 free sessions used</div>
+      <div class="total">of 7 free sessions used</div>
     </div>
     <p>Upgrade for <strong>unlimited AI interviews</strong> and unlock your full potential.</p>
     <div class="upgrade-features">
@@ -1652,11 +1666,21 @@
 //  CONFIG
 // ══════════════════════════════════════════
 const BACKEND_URL = 'https://speaksmartindia-production.up.railway.app';
-const FREE_LIMIT  = 30;
+const FREE_LIMIT  = 7;
 
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
+// ── Toast notifications (replaces alert()) ────────────────────────
+function toast(msg, type='info') {
+  const t = document.createElement('div');
+  const color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--green)' : 'var(--accent)';
+  t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid ${color};padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;max-width:90vw;text-align:center;animation:fadeIn .2s ease;color:var(--text-1);font-family:var(--font)`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
 let S = {
   authToken: localStorage.getItem('ss_token') || null,
   user:      JSON.parse(localStorage.getItem('ss_user') || 'null'),
@@ -1745,6 +1769,8 @@ function navTo(page) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navEl = document.getElementById('nav-' + page);
   if (navEl) navEl.classList.add('active');
+  // Toggle full-screen interview mode on mobile
+  document.body.classList.toggle('interview-active', page === 'interview' || page === 'chat');
   // Update topbar title
   document.getElementById('topbar-title').textContent = PAGE_TITLES[page] || page;
   // Close sidebar on mobile
@@ -1843,7 +1869,8 @@ function logout() {
   document.getElementById('shell').style.display='none';
   document.getElementById('page-auth').style.display='flex';
   document.getElementById('page-auth').classList.add('active');
-  switchAuthTab('login');
+  const autoTab = new URLSearchParams(location.search).get('signup') ? 'signup' : 'login';
+  switchAuthTab(autoTab);
 }
 
 async function refreshUserData() {
@@ -2599,7 +2626,7 @@ function toggleVoice(targetId,btnId) {
 //  DOWNLOAD REPORT
 // ══════════════════════════════════════════
 async function shareReport(){
-  if (!S.lastSessionId) { alert('No session to share yet. Complete an interview first.'); return; }
+  if (!S.lastSessionId) { toast('No session to share yet. Complete an interview first.', 'error'); return; }
   const btn = document.getElementById('share-report-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Getting link…'; }
   try {
@@ -2613,7 +2640,7 @@ async function shareReport(){
     if (btn) { btn.textContent = '✅ Link copied!'; setTimeout(() => { btn.disabled=false; btn.textContent='🔗 Share Report'; }, 2500); }
   } catch(e) {
     if (btn) { btn.disabled=false; btn.textContent='🔗 Share Report'; }
-    alert('Could not generate share link: '+e.message);
+    toast('Could not generate share link: '+e.message, 'error');
   }
 }
 
@@ -2643,7 +2670,7 @@ function closeUpgradeModal(){document.getElementById('upgrade-modal').classList.
 
 async function handleUpgradeClick(plan){
   plan = plan || 'pro';
-  if(!S.authToken||!S.user){alert('Please sign in first.');closeUpgradeModal();return;}
+  if(!S.authToken||!S.user){toast('Please sign in first.','error');closeUpgradeModal();return;}
   const btn=event?.target?.closest('button')||document.querySelector('.upgrade-btn');
   btn.disabled=true;
   const origHtml=btn.innerHTML;
@@ -2658,13 +2685,13 @@ async function handleUpgradeClick(plan){
         const{ok:vok,data:vdata}=await apiCall('/payment/verify','POST',{razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature});
         if(!vok) throw new Error(vdata.error||'Verification failed');
         S.authToken=vdata.token;S.user.plan='pro';localStorage.setItem('ss_token',vdata.token);localStorage.setItem('ss_user',JSON.stringify(S.user));
-        updateSidebarUser();closeUpgradeModal();alert('🎉 Welcome to Pro! You now have unlimited AI interviews.');loadDashboard();
-      }catch(e){alert('Payment received but verification failed. Please contact support with payment ID: '+response.razorpay_payment_id);}
+        updateSidebarUser();closeUpgradeModal();toast('🎉 Welcome to Pro! You now have unlimited AI interviews.','success');loadDashboard();
+      }catch(e){toast('Payment received but verification failed. Please contact support with payment ID: '+response.razorpay_payment_id,'error');}
     },
     modal:{ondismiss:()=>{btn.disabled=false;btn.innerHTML=origHtml;}}};
     if(!window.Razorpay){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://checkout.razorpay.com/v1/checkout.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     new window.Razorpay(options).open();
-  } catch(e){alert('Could not start payment: '+e.message);btn.disabled=false;btn.innerHTML='<i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month';}
+  } catch(e){toast('Could not start payment: '+e.message,'error');btn.disabled=false;btn.innerHTML='<i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month';}
 }
 
 // ══════════════════════════════════════════
@@ -3002,7 +3029,7 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
         nudge.style.display  = 'block';
       } else if (remaining <= 8 && remaining > 0 && headline && subtext) {
         headline.textContent = `⚡ Only ${remaining} free sessions left`;
-        subtext.textContent  = `You've used ${calls} of 30 free sessions. Upgrade to keep practicing.`;
+        subtext.textContent  = `You've used ${calls} of 7 free sessions. Upgrade to keep practicing.`;
         nudge.style.display  = 'block';
       } else if (remaining <= 0 && headline && subtext) {
         headline.textContent = `You've used all 30 free sessions`;
