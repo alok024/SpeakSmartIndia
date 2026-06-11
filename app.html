@@ -129,7 +129,7 @@
 
     /* Top bar (mobile + desktop) */
     #topbar {
-      position: sticky; top: 0; z-index: 50;
+      position: sticky; top: 3px; z-index: 50;
       background: rgba(14,15,20,.88); backdrop-filter: blur(14px);
       border-bottom: 1px solid var(--border);
       padding: 0 1.5rem; height: 52px;
@@ -532,11 +532,11 @@
     .question-label { font-size: 10px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 8px; }
     .question-text { font-size: 16px; line-height: 1.7; font-weight: 400; }
     .answer-wrap { position: relative; margin-bottom: .875rem; }
-    .answer-area { width: 100%; min-height: 120px; resize: vertical; padding: 13px 52px 13px 14px; font-size: 14px; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
+    .answer-area { width: 100%; min-height: 120px; resize: vertical; padding: 13px 48px 13px 14px; font-size: 14px; line-height: 1.7; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md); color: var(--text-1); font-family: var(--font); transition: border-color .15s; }
     .answer-area:focus { outline: none; border-color: var(--accent); background: var(--surface-3); }
     .answer-area:disabled { opacity: .5; }
     .answer-area::placeholder { color: var(--text-3); }
-    .voice-btn { position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; z-index: 2; }
+    .voice-btn { position: absolute; top: 12px; right: 12px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-3); border: 1px solid var(--border); color: var(--text-2); font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
     .voice-btn:hover { border-color: var(--accent); color: var(--accent); }
     .voice-btn.active { background: var(--danger); border-color: var(--danger); color: white; animation: voicePulse 1s ease infinite; }
     @keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.5)} 50%{box-shadow:0 0 0 8px rgba(248,113,113,0)} }
@@ -613,7 +613,7 @@
     .pb-hindi     { background: var(--warn-dim);    color: var(--warn); }
     .chat-progress-track { height: 2px; background: var(--surface-3); }
     .chat-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--purple)); transition: width .5s; box-shadow: 0 0 8px var(--accent-glow); }
-    .chat-body { height: clamp(220px, 40vh, 420px); overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
+    .chat-body { height: 420px; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; scroll-behavior: smooth; }
     .chat-body::-webkit-scrollbar { width: 4px; }
     .chat-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
     .bubble-row { display: flex; gap: 10px; align-items: flex-end; animation: fadeIn .2s ease; }
@@ -726,7 +726,7 @@
     @media (max-width: 768px) {
       #sidebar { transform: translateX(calc(-1 * var(--sidebar-w))); }
       #sidebar.open { transform: translateX(0); }
-      #sidebar-overlay { display: none; }
+      #sidebar-overlay { display: block; display: none; }
       #sidebar-overlay.show { display: block; }
       #main { margin-left: 0; }
       .hamburger { display: flex; }
@@ -734,7 +734,7 @@
       .stats-row { grid-template-columns: 1fr 1fr; }
       .profile-grid { grid-template-columns: 1fr; }
       .mode-grid { grid-template-columns: 1fr; }
-      .chat-body { height: clamp(220px, 35vh, 320px); }
+      .chat-body { height: 320px; }
       .summary-actions { flex-direction: column; }
       .plan-cols { grid-template-columns: 1fr; }
       .plan-col + .plan-col { border-left: none; border-top: 1px solid var(--border); }
@@ -744,20 +744,6 @@
     @media (max-width: 480px) {
       .stats-row { grid-template-columns: 1fr 1fr; }
       .summary-stats-row { grid-template-columns: 1fr 1fr 1fr; }
-      .feedback-text { font-size: 14px; line-height: 1.8; }
-      .answer-area { font-size: 15px; }
-      .question-text { font-size: 17px; }
-      .inner-card { margin: 0; border-radius: 12px; }
-      .interview-body { padding: 1rem; }
-    }
-    @media (max-width: 768px) {
-      .voice-btn { width: 44px; height: 44px; font-size: 18px; }
-      .hint-btn { padding: 8px 16px; font-size: 13px; }
-    }
-    @media (max-width: 768px) {
-      body.interview-active #topbar { display: none; }
-      body.interview-active .page { padding: 0; }
-      body.interview-active .inner-card { border-radius: 0; min-height: 100dvh; }
     }
 
 
@@ -1093,13 +1079,13 @@
       <div class="usage-card" id="dash-usage-card">
         <div class="usage-card-top">
           <span class="usage-card-label">AI Sessions Used</span>
-          <span class="usage-card-count" id="dash-usage-count">0 / 30</span>
+          <span class="usage-card-count" id="dash-usage-count">0 / 5</span>
         </div>
         <div class="usage-bar-track">
           <div class="usage-bar-fill ok" id="dash-usage-fill" style="width:0%"></div>
         </div>
         <div class="usage-card-sub">
-          <span id="dash-usage-msg">30 sessions free. </span>
+          <span id="dash-usage-msg">7 sessions free. </span>
           <a onclick="showUpgradeModal()">Upgrade to Pro for unlimited →</a>
         </div>
       </div>
@@ -1501,7 +1487,7 @@
           <div class="info-row"><span class="label">Streak</span><span class="val" id="pf-streak">0 days 🔥</span></div>
           <div class="info-row"><span class="label">Sessions</span><span class="val" id="pf-sessions">0</span></div>
           <div class="info-row"><span class="label">Best score</span><span class="val" id="pf-best">—</span></div>
-          <div class="info-row"><span class="label">AI sessions used</span><span class="val" id="pf-calls">0 / 30</span></div>
+          <div class="info-row"><span class="label">AI sessions used</span><span class="val" id="pf-calls">0 / 5</span></div>
         </div>
       </div>
 
@@ -1643,6 +1629,7 @@
       <div class="used" id="modal-calls-used">0</div>
       <div class="total">of 7 free sessions used</div>
     </div>
+    <p id="upgrade-modal-reason" style="display:none;font-size:13px;color:var(--accent);background:var(--accent-dim);padding:8px 12px;border-radius:var(--r-sm);margin-bottom:12px;"></p>
     <p>Upgrade for <strong>unlimited AI interviews</strong> and unlock your full potential.</p>
     <div class="upgrade-features">
       <div class="upgrade-feature"><i class="ti ti-infinity"></i> Unlimited AI interview sessions</div>
@@ -1651,8 +1638,8 @@
       <div class="upgrade-feature"><i class="ti ti-bolt"></i> Priority AI response speed</div>
     </div>
     <div style="display:flex;gap:10px;flex-direction:column;">
-      <button class="upgrade-btn" onclick="handleUpgradeClick('pro')"><i class="ti ti-crown"></i> Pro — ₹299/month · Unlimited sessions + AI Chat</button>
-      <button class="upgrade-btn" style="background:linear-gradient(135deg,var(--purple),var(--accent));" onclick="handleUpgradeClick('elite')"><i class="ti ti-diamond"></i> Elite — ₹599/month · Everything + Priority AI</button>
+      <button class="upgrade-btn" onclick="handleUpgradeClick('pro', this)"><i class="ti ti-crown"></i> Pro — ₹299/month · Unlimited sessions + AI Chat</button>
+      <button class="upgrade-btn" style="background:linear-gradient(135deg,var(--purple),var(--accent));" onclick="handleUpgradeClick('elite', this)"><i class="ti ti-diamond"></i> Elite — ₹599/month · Everything + Priority AI</button>
     </div>
     <br><button class="upgrade-dismiss" onclick="closeUpgradeModal()">Maybe later</button>
   </div>
@@ -1671,16 +1658,6 @@ const FREE_LIMIT  = 7;
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
-// ── Toast notifications (replaces alert()) ────────────────────────
-function toast(msg, type='info') {
-  const t = document.createElement('div');
-  const color = type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--green)' : 'var(--accent)';
-  t.style.cssText = `position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--surface-3);border:1px solid ${color};padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;max-width:90vw;text-align:center;animation:fadeIn .2s ease;color:var(--text-1);font-family:var(--font)`;
-  t.textContent = msg;
-  document.body.appendChild(t);
-  setTimeout(() => t.remove(), 3500);
-}
-
 let S = {
   authToken: localStorage.getItem('ss_token') || null,
   user:      JSON.parse(localStorage.getItem('ss_user') || 'null'),
@@ -1769,8 +1746,6 @@ function navTo(page) {
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const navEl = document.getElementById('nav-' + page);
   if (navEl) navEl.classList.add('active');
-  // Toggle full-screen interview mode on mobile
-  document.body.classList.toggle('interview-active', page === 'interview' || page === 'chat');
   // Update topbar title
   document.getElementById('topbar-title').textContent = PAGE_TITLES[page] || page;
   // Close sidebar on mobile
@@ -1779,6 +1754,18 @@ function navTo(page) {
   if (page === 'dashboard') loadDashboard();
   if (page === 'history')   loadHistoryPage();
   if (page === 'profile')   loadProfilePage();
+  // Reset setup page state so a new session can always be started
+  if (page === 'setup') {
+    const startBtn = document.getElementById('start-btn');
+    if (startBtn) startBtn.disabled = false;
+    // Clear leftover session state so chips/profession carry over but interview is fresh
+    S.questions = []; S.currentQ = 0; S.allFeedbacks = []; S.allErrors = [];
+    S.chatHistory = []; S.chatExchanges = 0; S.chatErrors = [];
+    S.timerInterval && clearInterval(S.timerInterval);
+    S.timerInterval = null; S.timerRemaining = 0;
+    const setupErr = document.getElementById('setup-error');
+    if (setupErr) setupErr.style.display = 'none';
+  }
   window.scrollTo(0,0);
 }
 
@@ -1869,8 +1856,7 @@ function logout() {
   document.getElementById('shell').style.display='none';
   document.getElementById('page-auth').style.display='flex';
   document.getElementById('page-auth').classList.add('active');
-  const autoTab = new URLSearchParams(location.search).get('signup') ? 'signup' : 'login';
-  switchAuthTab(autoTab);
+  switchAuthTab('login');
 }
 
 async function refreshUserData() {
@@ -1878,7 +1864,9 @@ async function refreshUserData() {
   try {
     const {ok,data}=await apiCall('/me');
     if (ok && data.user) {
-      S.user=data.user; localStorage.setItem('ss_user',JSON.stringify(data.user));
+      // Merge usage into user object so S.user.ai_calls is always available
+      const mergedUser = { ...data.user, ai_calls: data.usage?.ai_calls ?? data.user.ai_calls ?? 0 };
+      S.user = mergedUser; localStorage.setItem('ss_user', JSON.stringify(mergedUser));
       updateSidebarUser();
       if (data.stats) {
         localStorage.setItem('ss_streak', data.stats.streak||0);
@@ -1905,7 +1893,7 @@ function updateSidebarUser() {
   const name = S.user.name || S.user.email.split('@')[0];
   document.getElementById('sidebar-av').textContent   = name[0].toUpperCase();
   document.getElementById('sidebar-name').textContent = name;
-  document.getElementById('sidebar-plan').textContent = S.user.plan==='pro' ? '✦ Pro plan' : 'Free plan';
+  document.getElementById('sidebar-plan').textContent = S.user.plan==='elite' ? '◈ Elite plan' : S.user.plan==='pro' ? '✦ Pro plan' : 'Free plan';
 }
 
 // ══════════════════════════════════════════
@@ -1922,7 +1910,7 @@ async function loadDashboard() {
   try {
     const {ok,data} = await apiCall('/me');
     if (!ok) return;
-    const calls = data.user.ai_calls||0;
+    const calls = data.usage?.ai_calls ?? data.user?.ai_calls ?? 0;
     const stats = data.stats||{};
     const isPro = data.user.plan==='pro' || data.user.plan==='elite';
 
@@ -1958,7 +1946,10 @@ async function loadDashboard() {
       S.allSessions = sdata.sessions;
       renderRecentSessions(sdata.sessions.slice(0,5));
     }
-  } catch {}
+  } catch(e) {
+    const el = document.getElementById("recent-sessions-list");
+    if (el && !el.innerHTML) el.innerHTML = '<div style="color:var(--danger);padding:12px;font-size:13px;">⚠ Could not load dashboard — check your connection and refresh.</div>';
+  }
 }
 
 function renderRecentSessions(sessions) {
@@ -2039,7 +2030,7 @@ async function openSessionDrawer(id) {
   overlay.classList.add('show');
   body.innerHTML = '<div class="drawer-loading"><div class="spinner"></div> Loading session details…</div>';
   try {
-    const {ok,data} = await apiCall('/session/'+id);
+    const {ok,data} = await apiCall('/sessions/'+id);
     if (!ok) { body.innerHTML='<div class="error-box">Could not load session.</div>'; return; }
     const s   = data.session;
     const fbs = data.feedbacks||[];
@@ -2127,7 +2118,7 @@ async function loadProfilePage() {
   try {
     const {ok,data} = await apiCall('/me');
     if (!ok) return;
-    const st = data.stats||{}; const calls = data.user.ai_calls||0;
+    const st = data.stats||{}; const calls = data.usage?.ai_calls ?? data.user?.ai_calls ?? 0;
     document.getElementById('pf-streak').textContent   = (st.streak||0)+' days 🔥';
     document.getElementById('pf-sessions').textContent = st.sessions||0;
     document.getElementById('pf-best').textContent     = st.best_score?st.best_score+'/10':'—';
@@ -2209,7 +2200,7 @@ async function callAI(systemPrompt, userMsg, messages=null) {
   const builtMessages = messages
   ? (systemPrompt ? [{role:'system',content:systemPrompt}, ...messages] : messages)
   : [{role:'user',content:userMsg}];
-const body = { messages: builtMessages, max_tokens:1200 };
+const body = { messages: builtMessages, max_tokens:1200, topic: S.profession || S.interviewType || 'General' };
   const headers = {'Content-Type':'application/json'};
   if (S.authToken) headers['Authorization']=`Bearer ${S.authToken}`;
   let res,data; 
@@ -2271,7 +2262,8 @@ async function startClassicMode() {
   try {
     const hn=S.lang!=='en'?'The candidate may answer in Hindi or Hinglish.':'';
     const raw=await callAI(`Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession}. ${hn} Return ONLY a valid JSON array of strings.`,'Generate.');
-    S.questions=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    S.questions = parseJsonArray(raw);
+    if (!S.questions || !S.questions.length) throw new Error('AI returned invalid question format. Please try again.');
     document.getElementById('loading-questions').style.display='none';
     document.getElementById('question-area').style.display='block';
     showQuestion();
@@ -2280,8 +2272,9 @@ async function startClassicMode() {
     if (e.message!=='LIMIT_REACHED') {
       document.getElementById('question-area').innerHTML=`<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message||'Failed to load questions.')}</div>`;
       document.getElementById('question-area').style.display='block';
+      navTo('setup');
     }
-    document.getElementById('start-btn').disabled=false; navTo('setup');
+    document.getElementById('start-btn').disabled=false;
   }
 }
 
@@ -2315,7 +2308,14 @@ async function submitAnswer() {
 Return ONLY valid JSON:
 {"score":<1-10>,"interview_feedback":"...","english_errors":[{"mistake":"...","correction":"...","explanation":"..."}],"corrected_answer":"...or null","tip":"...","structure":{"type":"STAR|PREP|Direct|Conceptual","score":<1-10>,"present_parts":["..."],"missing_parts":["..."],"fix":"..."},"model_answer":{"good":"...","great":"..."}}`,
 `Profession:${S.profession}\nType:${S.interviewType}\nQuestion:${S.questions[S.currentQ]}\nAnswer:${answer}`);
-    const fb=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    let fb;
+    try {
+      const cleaned = raw.replace(/```json|```/g,'').trim();
+      const start = cleaned.indexOf('{'); const end = cleaned.lastIndexOf('}');
+      fb = JSON.parse(start !== -1 && end > start ? cleaned.slice(start, end+1) : cleaned);
+    } catch {
+      throw new Error('AI returned an unreadable response. Please try submitting again.');
+    }
     S.allFeedbacks.push({q:S.questions[S.currentQ],answer,...fb});
     if(fb.english_errors) S.allErrors.push(...fb.english_errors);
     document.getElementById('loading-feedback').style.display='none'; renderClassicFeedback(fb);
@@ -2451,7 +2451,14 @@ async function showChatSummary() {
     const raw=await callAI(`Evaluate this full interview. Return ONLY valid JSON:
 {"score":<1-10>,"biggest_strength":"...","biggest_weakness":"...","pattern":"...","final_advice":"...","model_closing_line":"..."}`,
 `Profession:${S.profession}\n\nTranscript:\n${transcript}`);
-    const ev=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    let ev;
+    try {
+      const cleaned = raw.replace(/```json|```/g,'').trim();
+      const start = cleaned.indexOf('{'); const end = cleaned.lastIndexOf('}');
+      ev = JSON.parse(start !== -1 && end > start ? cleaned.slice(start, end+1) : cleaned);
+    } catch {
+      ev = { score: 7 }; // graceful fallback — don't crash the summary page
+    }
     document.getElementById('stat-score').textContent=(ev.score||'—')+'/10';
     if(S.authToken) saveSessionToBackend(ev.score||0,[],S.allErrors);
     const cs=document.getElementById('coach-summary-section');cs.style.display='block';
@@ -2462,15 +2469,45 @@ async function showChatSummary() {
 
 async function saveSessionToBackend(avgScore,feedbacks,errors) {
   try {
-    const result=await apiCall('/sessions','POST',{profession:S.profession,mode:S.mode,interview_type:S.interviewType,difficulty:S.difficulty,personality:S.persona,score:avgScore,exchanges:S.totalQ||S.chatExchanges||0,duration_secs:S.timerSecs?(S.timerSecs-(S.timerRemaining||0)):0,hindi_mode:(S.lang!=='en'),feedbacks:feedbacks||[]});
+    // Normalize feedbacks: ensure english_errors is always an array of objects
+    // (classic mode stores them as objects; chat mode may pass empty array)
+    const normalizedFeedbacks = (feedbacks||[]).map(f => ({
+      ...f,
+      english_errors: Array.isArray(f.english_errors)
+        ? f.english_errors  // already correct shape [{mistake,correction,explanation}]
+        : [],
+      corrections: Array.isArray(f.corrections) ? f.corrections : [],
+    }));
+
+    const payload = {
+      profession:    S.profession,
+      mode:          S.mode,
+      interview_type:S.interviewType,
+      difficulty:    S.difficulty,
+      personality:   S.persona,
+      score:         avgScore || 0,
+      exchanges:     S.totalQ || S.chatExchanges || 0,
+      duration_secs: S.timerSecs ? (S.timerSecs - (S.timerRemaining || 0)) : 0,
+      hindi_mode:    S.lang !== 'en',
+      feedbacks:     normalizedFeedbacks,
+    };
+
+    const result = await apiCall('/sessions','POST', payload);
     if (result.ok && result.data?.session_id) S.lastSessionId = result.data.session_id;
-    if(result.ok&&result.data){
-      localStorage.setItem('ss_streak',result.data.streak||0);
-      localStorage.setItem('ss_best',result.data.best_score||0);
-      // ── Show intelligence delta card ──────────────────────────
+    if (result.ok && result.data) {
+      // Update local user state so dashboard reflects new session count without full reload
+      if (S.user) {
+        S.user = { ...S.user };
+      }
+      localStorage.setItem('ss_streak', result.data.streak || 0);
+      localStorage.setItem('ss_best',   result.data.best_score || 0);
       showSessionDeltaCard(result.data, avgScore);
+    } else if (!result.ok) {
+      console.error('saveSessionToBackend failed:', result.data);
     }
-  } catch {}
+  } catch(e) {
+    console.error('saveSessionToBackend error:', e);
+  }
 }
 
 function showSessionDeltaCard(data, avgScore) {
@@ -2486,7 +2523,7 @@ function showSessionDeltaCard(data, avgScore) {
   const isFirst     = sessions <= 1;
   const isFree      = !S.user || (S.user.plan !== 'pro' && S.user.plan !== 'elite');
   const calls       = S.user?.ai_calls || 0;
-  const remaining   = 30 - (calls + 1);
+  const remaining   = FREE_LIMIT - (calls + 1);
   const prev        = parseInt(localStorage.getItem('ss_prev_jr') || '0');
   const allTimeBest = parseInt(localStorage.getItem('ss_all_time_best') || '0');
   const isBestEver  = jrRounded > allTimeBest && sessions > 1;
@@ -2626,7 +2663,7 @@ function toggleVoice(targetId,btnId) {
 //  DOWNLOAD REPORT
 // ══════════════════════════════════════════
 async function shareReport(){
-  if (!S.lastSessionId) { toast('No session to share yet. Complete an interview first.', 'error'); return; }
+  if (!S.lastSessionId) { alert('No session to share yet. Complete an interview first.'); return; }
   const btn = document.getElementById('share-report-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Getting link…'; }
   try {
@@ -2640,7 +2677,7 @@ async function shareReport(){
     if (btn) { btn.textContent = '✅ Link copied!'; setTimeout(() => { btn.disabled=false; btn.textContent='🔗 Share Report'; }, 2500); }
   } catch(e) {
     if (btn) { btn.disabled=false; btn.textContent='🔗 Share Report'; }
-    toast('Could not generate share link: '+e.message, 'error');
+    alert('Could not generate share link: '+e.message);
   }
 }
 
@@ -2668,10 +2705,10 @@ function showUpgradeModal(reason){
 }
 function closeUpgradeModal(){document.getElementById('upgrade-modal').classList.remove('show');}
 
-async function handleUpgradeClick(plan){
+async function handleUpgradeClick(plan, btnEl){
   plan = plan || 'pro';
-  if(!S.authToken||!S.user){toast('Please sign in first.','error');closeUpgradeModal();return;}
-  const btn=event?.target?.closest('button')||document.querySelector('.upgrade-btn');
+  if(!S.authToken||!S.user){alert('Please sign in first.');closeUpgradeModal();return;}
+  const btn=btnEl||event?.target?.closest('button')||document.querySelector('.upgrade-btn');
   btn.disabled=true;
   const origHtml=btn.innerHTML;
   btn.innerHTML='<div class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px"></div> Creating order…';
@@ -2684,20 +2721,58 @@ async function handleUpgradeClick(plan){
       try{
         const{ok:vok,data:vdata}=await apiCall('/payment/verify','POST',{razorpay_order_id:response.razorpay_order_id,razorpay_payment_id:response.razorpay_payment_id,razorpay_signature:response.razorpay_signature});
         if(!vok) throw new Error(vdata.error||'Verification failed');
-        S.authToken=vdata.token;S.user.plan='pro';localStorage.setItem('ss_token',vdata.token);localStorage.setItem('ss_user',JSON.stringify(S.user));
-        updateSidebarUser();closeUpgradeModal();toast('🎉 Welcome to Pro! You now have unlimited AI interviews.','success');loadDashboard();
-      }catch(e){toast('Payment received but verification failed. Please contact support with payment ID: '+response.razorpay_payment_id,'error');}
+        S.authToken=vdata.token;
+        const upgradedPlan = vdata.plan || plan;
+        S.user = { ...S.user, plan: upgradedPlan };
+        localStorage.setItem('ss_token', vdata.token);
+        localStorage.setItem('ss_user', JSON.stringify(S.user));
+        const planLabel = upgradedPlan === 'elite' ? 'Elite' : 'Pro';
+        updateSidebarUser();
+        closeUpgradeModal();
+        alert(`🎉 Welcome to ${planLabel}! You now have unlimited AI interviews.`);
+        await refreshUserData();
+        loadDashboard();
+      }catch(e){alert('Payment received but verification failed. Please contact support with payment ID: '+response.razorpay_payment_id);}
     },
     modal:{ondismiss:()=>{btn.disabled=false;btn.innerHTML=origHtml;}}};
     if(!window.Razorpay){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://checkout.razorpay.com/v1/checkout.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
     new window.Razorpay(options).open();
-  } catch(e){toast('Could not start payment: '+e.message,'error');btn.disabled=false;btn.innerHTML='<i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month';}
+  } catch(e){alert('Could not start payment: '+e.message);btn.disabled=false;btn.innerHTML='<i class="ti ti-crown"></i> Upgrade to Pro — ₹299/month';}
 }
 
 // ══════════════════════════════════════════
 //  UTILS
 // ══════════════════════════════════════════
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/**
+ * Robustly parse a JSON array from an AI response.
+ * Handles: fenced code blocks, extra text before/after, numbered lists.
+ */
+function parseJsonArray(raw) {
+  if (!raw) return [];
+  // Strategy 1: strip markdown fences and try direct parse
+  try {
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    const arr = JSON.parse(cleaned);
+    if (Array.isArray(arr)) return arr;
+  } catch {}
+  // Strategy 2: find first '[' to last ']' and parse that slice
+  try {
+    const start = raw.indexOf('[');
+    const end   = raw.lastIndexOf(']');
+    if (start !== -1 && end > start) {
+      const arr = JSON.parse(raw.slice(start, end + 1));
+      if (Array.isArray(arr)) return arr;
+    }
+  } catch {}
+  // Strategy 3: fallback — parse numbered or bulleted list lines
+  const lines = raw.split('\n')
+    .map(l => l.replace(/^[\d]+\.\s*|^[-*•]\s*/,'').replace(/^["']|["']$/g,'').trim())
+    .filter(l => l.length > 10);
+  if (lines.length >= 2) return lines;
+  return [];
+}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 </script>
 
@@ -2905,8 +2980,6 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
   </script>
-
-  </script>
   <script>
   // ══════════════════════════════════════════
   //  PATCH navTo — add referral page support
@@ -3019,7 +3092,7 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
       const improvePct = earlierAvg > 0 ? Math.round(((recentAvg - earlierAvg) / earlierAvg) * 100) : 0;
 
       const calls     = S.user.ai_calls || 0;
-      const remaining = 30 - calls;
+      const remaining = FREE_LIMIT - calls;
       const headline  = document.getElementById('nudge-headline');
       const subtext   = document.getElementById('nudge-subtext');
 
@@ -3029,10 +3102,10 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
         nudge.style.display  = 'block';
       } else if (remaining <= 8 && remaining > 0 && headline && subtext) {
         headline.textContent = `⚡ Only ${remaining} free sessions left`;
-        subtext.textContent  = `You've used ${calls} of 7 free sessions. Upgrade to keep practicing.`;
+        subtext.textContent  = `You've used ${calls} of ${FREE_LIMIT} free sessions. Upgrade to keep practicing.`;
         nudge.style.display  = 'block';
       } else if (remaining <= 0 && headline && subtext) {
-        headline.textContent = `You've used all 30 free sessions`;
+        headline.textContent = `You've used all ${FREE_LIMIT} free sessions`;
         subtext.textContent  = `Upgrade to Pro for unlimited AI interviews and full analytics.`;
         nudge.style.display  = 'block';
       }
@@ -3055,4 +3128,3 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
   </script>
 </body>
 </html>
-

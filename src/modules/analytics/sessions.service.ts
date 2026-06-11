@@ -17,6 +17,7 @@ import {
   dispatchPersistMistakes,
   dispatchRecomputeWeakAreas,
 } from '../../infra/queue/dispatcher';
+import { maybeRewardReferrer } from '../growth/referral.service';
 
 const log = logger.child({ module: 'sessions' });
 
@@ -155,6 +156,13 @@ export async function saveSession(input: SaveSessionInput): Promise<SaveSessionR
     avg_job_ready_score:       newAvgJR,
     total_sessions_with_score: newCount,
   });
+
+  // 5. Reward referrer if this is the user's first session (non-fatal)
+  if (newSessions === 1) {
+    maybeRewardReferrer(userId).catch(err =>
+      log.warn('maybeRewardReferrer failed (non-fatal)', { error: err })
+    );
+  }
 
   // 5. Score history for graph (non-fatal)
   db.addScoreHistory({

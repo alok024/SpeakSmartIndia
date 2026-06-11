@@ -226,11 +226,22 @@ export const db = {
     }
   },
 
-  async incrementUsage(userId: string, currentCount: number): Promise<void> {
-    await sb(`/usage?user_id=eq.${userId}`, 'PATCH', {
-      call_count: currentCount + 1,
-      updated_at: new Date().toISOString(),
-    });
+  /**
+   * Atomically increments usage via a Supabase RPC to avoid the
+   * read-then-write race condition where two concurrent requests
+   * both read the same call_count and both write callCount+1.
+   *
+   * Requires this function in Supabase SQL:
+   *   CREATE OR REPLACE FUNCTION increment_usage(p_user_id uuid)
+   *   RETURNS void LANGUAGE sql AS $$
+   *     INSERT INTO usage (user_id, call_count, updated_at)
+   *     VALUES (p_user_id, 1, now())
+   *     ON CONFLICT (user_id)
+   *     DO UPDATE SET call_count = usage.call_count + 1, updated_at = now();
+   *   $$;
+   */
+  async incrementUsage(userId: string): Promise<void> {
+    await sb('/rpc/increment_usage', 'POST', { p_user_id: userId });
   },
 
   async resetUsage(userId: string): Promise<void> {

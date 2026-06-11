@@ -192,7 +192,15 @@ async function onSubscriptionCancelled(event: RazorpayWebhookEvent): Promise<voi
   const sub = event.payload?.subscription?.entity;
   if (!sub) return;
 
-  const existing = await db.getActiveSubscription(sub.id);
+  // sub.id is a Razorpay subscription ID (e.g. "sub_XXXXX"), NOT a user_id.
+  // Use the user_id stored in the subscription notes instead.
+  const userId = sub.notes?.user_id;
+  if (!userId) {
+    paymentLogger.error('Webhook: subscription.cancelled missing user_id in notes', { subId: sub.id });
+    return;
+  }
+
+  const existing = await db.getActiveSubscription(userId);
   if (!existing) return;
 
   await db.updateSubscription(existing.id!, { status: 'cancelled' });
@@ -239,10 +247,17 @@ interface RazorpayPaymentEntity {
   };
 }
 
+interface RazorpaySubscriptionEntity {
+  id: string;
+  notes?: {
+    user_id?: string;
+  };
+}
+
 interface RazorpayWebhookEvent {
   event: string;
   payload: {
     payment?:      { entity: RazorpayPaymentEntity };
-    subscription?: { entity: { id: string } };
+    subscription?: { entity: RazorpaySubscriptionEntity };
   };
 }

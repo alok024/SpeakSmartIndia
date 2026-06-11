@@ -141,7 +141,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // ── 5. Increment usage ─────────────────────────────────────────
-  await db.incrementUsage(user.id, callCount);
+  await db.incrementUsage(user.id);
 
   aiLogger.debug('AI call completed', {
     userId:    user.id,

@@ -68,7 +68,7 @@ export type PlanType = 'free' | 'pro' | 'elite';
 
 /** -1 = unlimited */
 export const PLAN_LIMITS: Record<PlanType, { ai_calls: number }> = {
-  free:  { ai_calls: 30 },
+  free:  { ai_calls: 7 },   // keep in sync with FREE_LIMIT in app.html
   pro:   { ai_calls: -1 },
   elite: { ai_calls: -1 },
 };

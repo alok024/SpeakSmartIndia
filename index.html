@@ -4,6 +4,17 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>SpeakSmart — AI Interview Coach for India</title>
+<meta name="description" content="SpeakSmart is an AI interview coach built for India. Practice with Aria, get live English corrections, Hindi/Hinglish support, and score every answer. 5 free sessions — no card needed." />
+<meta property="og:title" content="SpeakSmart — AI Interview Coach for India" />
+<meta property="og:description" content="Practice job interviews with AI. Live English corrections, Hindi/Hinglish support, scores every answer. 5 free sessions." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://speaksmartindia.in/" />
+<meta property="og:image" content="https://speaksmartindia.in/og-image.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="SpeakSmart — AI Interview Coach for India" />
+<meta name="twitter:description" content="Practice job interviews with AI. Live English corrections, Hindi/Hinglish support, scores every answer." />
+<link rel="icon" type="image/png" href="/favicon.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -719,13 +730,14 @@ nav{
     <span class="logo-text">Speak<span>Smart</span></span>
   </a>
   <div class="nav-links">
-    <button class="nav-link" onclick="scrollTo('how')">How it works</button>
-    <button class="nav-link" onclick="scrollTo('features')">Features</button>
-    <button class="nav-link" onclick="scrollTo('pricing')">Pricing</button>
-    <button class="nav-link" onclick="scrollTo('faq')">FAQ</button>
+    <button class="nav-link" onclick="scrollToSection('how')">How it works</button>
+    <button class="nav-link" onclick="scrollToSection('features')">Features</button>
+    <button class="nav-link" onclick="scrollToSection('pricing')">Pricing</button>
+    <button class="nav-link" onclick="scrollToSection('faq')">FAQ</button>
   </div>
   <div class="nav-right">
-    <button class="nav-cta" onclick="go()">Start for free <i class="ti ti-arrow-right"></i></button>
+    <button class="nav-signin" onclick="window.location.href='app.html'">Sign in</button>
+    <button class="nav-cta" onclick="goApp()">Start for free <i class="ti ti-arrow-right"></i></button>
   </div>
 </nav>
 
@@ -747,10 +759,10 @@ nav{
       SpeakSmart puts you in front of Aria — an AI interviewer who asks real questions, scores every answer, corrects your English in real-time, and tracks your growth session by session. Practice from anywhere. Get job-ready in days.
     </p>
     <div class="cta-row">
-      <button class="btn-primary" onclick="go()">
+      <button class="btn-primary" onclick="goApp()">
         Practice free — no card needed <i class="ti ti-arrow-right"></i>
       </button>
-      <button class="btn-ghost" onclick="scrollTo('how')">
+      <button class="btn-ghost" onclick="scrollToSection('how')">
         <i class="ti ti-play"></i> See how it works
       </button>
     </div>
@@ -797,7 +809,7 @@ nav{
   </div>
   <div class="stat-item">
     <div class="stat-num">3<span>×</span></div>
-    <div class="stat-label">Avg confidence boost reported</div>
+    <div class="stat-label">Interview attempts on avg before joining</div>
   </div>
   <div class="stat-item">
     <div class="stat-num">5</div>
@@ -977,7 +989,7 @@ nav{
       <span class="eyebrow reveal">Professions</span>
       <h2 class="section-title reveal">Built for every<br>Indian career path</h2>
       <p class="section-sub reveal">30+ job categories, each with tailored question banks specific to that field and interview style.</p>
-      <button class="btn-primary reveal" onclick="go()">Start practicing free <i class="ti ti-arrow-right"></i></button>
+      <button class="btn-primary reveal" onclick="goApp()">Start practicing free <i class="ti ti-arrow-right"></i></button>
     </div>
     <div>
       <div class="prof-pills reveal" id="prof-pills">
@@ -1037,13 +1049,13 @@ nav{
 <!-- ═══════════════ TESTIMONIALS ═══════════════ -->
 <section class="section">
   <div style="text-align:center;margin-bottom:3rem">
-    <span class="eyebrow reveal">Early users</span>
-    <h2 class="section-title reveal">Real people. Real results.</h2>
-    <p class="section-sub reveal" style="margin:0 auto;max-width:420px">What users said after using SpeakSmart before their interviews.</p>
+    <span class="eyebrow reveal">Beta Tester Feedback</span>
+    <h2 class="section-title reveal">What early users say.</h2>
+    <p class="section-sub reveal" style="margin:0 auto;max-width:420px">Feedback from beta testers who used SpeakSmart before their interviews.</p>
   </div>
   <div class="testi-grid">
     <div class="testi-card reveal reveal-d1">
-      <div class="testi-outcome"><i class="ti ti-check"></i> Got the offer</div>
+      <div class="testi-outcome"><i class="ti ti-check"></i> Beta tester — got the offer</div>
       <div class="stars">★★★★★</div>
       <div class="testi-text">Practiced 3 sessions before my TCS interview. The English corrections were eye-opening — I didn't realise how many small mistakes I was making. Felt completely different walking in.</div>
       <div class="testi-author">
@@ -1052,7 +1064,7 @@ nav{
       </div>
     </div>
     <div class="testi-card reveal reveal-d2">
-      <div class="testi-outcome"><i class="ti ti-check"></i> Confidence up</div>
+      <div class="testi-outcome"><i class="ti ti-check"></i> Beta tester — confidence up</div>
       <div class="stars">★★★★★</div>
       <div class="testi-text">The Hinglish mode is brilliant. Finally something that feels natural for how we actually speak. Got my Bank PO interview confidence way up — answered questions I'd normally freeze on.</div>
       <div class="testi-author">
@@ -1061,7 +1073,7 @@ nav{
       </div>
     </div>
     <div class="testi-card reveal reveal-d3">
-      <div class="testi-outcome"><i class="ti ti-check"></i> First corporate offer</div>
+      <div class="testi-outcome"><i class="ti ti-check"></i> Beta tester — first corporate offer</div>
       <div class="stars">★★★★★</div>
       <div class="testi-text">I was nervous about my first corporate HR round. After 5 sessions with Aria on strict mode, I knew exactly how to structure my answers. Got the offer. Worth every session.</div>
       <div class="testi-author">
@@ -1103,7 +1115,7 @@ nav{
         <li class="off"><i class="ti ti-minus"></i>Resume-based questions</li>
         <li class="off"><i class="ti ti-minus"></i>Unlimited sessions</li>
       </ul>
-      <button class="price-btn free-btn" onclick="go()">Get started free</button>
+      <button class="price-btn free-btn" onclick="goApp()">Get started free</button>
     </div>
     <!-- PRO -->
     <div class="price-card featured reveal reveal-d2">
@@ -1121,7 +1133,7 @@ nav{
         <li><i class="ti ti-check"></i>Voice mode (coming soon)</li>
         <li class="off"><i class="ti ti-minus"></i>Resume-based questions</li>
       </ul>
-      <button class="price-btn pro-btn" onclick="go()"><i class="ti ti-crown"></i> Upgrade to Pro</button>
+      <button class="price-btn pro-btn" onclick="goApp()"><i class="ti ti-crown"></i> Upgrade to Pro</button>
     </div>
     <!-- ELITE -->
     <div class="price-card elite reveal reveal-d3">
@@ -1139,7 +1151,7 @@ nav{
         <li><i class="ti ti-check"></i>WhatsApp daily practice</li>
         <li><i class="ti ti-check"></i>Priority support</li>
       </ul>
-      <button class="price-btn elite-btn" onclick="go()"><i class="ti ti-bolt"></i> Go Elite</button>
+      <button class="price-btn elite-btn" onclick="goApp()"><i class="ti ti-bolt"></i> Go Elite</button>
     </div>
   </div>
 </section>
@@ -1209,18 +1221,18 @@ nav{
 <div class="footer-cta">
   <h2 class="reveal">Don't walk into your next interview <em>unprepared.</em></h2>
   <p class="reveal">Start with 5 free sessions. No credit card. Your progress saved forever.</p>
-  <button class="btn-primary reveal" onclick="go()">Begin practicing free <i class="ti ti-arrow-right"></i></button>
+  <button class="btn-primary reveal" onclick="goApp()">Begin practicing free <i class="ti ti-arrow-right"></i></button>
 </div>
 
 <!-- ═══════════════ STICKY BAR ═══════════════ -->
 <div class="sticky-bar">
   <div class="sticky-text"><strong>SpeakSmart</strong> — 5 free sessions. No card needed.</div>
-  <button class="btn-primary" style="padding:8px 20px;font-size:13px" onclick="go()">Start free <i class="ti ti-arrow-right"></i></button>
+  <button class="btn-primary" style="padding:8px 20px;font-size:13px" onclick="goApp()">Start free <i class="ti ti-arrow-right"></i></button>
 </div>
 
 <script>
-function go(){window.location.href='app.html?signup=1'}
-function scrollTo(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'})}
+function goApp(){window.location.href='app.html';}
+function scrollToSection(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'})}
 
 // ── Annual toggle ──
 let isAnnual = false;

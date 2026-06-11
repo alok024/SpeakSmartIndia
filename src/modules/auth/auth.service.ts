@@ -6,6 +6,7 @@ import { db } from '../../core/database/client';
 import { authLogger } from '../../infra/logger';
 import type { JWTPayload } from '../../core/middleware';
 import type { RegisterDTO, LoginDTO } from '../../core/utils/schemas';
+import { attributeReferral } from '../growth/referral.service';
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -78,6 +79,11 @@ export async function registerUser(
   ]);
 
   authLogger.info('User registered', { userId: user.id, email: user.email });
+
+  // Attribute referral if a ref code was provided at signup (non-fatal)
+  if (dto.ref) {
+    await attributeReferral(user.id, dto.ref).catch(() => {});
+  }
 
   const tokens = generateTokens(user);
   return {

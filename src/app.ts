@@ -33,15 +33,20 @@ app.use(helmet({
 }));
 
 // ── CORS ──────────────────────────────────────────────────────────
-const ALLOWED_ORIGINS = [
+const PROD_ORIGINS = [
   'https://speaksmart.in',
   'https://www.speaksmart.in',
   'https://speaksmartindia.pages.dev',
   'https://speaksmartindia.vercel.app',
+];
+
+const DEV_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:8080',
   'http://127.0.0.1:5500',
 ];
+
+const ALLOWED_ORIGINS = IS_PROD ? PROD_ORIGINS : [...PROD_ORIGINS, ...DEV_ORIGINS];
 
 app.use(cors({
   origin: (origin, cb) => {

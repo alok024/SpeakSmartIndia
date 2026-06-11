@@ -16,8 +16,9 @@
 
 import { Router }    from 'express';
 import rateLimit     from 'express-rate-limit';
-import { authMiddleware, checkUsageLimit } from '../../core/middleware';
+import { authMiddleware, checkUsageLimit, validate } from '../../core/middleware';
 import { handleAI }  from './ai.controller';
+import { AIRequestSchema } from '../../core/utils/schemas';
 
 const router = Router();
 
@@ -32,6 +33,7 @@ const aiRateLimit = rateLimit({
 router.post('/',
   authMiddleware,
   aiRateLimit,
+  validate(AIRequestSchema),
   checkUsageLimit,
   handleAI
 );

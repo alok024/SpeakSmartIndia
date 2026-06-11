@@ -40,7 +40,22 @@ export const VerifyPaymentSchema = z.object({
   plan:                z.enum(['pro', 'elite']),
 });
 
-// ── Inferred DTO types ────────────────────────────────────────────
+// ── AI ────────────────────────────────────────────────────────────
+
+const AIMessageSchema = z.object({
+  role:    z.enum(['user', 'assistant', 'system']),
+  content: z.string().min(1).max(32_000),
+});
+
+export const AIRequestSchema = z.object({
+  messages:   z.array(AIMessageSchema).min(1).max(100),
+  max_tokens: z.number().int().min(1).max(4096).optional(),
+  topic:      z.string().max(200).optional(),
+});
+
+export type AIRequestDTO = z.infer<typeof AIRequestSchema>;
+
+
 
 export type RegisterDTO = z.infer<typeof RegisterSchema>;
 export type LoginDTO    = z.infer<typeof LoginSchema>;
