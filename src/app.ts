@@ -36,6 +36,7 @@ app.use(helmet({
 const ALLOWED_ORIGINS = [
   'https://speaksmart.in',
   'https://www.speaksmart.in',
+  'https://speaksmartindia.pages.dev',
   'https://speaksmartindia.vercel.app',
   'http://localhost:3000',
   'http://localhost:8080',
