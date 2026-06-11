@@ -2601,7 +2601,7 @@ async function shareReport(){
   if (btn) { btn.disabled = true; btn.textContent = 'Getting link…'; }
   try {
     const token = localStorage.getItem('ss_token');
-    const res = await fetch(API_BASE+'/sessions/'+S.lastSessionId+'/share-token', {
+    const res = await fetch(BACKEND_URL+'/api/sessions/'+S.lastSessionId+'/share-token', {
       headers: { 'Authorization': 'Bearer '+token }
     });
     if (!res.ok) throw new Error('Could not get share link');
