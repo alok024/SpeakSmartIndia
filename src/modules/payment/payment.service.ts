@@ -7,7 +7,13 @@ import { paymentLogger } from '../../infra/logger';
 
 // ── Razorpay instance ─────────────────────────────────────────────
 
-function getRazorpay(): Razorpay {
+function getRazorpay(testMode = false): Razorpay {
+  if (testMode && env.RAZORPAY_TEST_KEY_ID && env.RAZORPAY_TEST_KEY_SECRET) {
+    return new Razorpay({
+      key_id:     env.RAZORPAY_TEST_KEY_ID,
+      key_secret: env.RAZORPAY_TEST_KEY_SECRET,
+    });
+  }
   return new Razorpay({
     key_id:     env.RAZORPAY_KEY_ID,
     key_secret: env.RAZORPAY_KEY_SECRET,
@@ -19,25 +25,27 @@ function getRazorpay(): Razorpay {
 export async function createOrder(
   userId: string,
   email:  string,
-  plan:   'pro' | 'elite'
+  plan:   'pro' | 'elite',
+  testMode = false
 ) {
   const amount = PLAN_PRICES[plan];
+  const useTest = testMode && !!env.RAZORPAY_TEST_KEY_ID;
 
-  const order = await getRazorpay().orders.create({
+  const order = await getRazorpay(useTest).orders.create({
     amount,
     currency: 'INR',
-    notes:    { user_id: userId, email, plan },
+    notes:    { user_id: userId, email, plan, test_mode: useTest ? '1' : '0' },
   });
 
   paymentLogger.info('Razorpay order created', {
-    userId, plan, orderId: order.id, amount,
+    userId, plan, orderId: order.id, amount, testMode: useTest,
   });
 
   return {
     order_id: order.id,
     amount:   order.amount,
     currency: order.currency,
-    key:      env.RAZORPAY_KEY_ID,
+    key:      useTest ? env.RAZORPAY_TEST_KEY_ID : env.RAZORPAY_KEY_ID,
     plan,
   };
 }
@@ -49,11 +57,12 @@ export function verifySignature(
   paymentId: string,
   signature: string
 ): boolean {
-  const expected = crypto
-    .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
-    .update(`${orderId}|${paymentId}`)
-    .digest('hex');
-  return expected === signature;
+  const check = (secret: string) =>
+    crypto.createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex') === signature;
+
+  if (check(env.RAZORPAY_KEY_SECRET)) return true;
+  if (env.RAZORPAY_TEST_KEY_SECRET && check(env.RAZORPAY_TEST_KEY_SECRET)) return true;
+  return false;
 }
 
 // ── Activate subscription ─────────────────────────────────────────
@@ -66,8 +75,7 @@ export async function activateSubscription(
   paymentId: string
 ): Promise<string> {
   const now       = new Date();
-  const expiresAt = new Date(now);
-  expiresAt.setMonth(expiresAt.getMonth() + 1); // 30-day subscription
+  const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // exactly 30 days
 
   const existing = await db.getActiveSubscription(userId);
 
@@ -110,13 +118,15 @@ export async function activateSubscription(
 // Registered in app.ts BEFORE express.json() with raw body parser.
 
 export async function handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
-  // 1. Verify authenticity
-  const expected = crypto
-    .createHmac('sha256', env.RAZORPAY_WEBHOOK_SECRET)
-    .update(rawBody)
-    .digest('hex');
+  // 1. Verify authenticity (try live secret, then test secret if configured)
+  const sign = (secret: string) =>
+    crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
-  if (expected !== signature) {
+  const matchesLive = sign(env.RAZORPAY_WEBHOOK_SECRET) === signature;
+  const matchesTest = !!env.RAZORPAY_TEST_WEBHOOK_SECRET &&
+    sign(env.RAZORPAY_TEST_WEBHOOK_SECRET) === signature;
+
+  if (!matchesLive && !matchesTest) {
     paymentLogger.warn('Webhook signature mismatch — possible spoofing attempt');
     throw Object.assign(new Error('Invalid webhook signature'), { statusCode: 400 });
   }

@@ -7,8 +7,9 @@ import { paymentLogger } from '../../infra/logger';
 export async function createOrder(req: Request, res: Response): Promise<void> {
   const { plan } = req.body as { plan: 'pro' | 'elite' };
   const user = req.user!;
+  const testMode = req.query.mode === 'test';
 
-  const order = await PaymentService.createOrder(user.id, user.email, plan);
+  const order = await PaymentService.createOrder(user.id, user.email, plan, testMode);
   res.json(order);
 }
 

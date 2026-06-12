@@ -39,6 +39,12 @@ export const env = {
   RAZORPAY_KEY_SECRET:     process.env.RAZORPAY_KEY_SECRET!,
   RAZORPAY_WEBHOOK_SECRET: process.env.RAZORPAY_WEBHOOK_SECRET!,
 
+  // Optional — used only when a request explicitly asks for test mode
+  // (?mode=test on create-order). Falls back to live keys if unset.
+  RAZORPAY_TEST_KEY_ID:         process.env.RAZORPAY_TEST_KEY_ID || '',
+  RAZORPAY_TEST_KEY_SECRET:     process.env.RAZORPAY_TEST_KEY_SECRET || '',
+  RAZORPAY_TEST_WEBHOOK_SECRET: process.env.RAZORPAY_TEST_WEBHOOK_SECRET || '',
+
   FRONTEND_URL: process.env.FRONTEND_URL || 'https://speaksmart.in',
 
   RESEND_API_KEY: process.env.RESEND_API_KEY || '',
