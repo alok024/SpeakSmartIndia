@@ -65,25 +65,26 @@ export async function authMiddleware(
 export async function checkUsageLimit(
   req: Request, res: Response, next: NextFunction
 ): Promise<void> {
-  const user  = req.user!;
-  const plan  = user.plan as PlanType;
-  const limit = PLAN_LIMITS[plan]?.ai_calls ?? 30;
-
-  if (limit === -1) {
-    try { req.callCount = (await db.getUsage(user.id))?.call_count ?? 0; } catch { req.callCount = 0; }
-    next(); return;
-  }
+  const user = req.user!;
 
   try {
     const [dbUser, usage] = await Promise.all([db.getUserById(user.id), db.getUsage(user.id)]);
-    const actualPlan  = (dbUser?.plan as PlanType) ?? plan;
-    const actualLimit = PLAN_LIMITS[actualPlan]?.ai_calls ?? 30;
+
+    // Always use the DB plan — JWT plan can be stale after an upgrade
+    const actualPlan  = (dbUser?.plan as PlanType) ?? (user.plan as PlanType);
+    const baseLimit   = PLAN_LIMITS[actualPlan]?.ai_calls ?? 30;
     const callCount   = usage?.call_count ?? 0;
 
-    if (actualLimit !== -1 && callCount >= actualLimit) {
+    // Referral bonus calls are added on top of the base free limit
+    const bonusCalls  = (dbUser as unknown as Record<string, number>)?.referral_bonus ?? 0;
+    const actualLimit = baseLimit === -1 ? -1 : baseLimit + bonusCalls;
+
+    // Free/helper calls (error checks, hints, drills) bypass the limit entirely
+    const isFreeCall = req.body?.free === true;
+    if (!isFreeCall && actualLimit !== -1 && callCount >= actualLimit) {
       res.status(403).json({
         error:      'limit_reached',
-        message:    `You have used all ${actualLimit} AI calls for your ${actualPlan} plan.`,
+        message:    `You have used all ${actualLimit} AI sessions for your ${actualPlan} plan.`,
         calls_used: callCount,
         limit:      actualLimit,
       });

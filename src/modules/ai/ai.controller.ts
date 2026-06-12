@@ -35,9 +35,10 @@ const BASE_SYSTEM_PROMPT =
 
 export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   const user      = req.user!;
-  const callCount = req.callCount ?? 0;
-  const plan      = user.plan as PlanType;
-  const limit     = PLAN_LIMITS[plan]?.ai_calls ?? 30;
+  const callCount  = req.callCount ?? 0;
+  const isFreeCall = req.body?.free === true;
+  const plan       = user.plan as PlanType;
+  const limit      = PLAN_LIMITS[plan]?.ai_calls ?? 30;
 
   const topic = (req.body.topic as string | undefined) ||
                 (req.body.profession as string | undefined) ||
@@ -140,11 +141,14 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // ── 5. Increment usage ─────────────────────────────────────────
-  try {
-    await db.incrementUsage(user.id);
-  } catch (err) {
-    aiLogger.error('incrementUsage failed (non-fatal)', { userId: user.id, error: (err as Error).message });
+  // ── 5. Increment usage (skip for free/helper calls like error-check, hints, drills) ──
+  const isFreeCall = req.body.free === true;
+  if (!isFreeCall) {
+    try {
+      await db.incrementUsage(user.id);
+    } catch (err) {
+      aiLogger.error('incrementUsage failed (non-fatal)', { userId: user.id, error: (err as Error).message });
+    }
   }
 
   aiLogger.debug('AI call completed', {

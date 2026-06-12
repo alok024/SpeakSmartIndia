@@ -1079,7 +1079,7 @@
       <div class="usage-card" id="dash-usage-card">
         <div class="usage-card-top">
           <span class="usage-card-label">AI Sessions Used</span>
-          <span class="usage-card-count" id="dash-usage-count">0 / 5</span>
+          <span class="usage-card-count" id="dash-usage-count">0 / 7</span>
         </div>
         <div class="usage-bar-track">
           <div class="usage-bar-fill ok" id="dash-usage-fill" style="width:0%"></div>
@@ -1487,7 +1487,7 @@
           <div class="info-row"><span class="label">Streak</span><span class="val" id="pf-streak">0 days 🔥</span></div>
           <div class="info-row"><span class="label">Sessions</span><span class="val" id="pf-sessions">0</span></div>
           <div class="info-row"><span class="label">Best score</span><span class="val" id="pf-best">—</span></div>
-          <div class="info-row"><span class="label">AI sessions used</span><span class="val" id="pf-calls">0 / 5</span></div>
+          <div class="info-row"><span class="label">AI sessions used</span><span class="val" id="pf-calls">0 / 7</span></div>
         </div>
       </div>
 
@@ -2209,12 +2209,12 @@ function startDemo() {
 // ══════════════════════════════════════════
 //  AI CALL
 // ══════════════════════════════════════════
-async function callAI(systemPrompt, userMsg, messages=null) {
+async function callAI(systemPrompt, userMsg, messages=null, countUsage=true) {
   if (S.isDemo) throw new Error('DEMO_MODE');
   const builtMessages = messages
   ? (systemPrompt ? [{role:'system',content:systemPrompt}, ...messages] : messages)
   : [{role:'user',content:userMsg}];
-const body = { messages: builtMessages, max_tokens:1200, topic: S.profession || S.interviewType || 'General' };
+const body = { messages: builtMessages, max_tokens:1200, topic: S.profession || S.interviewType || 'General', free: !countUsage };
   const headers = {'Content-Type':'application/json'};
   if (S.authToken) headers['Authorization']=`Bearer ${S.authToken}`;
   let res,data; 
@@ -2235,13 +2235,13 @@ const body = { messages: builtMessages, max_tokens:1200, topic: S.profession || 
     throw new Error(`SERVICE_BUSY:${retryAfter}`);
   }
   if (!res.ok) throw new Error(data.error?.message||data.error||`AI service error (${res.status})`);
-  if (S.user) { S.user.ai_calls=(S.user.ai_calls||0)+1; localStorage.setItem('ss_user',JSON.stringify(S.user)); }
+  if (countUsage && S.user) { S.user.ai_calls=(S.user.ai_calls||0)+1; localStorage.setItem('ss_user',JSON.stringify(S.user)); }
   return data.text;
 }
 
 async function quickErrorCheck(text) {
   try {
-    const r=await callAI('You are an English error checker. Return ONLY valid JSON: {"errors":[{"wrong":"...","correct":"..."}]}. Max 3 errors.',`Text: "${text}"`);
+    const r=await callAI('You are an English error checker. Return ONLY valid JSON: {"errors":[{"wrong":"...","correct":"..."}]}. Max 3 errors.',`Text: "${text}"`, null, false);
     return JSON.parse(r.replace(/```json|```/g,'').trim()).errors||[];
   } catch { return []; }
 }
@@ -2267,6 +2267,8 @@ async function startClassicMode() {
   S.questions=[]; S.currentQ=0; S.allFeedbacks=[]; S.allErrors=[];
   navTo('interview');
   document.getElementById('interview-panel').classList.add('active');
+  // Count one session when it starts
+  if (S.user && !S.isDemo) { S.user.ai_calls=(S.user.ai_calls||0)+1; localStorage.setItem('ss_user',JSON.stringify(S.user)); }
   document.getElementById('meta-field').textContent=S.profession;
   document.getElementById('meta-diff').textContent=S.difficulty;
   document.getElementById('meta-type').textContent=S.interviewType;
@@ -2283,9 +2285,16 @@ async function startClassicMode() {
   }
   try {
     const hn=S.lang!=='en'?'The candidate may answer in Hindi or Hinglish.':'';
-    const raw=await callAI(`Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession} candidate. ${hn} All ${S.totalQ} questions must be directly relevant to the "${S.profession}" profession and "${S.interviewType}" interview type — do not switch topics. Respond with ONLY a raw JSON array of ${S.totalQ} strings, e.g. ["question 1","question 2"]. No markdown, no extra keys, no explanation.`,'Generate.');
+    const profCtxClassic = getProfessionContext(S.profession, S.interviewType);
+    const raw=await callAI(`You are a senior interviewer crafting real, role-specific interview questions. Do NOT generate generic or cliche questions.
+${profCtxClassic}
+TASK: Generate exactly ${S.totalQ} interview questions for a ${S.difficulty}-level "${S.profession}" candidate. ${hn}
+DIFFICULTY: ${ S.difficulty==='beginner' ? 'Foundational concepts, basic real-world scenarios, entry-level expectations' : S.difficulty==='intermediate' ? 'Applied knowledge, real trade-offs, moderate complexity, scenario-based' : 'Expert level: deep internals, architecture/policy decisions, complex scenarios, edge cases' }
+TYPE: ${ S.interviewType==='Technical' ? 'Technical only: domain knowledge, hard skills, how things work, problem-solving' : S.interviewType==='Behavioral' ? 'Behavioral only: past situations, ethics, decisions, interpersonal skills' : 'Mixed: blend technical depth with behavioral scenarios' }
+OUTPUT: ONLY a raw JSON array of ${S.totalQ} question strings. No markdown, no extra keys, no cliches.`, null, false);
     S.questions = parseJsonArray(raw);
     if (!S.questions || !S.questions.length) throw new Error('AI returned invalid question format. Please try again.');
+    if (S.questions.length < S.totalQ) S.totalQ = S.questions.length;
     document.getElementById('loading-questions').style.display='none';
     document.getElementById('question-area').style.display='block';
     showQuestion();
@@ -2295,8 +2304,13 @@ async function startClassicMode() {
       // Stay on the interview page and let the user retry instead of
       // silently bouncing them back to setup (which felt like the
       // interview "closing itself").
-      document.getElementById('question-area').innerHTML=`<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message||'Failed to load questions.')}</div><button class="next-btn" style="margin-top:1rem" onclick="startClassicMode()"><i class="ti ti-refresh"></i> Try again</button>`;
+      document.getElementById('feedback-area').innerHTML=`<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message||'Failed to load questions.')}</div><button class="next-btn" style="margin-top:1rem" onclick="startClassicMode()"><i class="ti ti-refresh"></i> Try again</button>`;
       document.getElementById('question-area').style.display='block';
+      document.getElementById('question-text').textContent='';
+      document.getElementById('answer-input').value='';
+      document.getElementById('answer-input').disabled=true;
+      document.getElementById('submit-btn').disabled=true;
+      document.getElementById('timer-row').style.display='none';
     }
     document.getElementById('start-btn').disabled=false;
   }
@@ -2331,7 +2345,7 @@ async function submitAnswer() {
     const raw=await callAI(`You are an AI interviewer and English coach. ${hn}
 Return ONLY valid JSON:
 {"score":<1-10>,"interview_feedback":"...","english_errors":[{"mistake":"...","correction":"...","explanation":"..."}],"corrected_answer":"...or null","tip":"...","structure":{"type":"STAR|PREP|Direct|Conceptual","score":<1-10>,"present_parts":["..."],"missing_parts":["..."],"fix":"..."},"model_answer":{"good":"...","great":"..."}}`,
-`Profession:${S.profession}\nType:${S.interviewType}\nQuestion:${S.questions[S.currentQ]}\nAnswer:${answer}`);
+`Profession:${S.profession}\nType:${S.interviewType}\nQuestion:${S.questions[S.currentQ]}\nAnswer:${answer}`, null, false);
     let fb;
     try {
       const cleaned = raw.replace(/```json|```/g,'').trim();
@@ -2378,10 +2392,13 @@ async function startChatMode() {
   const cb=document.getElementById('chat-body');
   const tr=document.getElementById('typing-row');
   cb.innerHTML=''; cb.appendChild(tr);
-  addBubble('user',`Please start the ${S.interviewType} interview for ${S.profession} at ${S.difficulty} level. Ask the first question now.`,null,true);
-  S.chatHistory=[{role:'user',content:`Please start the ${S.interviewType} interview for ${S.profession} at ${S.difficulty} level. Ask the first question now.`}];
+  addBubble('user',`Start interview`,null,true);
+  const _initMsg = `You are starting a ${S.interviewType} interview for a ${S.difficulty}-level ${S.profession} candidate. Ask your FIRST interview question now. Make it highly specific and relevant to ${S.profession} — not a generic opener like "tell me about yourself".`;
+  S.chatHistory=[{role:'user',content:_initMsg}];
   navTo('chat');
   document.getElementById('chat-panel').classList.add('active');
+  // Count one session when it starts
+  if (S.user && !S.isDemo) { S.user.ai_calls=(S.user.ai_calls||0)+1; localStorage.setItem('ss_user',JSON.stringify(S.user)); }
   await sleep(600); await ariaRespond(true);
 }
 
@@ -2396,6 +2413,125 @@ async function sendChatMessage() {
   if(!S.isDemo){quickErrorCheck(txt).then(errs=>{if(errs.length){S.chatErrors.push(...errs);const el=document.getElementById('anno-'+bid);if(el)el.innerHTML=errs.map(e=>`<div class="err-annotation"><span class="wrong">${esc(e.wrong)}</span> → <span class="right">${esc(e.correct)}</span></div>`).join('');}});}
   else if(S.chatExchanges===1){const dd=getDemoData();if(dd.chatErrors&&dd.chatErrors.length){setTimeout(()=>{const el=document.getElementById('anno-'+bid);const ce=dd.chatErrors[0];if(el)el.innerHTML=`<div class="err-annotation"><span class="wrong">${esc(ce.wrong)}</span> → <span class="right">${esc(ce.correct)}</span></div>`;S.chatErrors.push({wrong:ce.wrong,correct:ce.correct});},800);}}
   await ariaRespond(false);
+}
+
+function getProfessionContext(profession, interviewType) {
+  const p = (profession || '').toLowerCase();
+  const t = (interviewType || '').toLowerCase();
+
+  // ── matcher helper ──────────────────────────────────────────────────────────
+  const is = (...kws) => kws.some(k => p.includes(k));
+
+  // ── IAS / UPSC / Civil Services ─────────────────────────────────────────────
+  if (is('ias','upsc','civil service','ips','ifs','irs','pcs','collector','sdo','sdm')) {
+    const base = `DOMAIN: Indian Civil Services (UPSC/State PSC)
+KEY TOPICS to draw questions from:
+- Current affairs: recent government schemes, budgets, foreign policy, Supreme Court judgments
+- Public administration: district management, welfare delivery, grievance redressal, RTI, e-governance
+- Ethics & integrity: Nolan principles, conflict of interest, whistleblowing, public trust
+- Indian Polity & Constitution: federalism, fundamental rights, DPSPs, CAG, UPSC role
+- Governance challenges: rural development, tribal welfare, disaster management, corruption
+- Personal scenarios: "You are an SDM and…" / "As a collector you receive…" — situation-based dilemmas
+- Leadership & initiative: examples of innovation in public service, jugaad, ground-level impact`;
+    if (t.includes('behav') || t.includes('hr')) return base + `\nBEHAVIORAL FOCUS: Ask about ethical dilemmas they've faced, moments they stood up for what's right, how they handle political pressure, times they showed initiative to serve communities, handling sensitive communal/caste situations with neutrality.`;
+    if (t.includes('tech')) return base + `\nTECHNICAL FOCUS: Ask about specific constitutional articles, landmark judgments, government acts (MGNREGA, PMAY, RTI, PESA), five-year plan history, planning commission vs NITI Aayog, budget terminology, fiscal deficit concepts.`;
+    return base + `\nMIXED FOCUS: Blend situational ethics questions ("You find your senior is corrupt — what do you do?") with factual/policy knowledge, motivation for civil services, and current affairs.`;
+  }
+
+  // ── Software Developer / Engineer ───────────────────────────────────────────
+  if (is('software','developer','engineer','programmer','sde','swe','backend','frontend','full stack','fullstack')) {
+    const base = `DOMAIN: Software Development
+KEY TOPICS to draw questions from:
+- Data structures & algorithms: time/space complexity, arrays, trees, graphs, DP, sorting
+- System design: scalability, load balancing, caching (Redis), databases (SQL vs NoSQL), microservices, APIs
+- Coding practices: SOLID principles, design patterns, code reviews, refactoring, TDD
+- Tech stack specifics: based on role — React/Node/Java/Python/Go depending on context
+- Real scenarios: debugging production issues, handling deadlines, technical debt decisions
+- Distributed systems: CAP theorem, eventual consistency, message queues, race conditions`;
+    if (t.includes('tech')) return base + `\nTECHNICAL FOCUS: Dive deep — ask to explain a specific algorithm, design a URL shortener or Twitter feed, debug a given code snippet concept, compare REST vs GraphQL, explain how a browser renders a page.`;
+    if (t.includes('behav') || t.includes('hr')) return base + `\nBEHAVIORAL FOCUS: Ask about dealing with impossible deadlines, disagreeing with a tech lead's architecture decision, mentoring a junior, a time code review caught a critical bug, handling imposter syndrome in senior roles.`;
+    return base + `\nMIXED: Combine a system design question, a behavioral scenario about team conflict on tech choices, and a question about staying current with evolving tech.`;
+  }
+
+  // ── Java Developer ───────────────────────────────────────────────────────────
+  if (is('java')) {
+    return `DOMAIN: Java Development
+KEY TOPICS: JVM internals (GC, memory model, classloading), OOP principles in Java, collections framework (HashMap internals, ConcurrentHashMap), multithreading (synchronized, volatile, ExecutorService, CompletableFuture), Spring/Spring Boot (IoC, DI, AOP, REST), Hibernate/JPA (N+1 problem, lazy loading, transactions), Java 8+ features (streams, lambdas, Optional, records), design patterns (Singleton, Factory, Observer), microservices with Spring Cloud, testing with JUnit/Mockito.
+INTERVIEW STYLE: Ask "How does X work internally?" questions — not just "have you used X?". Example: "Explain what happens when two threads simultaneously call put() on the same HashMap." For behavioral: ask about debugging a memory leak in prod, migrating a monolith to microservices, handling a breaking API change.`;
+  }
+
+  // ── Data Scientist / ML / AI ─────────────────────────────────────────────────
+  if (is('data scientist','data science','machine learning','ml engineer','ai engineer','data analyst')) {
+    return `DOMAIN: Data Science & Machine Learning
+KEY TOPICS: Statistics (p-values, CLT, Bayesian inference, A/B testing), ML algorithms (regression, decision trees, random forests, XGBoost, SVMs — when to use which), deep learning (CNNs, RNNs, transformers, backprop), feature engineering & selection, model evaluation (precision/recall tradeoffs, ROC-AUC, cross-validation), overfitting/underfitting, data pipelines (Spark, Airflow), real-world deployment (MLOps, model drift, monitoring), SQL for data analysis, Python (pandas, scikit-learn, PyTorch/TensorFlow).
+INTERVIEW STYLE: Ask scenario-based questions: "Your model has 95% accuracy but terrible recall on fraud cases — what do you do?" "How would you handle 40% missing values in a key feature?" "Walk me through how you would build a recommendation engine from scratch." Avoid trivial definition questions.`;
+  }
+
+  // ── Bank PO / Banking ────────────────────────────────────────────────────────
+  if (is('bank','banking','bank po','ibps','sbi','rbi','nbfc','financial analyst','finance')) {
+    return `DOMAIN: Banking & Finance
+KEY TOPICS: Banking fundamentals (CRR, SLR, repo rate, reverse repo, MCLR), RBI monetary policy and its impact, types of loans and NPA management, BASEL norms (I/II/III), priority sector lending, financial inclusion schemes (Jan Dhan, PM SVANidhi), digital banking (UPI, NEFT, RTGS, IMPS), credit appraisal process, KYC/AML regulations, recent banking sector news (mergers, RBI circulars), basic accounting (balance sheet, P&L, working capital).
+INTERVIEW STYLE: Mix situational ("A customer insists on opening an account without valid KYC — what do you do?"), knowledge ("Explain how a repo rate cut affects home loan EMIs"), and motivation questions. For behavioral: handling difficult customers, working under pressure during audit season, integrity scenarios.`;
+  }
+
+  // ── Doctor / Medical ─────────────────────────────────────────────────────────
+  if (is('doctor','medical','physician','mbbs','surgeon','dentist','nurse','healthcare','clinical')) {
+    return `DOMAIN: Medical / Healthcare
+KEY TOPICS: Clinical reasoning and diagnosis approach, patient communication and consent, medical ethics (autonomy, beneficence, non-maleficence, justice), handling emergencies and triage, recent medical advances or public health concerns, teamwork in ICU/OT settings, error disclosure and patient safety, dealing with death/grief, work-life balance in medicine, national health programs (Ayushman Bharat, NHM), research and evidence-based medicine.
+INTERVIEW STYLE: Use clinical scenarios ("A 45-year-old presents with chest pain and diaphoresis — walk me through your approach."), ethical dilemmas ("Patient refuses a life-saving blood transfusion for religious reasons — what do you do?"), and behavioral ("Tell me about a case that changed how you practice medicine."). Make it feel like a real residency interview or MCI viva.`;
+  }
+
+  // ── Teacher / Education ──────────────────────────────────────────────────────
+  if (is('teacher','teaching','educator','professor','lecturer','academic','school','faculty')) {
+    return `DOMAIN: Teaching & Education
+KEY TOPICS: Pedagogy and teaching methodologies (Bloom's taxonomy, constructivism, differentiated instruction), classroom management — especially large/diverse classrooms, student engagement and motivation, handling underperforming or disruptive students, assessment design (formative vs summative), NEP 2020 implications, inclusive education (special needs, learning disabilities), use of EdTech tools, parent-teacher communication, curriculum design, managing administrative pressure alongside teaching.
+INTERVIEW STYLE: Use scenario questions ("A bright student suddenly drops in performance — how do you approach this?"), ask them to explain how they'd teach a difficult concept to a weak student, ask about their most memorable teaching moment, probe their views on rote learning vs conceptual understanding in Indian education system.`;
+  }
+
+  // ── Marketing ────────────────────────────────────────────────────────────────
+  if (is('marketing','brand','growth','digital marketing','seo','performance market','product market')) {
+    return `DOMAIN: Marketing
+KEY TOPICS: Go-to-market strategy, brand positioning and messaging, digital marketing channels (SEO, SEM, paid social, email, content), funnel analysis (TOFU/MOFU/BOFU), customer segmentation and personas, A/B testing and CRO, marketing metrics (CAC, LTV, ROAS, MQL/SQL), product launches, influencer/affiliate marketing, storytelling and copywriting, competitor analysis frameworks (SWOT, Porter's Five Forces), CRM tools (HubSpot, Salesforce).
+INTERVIEW STYLE: Ask case-style questions: "How would you launch a new fintech product to tier-2 Indian cities with ₹10L budget?", "Our CAC is 3x LTV — what do you look at first?", "Walk me through a campaign you ran end-to-end — what worked, what failed?" Probe depth, not just jargon.`;
+  }
+
+  // ── Government / SSC / UPSC ──────────────────────────────────────────────────
+  if (is('government','govt','ssc','cgl','railway','defence','police','army','military','crpf','cisf')) {
+    return `DOMAIN: Government / Defence / Security Forces
+KEY TOPICS: Duties and responsibilities of the specific role, current national security concerns, constitutional knowledge (fundamental duties, preamble), physical and mental fitness standards, discipline and chain of command, ethics in uniform — bribery, use of force, public interaction, awareness of national schemes and government priorities, general knowledge (geography, history, polity), leadership in crisis.
+INTERVIEW STYLE: Ask about why they want to serve the nation, how they'd handle a communally sensitive situation, their understanding of the specific department's mandate, a time they showed discipline or resilience, knowledge of recent national events. For defence roles: ask about unit cohesion, following orders vs ethical judgment, courage under pressure.`;
+  }
+
+  // ── Police / Defence ─────────────────────────────────────────────────────────
+  if (is('police','defence','army','navy','airforce','military','paramilitary','bsf','cisf','crpf','nsg')) {
+    return `DOMAIN: Police / Armed Forces
+KEY TOPICS: Law and order, IPC/CrPC basics, crowd management, FIR process, human rights, use of force (proportionality), community policing, cybercrime awareness, national security threats, discipline, leadership under stress, physical fitness, anti-corruption stance, handling political pressure.
+INTERVIEW STYLE: Heavy on ethics and situational scenarios: "You witness a senior officer accepting a bribe — what do you do?" "A mob is forming — how do you de-escalate?" "A politician calls asking you to not register an FIR." Make questions feel like SSB/SI interviews.`;
+  }
+
+  // ── Product Manager ──────────────────────────────────────────────────────────
+  if (is('product manager','pm','product owner','apm','associate product')) {
+    return `DOMAIN: Product Management
+KEY TOPICS: Product vision and roadmap prioritization (RICE, MoSCoW), user research and customer discovery, writing PRDs and user stories, metrics definition (north star metric, guardrail metrics), A/B testing, working with engineering/design, stakeholder management, product sense (improving existing products), root cause analysis of metric drops, competitive landscape, agile/scrum ceremonies, monetization and pricing strategy.
+INTERVIEW STYLE: Use PM interview formats: "Design a product for elderly people who can't use smartphones." "DAU dropped 15% last week — walk me through your investigation." "Prioritize between 3 features: [list 3 realistic ones]. Justify." "How would you improve Google Maps?" Probe structured thinking, not just creativity.`;
+  }
+
+  // ── HR / People Ops ─────────────────────────────────────────────────────────
+  if (is('hr','human resource','people ops','talent acquisition','recruiter','hrbp')) {
+    return `DOMAIN: Human Resources
+KEY TOPICS: Full-cycle recruitment (sourcing, JD writing, interview design, offer negotiation), onboarding and retention, performance management (OKRs, PIP process), employee relations and conflict resolution, labor law basics (Shops Act, PF/ESI, maternity benefit, POSH Act), compensation & benefits benchmarking, L&D strategy, HR analytics, culture building, handling terminations, employer branding.
+INTERVIEW STYLE: Ask scenario-based questions: "A top performer is being poached — how do you retain them?", "A manager complains their reportee is underperforming but the reportee says it's the manager's fault — how do you handle this?", "You need to hire 50 engineers in 60 days — what's your plan?" Probe for empathy + process thinking.`;
+  }
+
+  // ── Fallback — generic but still structured ──────────────────────────────────
+  return `DOMAIN: ${profession}
+INTERVIEW APPROACH: Ask questions that a senior ${profession} interviewer at a top firm or institution would actually ask. Avoid generic "tell me about yourself" openers after the first exchange. Focus on:
+- Role-specific technical or domain knowledge relevant to ${profession}
+- Real scenarios and problems common in ${profession} work
+- Past experience and decision-making relevant to ${profession}
+- ${t.includes('behav') ? 'Behavioral: STAR-method situations (Situation, Task, Action, Result)' : t.includes('tech') ? 'Technical depth: How things work, why decisions are made, tradeoffs' : 'Mix of domain knowledge, situational judgment, and motivation'}
+- Probe follow-up: if their answer is vague, ask "Can you be more specific?" or "What was the outcome?"
+Make every question feel like it was written by a real ${profession} hiring manager, not an AI.`;
 }
 
 async function ariaRespond(isFirst) {
@@ -2414,9 +2550,18 @@ async function ariaRespond(isFirst) {
   const personaDesc={friendly:'warm, encouraging, and supportive',strict:'demanding, direct, and exacting',corporate:'formal, professional, and business-like'}[S.persona]||'professional';
   const hn=S.lang!=='en'?'The candidate may answer in Hindi or Hinglish. Accept gracefully.':'';
   const isLast=S.chatExchanges>=S.maxExchanges;
-  const sys=`You are Aria, a professional AI interviewer. Personality: ${personaDesc}. Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty}). ${hn}\nRULES:\n1. Keep messages concise — 2-4 sentences max.\n2. React briefly (1 sentence) then ask next question.\n3. ${isLast?'LAST exchange. Wrap up warmly and add [INTERVIEW_COMPLETE] at the end.':`Continue naturally. ${S.maxExchanges-S.chatExchanges} more exchanges.`}\n4. Do NOT evaluate their English — just interview.\n5. Stay in character as Aria.`;
+  const profCtx = getProfessionContext(S.profession, S.interviewType);
+  const sys=`You are Aria, a professional AI interviewer. Personality: ${personaDesc}. Interviewing for: ${S.profession} (${S.interviewType}, ${S.difficulty} level). ${hn}
+${profCtx}
+RULES:
+1. Keep messages concise — 2-4 sentences max.
+2. React briefly to their answer (1 sentence), then ask the next question.
+3. Ask questions that are HIGHLY SPECIFIC and relevant to "${S.profession}" — not generic. Draw from the domain context above.
+4. ${isLast?'LAST exchange. Wrap up warmly and add [INTERVIEW_COMPLETE] at the end.':`Continue naturally. ${S.maxExchanges-S.chatExchanges} exchanges remaining.`}
+5. Do NOT evaluate their English — just interview.
+6. Stay in character as Aria.`;
   try {
-    const reply=await callAI(sys,null,S.chatHistory);
+    const reply=await callAI(sys,null,S.chatHistory, false);
     S.chatHistory.push({role:'assistant',content:reply}); setTyping(false);
     document.getElementById('aria-status').textContent='Online · Listening';
     const done=reply.includes('[INTERVIEW_COMPLETE]');
@@ -2470,11 +2615,12 @@ async function showChatSummary() {
   navTo('summary'); renderMistakes(S.allErrors);
   document.getElementById('stat-errors').textContent=S.chatErrors.length;
   document.getElementById('stat-score').textContent='…';
-  if(S.isDemo){await sleep(1200);document.getElementById('stat-score').textContent='7/10';await genTips(transcript);return;}
+  S.chatTranscript = transcript;
+  if(S.isDemo){await sleep(1200);document.getElementById('stat-score').textContent='7/10';S.chatEval={score:7};await genTips(transcript);return;}
   try {
     const raw=await callAI(`Evaluate this full interview. Return ONLY valid JSON:
 {"score":<1-10>,"biggest_strength":"...","biggest_weakness":"...","pattern":"...","final_advice":"...","model_closing_line":"..."}`,
-`Profession:${S.profession}\n\nTranscript:\n${transcript}`);
+`Profession:${S.profession}\n\nTranscript:\n${transcript}`, null, false);
     let ev;
     try {
       const cleaned = raw.replace(/```json|```/g,'').trim();
@@ -2484,10 +2630,11 @@ async function showChatSummary() {
       ev = { score: 7 }; // graceful fallback — don't crash the summary page
     }
     document.getElementById('stat-score').textContent=(ev.score||'—')+'/10';
+    S.chatEval = ev; S.chatTranscript = transcript;
     if(S.authToken&&!S.isDemo) saveSessionToBackend(ev.score||0,[],S.allErrors);
     const cs=document.getElementById('coach-summary-section');cs.style.display='block';
     cs.innerHTML=`<div class="coach-summary-block"><div class="cs-title"><i class="ti ti-user-check"></i> Coach Summary</div>${ev.biggest_strength?`<div class="cs-row"><span class="cs-key">Strength</span><span class="cs-val">${esc(ev.biggest_strength)}</span></div>`:''} ${ev.biggest_weakness?`<div class="cs-row"><span class="cs-key">Weakness</span><span class="cs-val">${esc(ev.biggest_weakness)}</span></div>`:''} ${ev.pattern?`<div class="cs-row"><span class="cs-key">Pattern</span><span class="cs-val">${esc(ev.pattern)}</span></div>`:''} ${ev.final_advice?`<div class="cs-row"><span class="cs-key">Focus on</span><span class="cs-val">${esc(ev.final_advice)}</span></div>`:''} ${ev.model_closing_line?`<div class="cs-closing"><div class="cs-closing-label">Example closing line</div>"${esc(ev.model_closing_line)}"</div>`:''}</div>`;
-  } catch { document.getElementById('stat-score').textContent='N/A'; }
+  } catch { document.getElementById('stat-score').textContent='N/A'; S.chatEval={score:null}; }
   await genTips(transcript);
 }
 
@@ -2625,7 +2772,7 @@ async function genTips(sessionData) {
     const raw=await callAI(`Generate exactly 3 specific practice drills. Return ONLY valid JSON:
 [{"type":"grammar","task":"...","example":"..."},{"type":"structure","task":"...","example":"..."},{"type":"domain","task":"...","example":"..."}]
 Make drills specific to actual errors and gaps in this session.`,
-`Profession:${S.profession}\n\nSession:\n${sessionData}\n\nErrors:${JSON.stringify(S.allErrors)}`);
+`Profession:${S.profession}\n\nSession:\n${sessionData}\n\nErrors:${JSON.stringify(S.allErrors)}`, null, false);
     const drills=JSON.parse(raw.replace(/```json|```/g,'').trim());
     document.getElementById('loading-summary').style.display='none';
     const drillEl=document.getElementById('drill-section');
@@ -2659,7 +2806,7 @@ function rRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r
 async function loadHint() {
   const hb=document.getElementById('hint-box');hb.style.display='block';hb.textContent='Loading hint…';
   if(S.isDemo){await sleep(800);hb.textContent='💡 Think of a specific example from your experience. Use STAR: Situation, Task, Action, Result.';return;}
-  try{const h=await callAI('Give a brief 1-2 sentence hint on how to approach this interview question. Be concise.',`Profession:${S.profession}\nQuestion:${S.questions[S.currentQ]}`);hb.textContent='💡 '+h;}catch(e){if(e.message!=='LIMIT_REACHED')hb.textContent='Could not load hint.';}
+  try{const h=await callAI('Give a brief 1-2 sentence hint on how to approach this interview question. Be concise.',`Profession:${S.profession}\nQuestion:${S.questions[S.currentQ]}`, null, false);hb.textContent='💡 '+h;}catch(e){if(e.message!=='LIMIT_REACHED')hb.textContent='Could not load hint.';}
 }
 
 function startTimer(){S.timerRemaining=S.timerSecs;updateTimerDisplay(S.timerSecs,S.timerSecs);S.timerInterval=setInterval(()=>{S.timerRemaining--;updateTimerDisplay(S.timerRemaining,S.timerSecs);if(S.timerRemaining<=0){stopTimer();autoSubmit();}},1000);}
@@ -2706,7 +2853,22 @@ async function shareReport(){
 }
 
 function downloadReport(){
-  const lines=[`SPEAKSMART — PERFORMANCE REPORT`,`=`.repeat(42),`Date: ${new Date().toLocaleDateString()}`,`Profession: ${S.profession}`,`Mode: ${S.mode}  Type: ${S.interviewType}  Difficulty: ${S.difficulty}`,S.isDemo?`[DEMO MODE]`:'',``,`ENGLISH ERRORS FOUND`,`-`.repeat(24),...(S.allErrors.length?S.allErrors.map(e=>`• ${e.mistake} → ${e.correction}${e.explanation?' ('+e.explanation+')':''}` ):['No errors found!']),``,`DETAILED FEEDBACK`,`-`.repeat(24),...S.allFeedbacks.map((f,i)=>`Q${i+1} [${f.score}/10]: ${f.q}\nAnswer: ${f.answer}\nFeedback: ${f.interview_feedback}\nTip: ${f.tip}\n`)];
+  const header=[`SPEAKSMART — PERFORMANCE REPORT`,`=`.repeat(42),`Date: ${new Date().toLocaleDateString()}`,`Profession: ${S.profession}`,`Mode: ${S.mode}  Type: ${S.interviewType}  Difficulty: ${S.difficulty}`,S.isDemo?`[DEMO MODE]`:'',``,`ENGLISH ERRORS FOUND`,`-`.repeat(24),...(S.allErrors.length?S.allErrors.map(e=>`• ${e.mistake} → ${e.correction}${e.explanation?' ('+e.explanation+')':''}` ):['No errors found!']),``];
+  let body;
+  if (S.mode==='chat') {
+    const ev = S.chatEval||{};
+    body=[`OVERALL SCORE`,`-`.repeat(24),`${ev.score!=null?ev.score+'/10':'N/A'}`,``,
+      `COACH SUMMARY`,`-`.repeat(24),
+      ...(ev.biggest_strength?[`Strength: ${ev.biggest_strength}`]:[]),
+      ...(ev.biggest_weakness?[`Weakness: ${ev.biggest_weakness}`]:[]),
+      ...(ev.pattern?[`Pattern: ${ev.pattern}`]:[]),
+      ...(ev.final_advice?[`Focus on: ${ev.final_advice}`]:[]),
+      ...(ev.model_closing_line?[`Example closing line: "${ev.model_closing_line}"`]:[]),
+      ``,`TRANSCRIPT`,`-`.repeat(24),S.chatTranscript||'(no transcript available)'];
+  } else {
+    body=[`DETAILED FEEDBACK`,`-`.repeat(24),...S.allFeedbacks.map((f,i)=>`Q${i+1} [${f.score}/10]: ${f.q}\nAnswer: ${f.answer}\nFeedback: ${f.interview_feedback}\nTip: ${f.tip}\n`)];
+  }
+  const lines=[...header,...body];
   const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`speaksmart-${S.profession.replace(/\s+/g,'-')}-${Date.now()}.txt`;a.click();
 }
 
@@ -2737,7 +2899,8 @@ async function handleUpgradeClick(plan, btnEl){
   const origHtml=btn.innerHTML;
   btn.innerHTML='<div class="spinner" style="display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin-right:8px"></div> Creating order…';
   try {
-    const{ok,data}=await apiCall('/payment/create-order','POST',{plan});
+    const isTest = new URLSearchParams(location.search).get('test') === '1';
+    const{ok,data}=await apiCall('/payment/create-order'+(isTest?'?mode=test':''),'POST',{plan});
     if(!ok) throw new Error(data.error||'Could not create order');
     const options={key:data.key,amount:data.amount,currency:data.currency,name:'SpeakSmart',description:'Pro Plan — Unlimited AI Interviews',order_id:data.order_id,prefill:{email:S.user.email},theme:{color:'#4F8EF7'},
     handler:async function(response){
@@ -2779,8 +2942,7 @@ function parseJsonArray(raw) {
   try {
     const cleaned = raw.replace(/```json|```/g, '').trim();
     const arr = JSON.parse(cleaned);
-    if (Array.isArray(arr)) return arr;
-    // AI sometimes returns a single object instead of an array of strings.
+    if (Array.isArray(arr)) return arr.filter(q => typeof q === 'string' && q.trim().length > 10);
     // Try to pull a question-like string out of it rather than falling
     // through to the line-splitting strategy (which dumps raw JSON as text).
     if (arr && typeof arr === 'object') {
@@ -2794,13 +2956,19 @@ function parseJsonArray(raw) {
     const end   = raw.lastIndexOf(']');
     if (start !== -1 && end > start) {
       const arr = JSON.parse(raw.slice(start, end + 1));
-      if (Array.isArray(arr)) return arr;
+      if (Array.isArray(arr)) return arr.filter(q => typeof q === 'string' && q.trim().length > 10);
     }
   } catch {}
-  // Strategy 3: fallback — parse numbered or bulleted list lines
+  // Strategy 3: fallback — parse numbered or bulleted list lines only.
+  // Require an explicit list marker (number or bullet) so generic
+  // headers/labels like "Behavioral interview" aren't picked up as
+  // questions. Also require reasonable length and that the line
+  // looks like an actual question/prompt.
   const lines = raw.split('\n')
-    .map(l => l.replace(/^[\d]+\.\s*|^[-*•]\s*/,'').replace(/^["']|["']$/g,'').trim())
-    .filter(l => l.length > 10);
+    .map(l => l.trim())
+    .filter(l => /^(\d+[.)]\s+|[-*•]\s+)/.test(l))
+    .map(l => l.replace(/^[\d]+[.)]\s*|^[-*•]\s*/, '').replace(/^["']|["']$/g, '').trim())
+    .filter(l => l.length > 15 && /[a-zA-Z]/.test(l));
   if (lines.length >= 2) return lines;
   return [];
 }
