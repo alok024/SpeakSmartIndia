@@ -142,7 +142,6 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // ── 5. Increment usage (skip for free/helper calls like error-check, hints, drills) ──
-  const isFreeCall = req.body.free === true;
   if (!isFreeCall) {
     try {
       await db.incrementUsage(user.id);
