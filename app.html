@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+]<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1710,6 +1710,11 @@ function getDemoData() {
 }
 
 // ══════════════════════════════════════════
+//  SHELL / NAVIGATION (must be before init IIFE)
+// ══════════════════════════════════════════
+const PAGE_TITLES = { dashboard:'Dashboard', setup:'New Interview', interview:'Interview', chat:'AI Chat', summary:'Session Report', history:'Past Sessions', profile:'Profile & Plan' };
+
+// ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
 (function init() {
@@ -1739,11 +1744,6 @@ function setupChips(id, cb) {
     chip.classList.add('selected'); cb(chip.dataset.val);
   }));
 }
-
-// ══════════════════════════════════════════
-//  SHELL / NAVIGATION
-// ══════════════════════════════════════════
-const PAGE_TITLES = { dashboard:'Dashboard', setup:'New Interview', interview:'Interview', chat:'AI Chat', summary:'Session Report', history:'Past Sessions', profile:'Profile & Plan' };
 
 function showShell() {
   document.getElementById('page-auth').classList.remove('active');
