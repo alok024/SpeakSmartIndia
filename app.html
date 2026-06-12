@@ -2812,7 +2812,10 @@ function parseJsonArray(raw) {
     const end   = raw.lastIndexOf(']');
     if (start !== -1 && end > start) {
       const arr = JSON.parse(raw.slice(start, end + 1));
-      if (Array.isArray(arr)) return arr.filter(q => typeof q === 'string' && q.trim().length > 10);: fallback — parse numbered or bulleted list lines only.
+      if (Array.isArray(arr)) return arr.filter(q => typeof q === 'string' && q.trim().length > 10);
+    }
+  } catch {}
+  // Strategy 3: fallback — parse numbered or bulleted list lines only.
   // Require an explicit list marker (number or bullet) so generic
   // headers/labels like "Behavioral interview" aren't picked up as
   // questions. Also require reasonable length and that the line
