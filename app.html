@@ -1079,7 +1079,7 @@
       <div class="usage-card" id="dash-usage-card">
         <div class="usage-card-top">
           <span class="usage-card-label">AI Sessions Used</span>
-          <span class="usage-card-count" id="dash-usage-count">0 / 5</span>
+          <span class="usage-card-count" id="dash-usage-count">0 / 7</span>
         </div>
         <div class="usage-bar-track">
           <div class="usage-bar-fill ok" id="dash-usage-fill" style="width:0%"></div>
@@ -1487,7 +1487,7 @@
           <div class="info-row"><span class="label">Streak</span><span class="val" id="pf-streak">0 days 🔥</span></div>
           <div class="info-row"><span class="label">Sessions</span><span class="val" id="pf-sessions">0</span></div>
           <div class="info-row"><span class="label">Best score</span><span class="val" id="pf-best">—</span></div>
-          <div class="info-row"><span class="label">AI sessions used</span><span class="val" id="pf-calls">0 / 5</span></div>
+          <div class="info-row"><span class="label">AI sessions used</span><span class="val" id="pf-calls">0 / 7</span></div>
         </div>
       </div>
 
@@ -2289,6 +2289,7 @@ async function startClassicMode() {
     const raw=await callAI(`Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession} candidate. ${hn} All ${S.totalQ} questions must be directly relevant to the "${S.profession}" profession and "${S.interviewType}" interview type — do not switch topics. Respond with ONLY a raw JSON array of ${S.totalQ} strings, e.g. ["question 1","question 2"]. No markdown, no extra keys, no explanation.`,'Generate.');
     S.questions = parseJsonArray(raw);
     if (!S.questions || !S.questions.length) throw new Error('AI returned invalid question format. Please try again.');
+    if (S.questions.length < S.totalQ) S.totalQ = S.questions.length;
     document.getElementById('loading-questions').style.display='none';
     document.getElementById('question-area').style.display='block';
     showQuestion();
@@ -2471,7 +2472,8 @@ async function showChatSummary() {
   navTo('summary'); renderMistakes(S.allErrors);
   document.getElementById('stat-errors').textContent=S.chatErrors.length;
   document.getElementById('stat-score').textContent='…';
-  if(S.isDemo){await sleep(1200);document.getElementById('stat-score').textContent='7/10';await genTips(transcript);return;}
+  S.chatTranscript = transcript;
+  if(S.isDemo){await sleep(1200);document.getElementById('stat-score').textContent='7/10';S.chatEval={score:7};await genTips(transcript);return;}
   try {
     const raw=await callAI(`Evaluate this full interview. Return ONLY valid JSON:
 {"score":<1-10>,"biggest_strength":"...","biggest_weakness":"...","pattern":"...","final_advice":"...","model_closing_line":"..."}`,
@@ -2485,10 +2487,11 @@ async function showChatSummary() {
       ev = { score: 7 }; // graceful fallback — don't crash the summary page
     }
     document.getElementById('stat-score').textContent=(ev.score||'—')+'/10';
+    S.chatEval = ev; S.chatTranscript = transcript;
     if(S.authToken&&!S.isDemo) saveSessionToBackend(ev.score||0,[],S.allErrors);
     const cs=document.getElementById('coach-summary-section');cs.style.display='block';
     cs.innerHTML=`<div class="coach-summary-block"><div class="cs-title"><i class="ti ti-user-check"></i> Coach Summary</div>${ev.biggest_strength?`<div class="cs-row"><span class="cs-key">Strength</span><span class="cs-val">${esc(ev.biggest_strength)}</span></div>`:''} ${ev.biggest_weakness?`<div class="cs-row"><span class="cs-key">Weakness</span><span class="cs-val">${esc(ev.biggest_weakness)}</span></div>`:''} ${ev.pattern?`<div class="cs-row"><span class="cs-key">Pattern</span><span class="cs-val">${esc(ev.pattern)}</span></div>`:''} ${ev.final_advice?`<div class="cs-row"><span class="cs-key">Focus on</span><span class="cs-val">${esc(ev.final_advice)}</span></div>`:''} ${ev.model_closing_line?`<div class="cs-closing"><div class="cs-closing-label">Example closing line</div>"${esc(ev.model_closing_line)}"</div>`:''}</div>`;
-  } catch { document.getElementById('stat-score').textContent='N/A'; }
+  } catch { document.getElementById('stat-score').textContent='N/A'; S.chatEval={score:null}; }
   await genTips(transcript);
 }
 
@@ -2707,7 +2710,22 @@ async function shareReport(){
 }
 
 function downloadReport(){
-  const lines=[`SPEAKSMART — PERFORMANCE REPORT`,`=`.repeat(42),`Date: ${new Date().toLocaleDateString()}`,`Profession: ${S.profession}`,`Mode: ${S.mode}  Type: ${S.interviewType}  Difficulty: ${S.difficulty}`,S.isDemo?`[DEMO MODE]`:'',``,`ENGLISH ERRORS FOUND`,`-`.repeat(24),...(S.allErrors.length?S.allErrors.map(e=>`• ${e.mistake} → ${e.correction}${e.explanation?' ('+e.explanation+')':''}` ):['No errors found!']),``,`DETAILED FEEDBACK`,`-`.repeat(24),...S.allFeedbacks.map((f,i)=>`Q${i+1} [${f.score}/10]: ${f.q}\nAnswer: ${f.answer}\nFeedback: ${f.interview_feedback}\nTip: ${f.tip}\n`)];
+  const header=[`SPEAKSMART — PERFORMANCE REPORT`,`=`.repeat(42),`Date: ${new Date().toLocaleDateString()}`,`Profession: ${S.profession}`,`Mode: ${S.mode}  Type: ${S.interviewType}  Difficulty: ${S.difficulty}`,S.isDemo?`[DEMO MODE]`:'',``,`ENGLISH ERRORS FOUND`,`-`.repeat(24),...(S.allErrors.length?S.allErrors.map(e=>`• ${e.mistake} → ${e.correction}${e.explanation?' ('+e.explanation+')':''}` ):['No errors found!']),``];
+  let body;
+  if (S.mode==='chat') {
+    const ev = S.chatEval||{};
+    body=[`OVERALL SCORE`,`-`.repeat(24),`${ev.score!=null?ev.score+'/10':'N/A'}`,``,
+      `COACH SUMMARY`,`-`.repeat(24),
+      ...(ev.biggest_strength?[`Strength: ${ev.biggest_strength}`]:[]),
+      ...(ev.biggest_weakness?[`Weakness: ${ev.biggest_weakness}`]:[]),
+      ...(ev.pattern?[`Pattern: ${ev.pattern}`]:[]),
+      ...(ev.final_advice?[`Focus on: ${ev.final_advice}`]:[]),
+      ...(ev.model_closing_line?[`Example closing line: "${ev.model_closing_line}"`]:[]),
+      ``,`TRANSCRIPT`,`-`.repeat(24),S.chatTranscript||'(no transcript available)'];
+  } else {
+    body=[`DETAILED FEEDBACK`,`-`.repeat(24),...S.allFeedbacks.map((f,i)=>`Q${i+1} [${f.score}/10]: ${f.q}\nAnswer: ${f.answer}\nFeedback: ${f.interview_feedback}\nTip: ${f.tip}\n`)];
+  }
+  const lines=[...header,...body];
   const blob=new Blob([lines.join('\n')],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`speaksmart-${S.profession.replace(/\s+/g,'-')}-${Date.now()}.txt`;a.click();
 }
 
@@ -2780,8 +2798,7 @@ function parseJsonArray(raw) {
   try {
     const cleaned = raw.replace(/```json|```/g, '').trim();
     const arr = JSON.parse(cleaned);
-    if (Array.isArray(arr)) return arr;
-    // AI sometimes returns a single object instead of an array of strings.
+    if (Array.isArray(arr)) return arr.filter(q => typeof q === 'string' && q.trim().length > 10);
     // Try to pull a question-like string out of it rather than falling
     // through to the line-splitting strategy (which dumps raw JSON as text).
     if (arr && typeof arr === 'object') {
@@ -2795,13 +2812,16 @@ function parseJsonArray(raw) {
     const end   = raw.lastIndexOf(']');
     if (start !== -1 && end > start) {
       const arr = JSON.parse(raw.slice(start, end + 1));
-      if (Array.isArray(arr)) return arr;
-    }
-  } catch {}
-  // Strategy 3: fallback — parse numbered or bulleted list lines
+      if (Array.isArray(arr)) return arr.filter(q => typeof q === 'string' && q.trim().length > 10);: fallback — parse numbered or bulleted list lines only.
+  // Require an explicit list marker (number or bullet) so generic
+  // headers/labels like "Behavioral interview" aren't picked up as
+  // questions. Also require reasonable length and that the line
+  // looks like an actual question/prompt.
   const lines = raw.split('\n')
-    .map(l => l.replace(/^[\d]+\.\s*|^[-*•]\s*/,'').replace(/^["']|["']$/g,'').trim())
-    .filter(l => l.length > 10);
+    .map(l => l.trim())
+    .filter(l => /^(\d+[.)]\s+|[-*•]\s+)/.test(l))
+    .map(l => l.replace(/^[\d]+[.)]\s*|^[-*•]\s*/, '').replace(/^["']|["']$/g, '').trim())
+    .filter(l => l.length > 15 && /[a-zA-Z]/.test(l));
   if (lines.length >= 2) return lines;
   return [];
 }
