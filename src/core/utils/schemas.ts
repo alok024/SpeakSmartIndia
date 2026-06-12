@@ -51,6 +51,7 @@ export const AIRequestSchema = z.object({
   messages:   z.array(AIMessageSchema).min(1).max(100),
   max_tokens: z.number().int().min(1).max(4096).optional(),
   topic:      z.string().max(200).optional(),
+  free:       z.boolean().optional(),   // true = helper call (hint/drill/grammar) — does not count against session limit
 });
 
 export type AIRequestDTO = z.infer<typeof AIRequestSchema>;
