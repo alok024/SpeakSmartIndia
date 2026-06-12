@@ -1,4 +1,4 @@
-]<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -1710,11 +1710,6 @@ function getDemoData() {
 }
 
 // ══════════════════════════════════════════
-//  SHELL / NAVIGATION (must be before init IIFE)
-// ══════════════════════════════════════════
-const PAGE_TITLES = { dashboard:'Dashboard', setup:'New Interview', interview:'Interview', chat:'AI Chat', summary:'Session Report', history:'Past Sessions', profile:'Profile & Plan' };
-
-// ══════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════
 (function init() {
@@ -1744,6 +1739,11 @@ function setupChips(id, cb) {
     chip.classList.add('selected'); cb(chip.dataset.val);
   }));
 }
+
+// ══════════════════════════════════════════
+//  SHELL / NAVIGATION
+// ══════════════════════════════════════════
+const PAGE_TITLES = { dashboard:'Dashboard', setup:'New Interview', interview:'Interview', chat:'AI Chat', summary:'Session Report', history:'Past Sessions', profile:'Profile & Plan' };
 
 function showShell() {
   document.getElementById('page-auth').classList.remove('active');
@@ -2172,11 +2172,8 @@ function toggleAdvOptions() {
 //  MODE, LANG, THEME
 // ══════════════════════════════════════════
 function selectMode(m) {
-  // PAYWALL: Chat mode requires Pro or Elite
-  if (m === 'chat' && S.user && S.user.plan === 'free') {
-    showUpgradeModal('chat_mode');
-    return;
-  }
+  // Chat mode now shares the same free-session pool as classic mode —
+  // the 7-call limit is enforced server-side via callAI for both modes.
   S.mode=m;
   document.getElementById('mode-classic').classList.toggle('selected',m==='classic');
   document.getElementById('mode-chat').classList.toggle('selected',m==='chat');
@@ -2296,9 +2293,11 @@ async function startClassicMode() {
   } catch(e) {
     document.getElementById('loading-questions').style.display='none';
     if (!['LIMIT_REACHED','DEMO_MODE'].includes(e.message) && !e.message?.startsWith('RATE_LIMITED') && !e.message?.startsWith('SERVICE_BUSY')) {
-      document.getElementById('question-area').innerHTML=`<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message||'Failed to load questions.')}</div>`;
+      // Stay on the interview page and let the user retry instead of
+      // silently bouncing them back to setup (which felt like the
+      // interview "closing itself").
+      document.getElementById('question-area').innerHTML=`<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message||'Failed to load questions.')}</div><button class="next-btn" style="margin-top:1rem" onclick="startClassicMode()"><i class="ti ti-refresh"></i> Try again</button>`;
       document.getElementById('question-area').style.display='block';
-      navTo('setup');
     }
     document.getElementById('start-btn').disabled=false;
   }

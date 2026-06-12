@@ -159,7 +159,8 @@ async function sb<T = unknown>(
   if (body !== null) opts.body = JSON.stringify(body);
 
   const res  = await fetch(`${env.SUPABASE_URL}/rest/v1${path}`, opts);
-  const data = await res.json() as T;
+  const raw  = await res.text();
+  const data = (raw ? JSON.parse(raw) : null) as T;
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -204,10 +205,17 @@ export const db = {
   },
 
   async addBonusCalls(userId: string, amount: number): Promise<void> {
-    // Fetch current bonus and increment
-    const user = await db.getUserById(userId);
-    const current = (user as unknown as Record<string, number>)?.referral_bonus ?? 0;
-    await sb(`/users?id=eq.${userId}`, 'PATCH', { referral_bonus: current + amount });
+    // Use RPC for atomic increment — avoids the read-then-write race condition
+    // where two concurrent referral rewards both read 0 and both write 10 instead of 20.
+    await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_referral_bonus`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ p_user_id: userId, p_amount: amount }),
+    });
   },
 
   // ── Usage ───────────────────────────────────────────────────────
@@ -370,6 +378,12 @@ export const db = {
 
   async markPasswordResetUsed(id: string): Promise<void> {
     await sb(`/password_resets?id=eq.${id}`, 'PATCH', { used: true });
+  },
+
+  async invalidatePasswordResets(userId: string): Promise<void> {
+    // Mark all existing unused resets as used before issuing a new one
+    // Prevents token accumulation and multiple valid reset links floating around
+    await sb(`/password_resets?user_id=eq.${userId}&used=eq.false`, 'PATCH', { used: true });
   },
 
   // ── User mistakes (AI memory) ───────────────────────────────────
