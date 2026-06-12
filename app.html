@@ -1658,9 +1658,20 @@ const FREE_LIMIT  = 7;
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
+function safeParseUser() {
+  try {
+    return JSON.parse(localStorage.getItem('ss_user') || 'null');
+  } catch {
+    // Corrupted localStorage entry — clear auth state so the user
+    // falls back to the login screen instead of a blank app.
+    localStorage.removeItem('ss_user');
+    localStorage.removeItem('ss_token');
+    return null;
+  }
+}
 let S = {
   authToken: localStorage.getItem('ss_token') || null,
-  user:      JSON.parse(localStorage.getItem('ss_user') || 'null'),
+  user:      safeParseUser(),
   isDemo:    false,
   mode: 'chat', profession: '', interviewType: 'Technical',
   difficulty: 'beginner', totalQ: 5, timerSecs: 120,
@@ -1702,6 +1713,7 @@ function getDemoData() {
 //  INIT
 // ══════════════════════════════════════════
 (function init() {
+try {
   setupChips('prof-chips',     v => { S.profession = v; document.getElementById('custom-field').value = ''; });
   setupChips('type-chips',     v => S.interviewType = v);
   setupChips('diff-chips',     v => S.difficulty    = v);
@@ -1713,6 +1725,11 @@ function getDemoData() {
     showShell();
     refreshUserData();
   }
+} catch (e) {
+  console.error('init() failed, resetting auth state', e);
+  localStorage.removeItem('ss_user');
+  localStorage.removeItem('ss_token');
+}
 })();
 
 function setupChips(id, cb) {
@@ -1762,7 +1779,7 @@ function navTo(page) {
     S.questions = []; S.currentQ = 0; S.allFeedbacks = []; S.allErrors = [];
     S.chatHistory = []; S.chatExchanges = 0; S.chatErrors = [];
     S.timerInterval && clearInterval(S.timerInterval);
-    S.timerInterval = null; S.timerRemaining = 0;
+    S.timerInterval = null; S.timerRemaining = 0; S.sessionStartTime = Date.now();
     const setupErr = document.getElementById('setup-error');
     if (setupErr) setupErr.style.display = 'none';
   }
@@ -2212,6 +2229,14 @@ const body = { messages: builtMessages, max_tokens:1200, topic: S.profession || 
     if (S.user) { S.user.ai_calls=FREE_LIMIT; localStorage.setItem('ss_user',JSON.stringify(S.user)); }
     showUpgradeModal(); throw new Error('LIMIT_REACHED');
   }
+  if (res.status===429) {
+    const retryAfter = data.retry_after_s || 10;
+    throw new Error(`RATE_LIMITED:${retryAfter}`);
+  }
+  if (res.status===503) {
+    const retryAfter = data.retry_after_s || 30;
+    throw new Error(`SERVICE_BUSY:${retryAfter}`);
+  }
   if (!res.ok) throw new Error(data.error?.message||data.error||`AI service error (${res.status})`);
   if (S.user) { S.user.ai_calls=(S.user.ai_calls||0)+1; localStorage.setItem('ss_user',JSON.stringify(S.user)); }
   return data.text;
@@ -2261,7 +2286,7 @@ async function startClassicMode() {
   }
   try {
     const hn=S.lang!=='en'?'The candidate may answer in Hindi or Hinglish.':'';
-    const raw=await callAI(`Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession}. ${hn} Return ONLY a valid JSON array of strings.`,'Generate.');
+    const raw=await callAI(`Generate exactly ${S.totalQ} ${S.interviewType} interview questions for a ${S.difficulty}-level ${S.profession} candidate. ${hn} All ${S.totalQ} questions must be directly relevant to the "${S.profession}" profession and "${S.interviewType}" interview type — do not switch topics. Respond with ONLY a raw JSON array of ${S.totalQ} strings, e.g. ["question 1","question 2"]. No markdown, no extra keys, no explanation.`,'Generate.');
     S.questions = parseJsonArray(raw);
     if (!S.questions || !S.questions.length) throw new Error('AI returned invalid question format. Please try again.');
     document.getElementById('loading-questions').style.display='none';
@@ -2269,7 +2294,7 @@ async function startClassicMode() {
     showQuestion();
   } catch(e) {
     document.getElementById('loading-questions').style.display='none';
-    if (e.message!=='LIMIT_REACHED') {
+    if (!['LIMIT_REACHED','DEMO_MODE'].includes(e.message) && !e.message?.startsWith('RATE_LIMITED') && !e.message?.startsWith('SERVICE_BUSY')) {
       document.getElementById('question-area').innerHTML=`<div class="error-box"><i class="ti ti-alert-circle"></i> ${esc(e.message||'Failed to load questions.')}</div>`;
       document.getElementById('question-area').style.display='block';
       navTo('setup');
@@ -2321,7 +2346,7 @@ Return ONLY valid JSON:
     document.getElementById('loading-feedback').style.display='none'; renderClassicFeedback(fb);
   } catch(e) {
     document.getElementById('loading-feedback').style.display='none';
-    if(e.message!=='LIMIT_REACHED'){document.getElementById('feedback-area').innerHTML=`<div class="error-box">${esc(e.message||'Could not analyze answer.')}</div>`;document.getElementById('submit-btn').disabled=false;document.getElementById('answer-input').disabled=false;}
+    if(!['LIMIT_REACHED','DEMO_MODE'].includes(e.message)&&!e.message?.startsWith('RATE_LIMITED')&&!e.message?.startsWith('SERVICE_BUSY')){document.getElementById('feedback-area').innerHTML=`<div class="error-box">${esc(e.message||'Could not analyze answer.')}</div>`;document.getElementById('submit-btn').disabled=false;document.getElementById('answer-input').disabled=false;}
   }
 }
 
@@ -2401,7 +2426,7 @@ async function ariaRespond(isFirst) {
     else{document.getElementById('chat-send-btn').disabled=false;document.getElementById('chat-input').disabled=false;document.getElementById('chat-input').focus();}
   } catch(e){
     setTyping(false);
-    if(e.message!=='LIMIT_REACHED'){addBubble('ai',`Technical issue: ${esc(e.message)}. Please try again.`);document.getElementById('chat-send-btn').disabled=false;document.getElementById('chat-input').disabled=false;}
+    if(!['LIMIT_REACHED','DEMO_MODE'].includes(e.message)&&!e.message?.startsWith('RATE_LIMITED')&&!e.message?.startsWith('SERVICE_BUSY')){addBubble('ai',`Technical issue: ${esc(e.message)}. Please try again.`);document.getElementById('chat-send-btn').disabled=false;document.getElementById('chat-input').disabled=false;}
     document.getElementById('aria-status').textContent='Online · Ready to interview';
   }
 }
@@ -2460,7 +2485,7 @@ async function showChatSummary() {
       ev = { score: 7 }; // graceful fallback — don't crash the summary page
     }
     document.getElementById('stat-score').textContent=(ev.score||'—')+'/10';
-    if(S.authToken) saveSessionToBackend(ev.score||0,[],S.allErrors);
+    if(S.authToken&&!S.isDemo) saveSessionToBackend(ev.score||0,[],S.allErrors);
     const cs=document.getElementById('coach-summary-section');cs.style.display='block';
     cs.innerHTML=`<div class="coach-summary-block"><div class="cs-title"><i class="ti ti-user-check"></i> Coach Summary</div>${ev.biggest_strength?`<div class="cs-row"><span class="cs-key">Strength</span><span class="cs-val">${esc(ev.biggest_strength)}</span></div>`:''} ${ev.biggest_weakness?`<div class="cs-row"><span class="cs-key">Weakness</span><span class="cs-val">${esc(ev.biggest_weakness)}</span></div>`:''} ${ev.pattern?`<div class="cs-row"><span class="cs-key">Pattern</span><span class="cs-val">${esc(ev.pattern)}</span></div>`:''} ${ev.final_advice?`<div class="cs-row"><span class="cs-key">Focus on</span><span class="cs-val">${esc(ev.final_advice)}</span></div>`:''} ${ev.model_closing_line?`<div class="cs-closing"><div class="cs-closing-label">Example closing line</div>"${esc(ev.model_closing_line)}"</div>`:''}</div>`;
   } catch { document.getElementById('stat-score').textContent='N/A'; }
@@ -2487,7 +2512,7 @@ async function saveSessionToBackend(avgScore,feedbacks,errors) {
       personality:   S.persona,
       score:         avgScore || 0,
       exchanges:     S.totalQ || S.chatExchanges || 0,
-      duration_secs: S.timerSecs ? (S.timerSecs - (S.timerRemaining || 0)) : 0,
+      duration_secs: S.timerSecs ? (S.timerSecs - (S.timerRemaining || 0)) : (S.sessionStartTime ? Math.round((Date.now() - S.sessionStartTime) / 1000) : 0),
       hindi_mode:    S.lang !== 'en',
       feedbacks:     normalizedFeedbacks,
     };
@@ -2756,6 +2781,13 @@ function parseJsonArray(raw) {
     const cleaned = raw.replace(/```json|```/g, '').trim();
     const arr = JSON.parse(cleaned);
     if (Array.isArray(arr)) return arr;
+    // AI sometimes returns a single object instead of an array of strings.
+    // Try to pull a question-like string out of it rather than falling
+    // through to the line-splitting strategy (which dumps raw JSON as text).
+    if (arr && typeof arr === 'object') {
+      const candidate = arr['Interview Question'] || arr.question || arr.Question || arr.text;
+      if (typeof candidate === 'string') return [candidate];
+    }
   } catch {}
   // Strategy 2: find first '[' to last ']' and parse that slice
   try {
