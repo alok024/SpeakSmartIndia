@@ -40,11 +40,6 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
 
   const user      = req.user!;
   const callCount  = req.callCount ?? 0;
-  // FIX H6: `free` must never come from the client body — any authenticated user
-  // could send { free: true } to bypass the usage counter indefinitely. We derive
-  // it from the route path instead: /api/ai/free is the designated endpoint for
-  // non-counted helper calls (hints, grammar checks, drills); /api/ai always counts.
-  const isFreeCall = req.path === '/free';
   const plan       = user.plan as PlanType;
   // FIX H7: Use req.resolvedLimit (set by checkUsageLimit from the DB) instead of
   // PLAN_LIMITS[user.plan]. The JWT plan is stale immediately after an upgrade —
@@ -127,16 +122,19 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // ── 5. Increment usage (skip for free/helper calls like error-check, hints, drills) ──
-  if (!isFreeCall) {
-    await incrementAIUsage(user.id);
-  }
+  // FIX (session-counted, not message-counted): usage is now incremented once
+  // per *completed interview session* (sessions.service.ts, on save), not once
+  // per AI message exchange. A single session fires many AI calls (greeting,
+  // each question, each answer's feedback, follow-ups, etc.) — counting every
+  // one of those against the 7-free-sessions quota was blocking free users
+  // partway through their very first session instead of after their 7th.
+  // isFreeCall/incrementAIUsage are intentionally no longer called here.
 
   aiLogger.debug('AI call completed', {
     userId:     user.id,
     provider,
     cached:     cached ?? false,
-    callCount:  callCount + 1,
+    callCount,
     plan,
     adaptive:   !!adaptiveProfile,   // true when Pro/Elite has enough data for coaching profile
     personalised: hasPersonalisation, // false on free plan — no memory/adaptive layer
@@ -146,9 +144,9 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     text,
     provider,
     cached:     cached ?? false,
-    calls_used: callCount + 1,
+    calls_used: callCount,
     limit:      limit === -1 ? null : limit,
-    remaining:  limit === -1 ? null : Math.max(0, limit - (callCount + 1)),
+    remaining:  limit === -1 ? null : Math.max(0, limit - callCount),
     plan_features: {
       personalised: hasPersonalisation,  // false = free plan; prompt has no adaptive/memory layer
     },
@@ -174,8 +172,6 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
 export const handleAIStream = asyncHandler(async (req: Request, res: Response) => {
   const user      = req.user!;
   const callCount  = req.callCount ?? 0;
-  // FIX H6: Same as handleAI — derive isFreeCall from route path, not client body.
-  const isFreeCall = req.path === '/free';
   const plan       = user.plan as PlanType;
   // FIX H7: Same as handleAI — use DB-authoritative limit, not stale JWT plan.
   const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
