@@ -1,0 +1,38 @@
+{
+  "name": "SpeakSmart India",
+  "short_name": "SpeakSmart",
+  "description": "AI-powered interview & English speaking coach for India",
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#0C0A10",
+  "theme_color": "#F97316",
+  "orientation": "portrait-primary",
+  "categories": ["education", "productivity"],
+  "lang": "en-IN",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "New Interview",
+      "url": "/interview/setup",
+      "description": "Start a new AI interview practice session"
+    },
+    {
+      "name": "English Practice",
+      "url": "/english",
+      "description": "Practice English speaking"
+    }
+  ]
+}
