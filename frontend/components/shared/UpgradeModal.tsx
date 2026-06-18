@@ -91,7 +91,7 @@ export function UpgradeModal() {
         config: {
           display: {
             blocks: {
-              upi:  { name: 'Pay by UPI', instruments: [{ method: 'upi' }] },
+              upi:  { name: 'Pay by UPI', instruments: [{ method: 'upi', flows: ['collect', 'qr', 'intent'] }] },
               card: { name: 'Pay by Card', instruments: [{ method: 'card' }] },
             },
             sequence: ['block.upi', 'block.card'],
