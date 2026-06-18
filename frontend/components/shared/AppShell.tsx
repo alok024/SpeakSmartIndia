@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * components/shared/AppShell.tsx
+ *
+ * App chrome: sidebar + topbar. Uses the same violet/gold logo mark and
+ * CSS-var design tokens as the landing page so the product feels like one
+ * thing, not two different sites stitched together.
+ */
+
 import { useUIStore } from '@/store/ui';
 import { useAuthStore } from '@/store/auth';
 import { useLogout } from '@/features/auth/hooks';
@@ -12,30 +20,58 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, section: 'Practice' },
-  { href: '/interview/setup', label: 'New Interview', icon: Play, section: null },
-  { href: '/english', label: 'English Practice', icon: MessageSquare, section: null, badge: 'NEW' },
-  { href: '/history', label: 'Past Sessions', icon: History, section: null, proBadge: true },
-  { href: '/profile', label: 'Profile & Plan', icon: User, section: null },
-  { href: '/referral', label: 'Refer & Earn', icon: Gift, section: null, freeOnly: true },
-];
+const NAV = [
+  { href: '/dashboard',        label: 'Dashboard',       icon: LayoutDashboard, section: 'Practice' },
+  { href: '/interview/setup',  label: 'New Interview',   icon: Play },
+  { href: '/english',          label: 'English Practice',icon: MessageSquare,   badge: 'NEW' },
+  { href: '/history',          label: 'Past Sessions',   icon: History,         proBadge: true },
+  { href: '/profile',          label: 'Profile & Plan',  icon: User,            section: 'Account' },
+  { href: '/referral',         label: 'Refer & Earn',    icon: Gift,            freeOnly: true },
+] as const;
+
+/** Violet→gold gradient logo mark, matches landing page exactly */
+function LogoMark({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <defs>
+        <linearGradient id="appLogoG" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="var(--violet)" />
+          <stop offset="1" stopColor="var(--gold)" />
+        </linearGradient>
+      </defs>
+      <path d="M16 2C8.27 2 2 7.85 2 15.1c0 3.62 1.55 6.9 4.1 9.26-.18 1.84-.74 3.4-1.62 4.74-.2.3.05.7.4.64 2.4-.4 4.46-1.4 6.1-2.62 1.55.55 3.25.86 5.02.86 7.73 0 14-5.85 14-13.1S23.73 2 16 2Z"
+        fill="url(#appLogoG)" />
+      <path d="M10.5 17.5c1.2 1.7 3.2 2.8 5.5 2.8s4.3-1.1 5.5-2.8"
+        stroke="var(--bg)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+      <circle cx="11.5" cy="13" r="1.6" fill="var(--bg)" />
+      <circle cx="20.5" cy="13" r="1.6" fill="var(--bg)" />
+    </svg>
+  );
+}
+
+const PAGE_TITLES: Record<string, string> = {
+  '/dashboard':          'Dashboard',
+  '/interview/setup':    'New Interview',
+  '/interview/session':  'Session',
+  '/interview/summary':  'Session Report',
+  '/english':            'English Practice',
+  '/history':            'Past Sessions',
+  '/profile':            'Profile & Plan',
+  '/referral':           'Refer & Earn',
+};
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { sidebarOpen, closeSidebar, toggleSidebar, isDark, toggleTheme } =
-    useUIStore();
+  const { sidebarOpen, closeSidebar, toggleSidebar, isDark, toggleTheme } = useUIStore();
   const { user } = useAuthStore();
   const pathname = usePathname();
-  const router = useRouter();
-  const logout = useLogout();
+  const router   = useRouter();
+  const logout   = useLogout();
 
-  const isFree = !user || (user.plan !== 'pro' && user.plan !== 'elite');
-
+  const isFree = !user?.plan || (user.plan !== 'pro' && user.plan !== 'elite');
   const planLabel =
-    user?.plan === 'elite' ? '◈ Elite plan' :
-    user?.plan === 'pro' ? '✦ Pro plan' : 'Free plan';
-
-  const name = user?.name || user?.email?.split('@')[0] || '?';
+    user?.plan === 'elite' ? '◈ Elite' :
+    user?.plan === 'pro'   ? '✦ Pro' : 'Free';
+  const name   = user?.name || user?.email?.split('@')[0] || '?';
   const avatar = name[0].toUpperCase();
 
   async function handleLogout() {
@@ -44,73 +80,66 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className={cn('flex min-h-screen', isDark ? 'dark' : '')} style={{ background: '#0C0A10' }}>
-      {/* ── Sidebar ────────────────────────────────── */}
+    <div className="flex min-h-screen" style={{ background: 'var(--bg-app)' }}>
+      {/* ── Sidebar ─────────────────────────────────────────────── */}
       <aside
         className={cn(
-          'fixed top-0 left-0 h-full z-50 w-[220px] flex flex-col',
-          'border-r transition-transform duration-250',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          'lg:translate-x-0'
+          'fixed inset-y-0 left-0 z-50 w-56 flex flex-col',
+          'border-r transition-transform duration-300 ease-out',
+          sidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+          'lg:translate-x-0 lg:shadow-none'
         )}
-        style={{ background: '#141118', borderColor: 'rgba(255,255,255,0.07)' }}
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        {/* Logo */}
+        {/* Logo wordmark */}
         <Link
           href="/dashboard"
-          className="flex items-center gap-2.5 px-4 py-4 border-b"
-          style={{ borderColor: 'rgba(255,255,255,0.07)' }}
           onClick={closeSidebar}
+          className="flex items-center gap-2.5 px-5 h-14 border-b flex-shrink-0"
+          style={{ borderColor: 'var(--border)' }}
         >
-          <svg width="30" height="30" viewBox="0 0 30 30" fill="none" className="flex-shrink-0">
-            <circle cx="15" cy="15" r="14" fill="rgba(249,115,22,0.12)" stroke="rgba(249,115,22,0.3)" strokeWidth="0.5"/>
-            <rect x="11" y="7" width="8" height="12" rx="4" fill="#F97316"/>
-            <path d="M9 16.5C9 19.8 11.7 22.5 15 22.5S21 19.8 21 16.5" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round"/>
-            <line x1="15" y1="22.5" x2="15" y2="25" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round"/>
-            <line x1="12" y1="25" x2="18" y2="25" stroke="#F97316" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <span className="text-sm font-bold" style={{ color: '#F5F3FF', letterSpacing: '-0.02em' }}>
-            Speak<span style={{ color: '#F97316' }}>Smart</span>
+          <LogoMark />
+          <span
+            className="text-[15px] font-bold tracking-tight"
+            style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', color: 'var(--text-1)' }}
+          >
+            Speak<span style={{ color: 'var(--accent)', fontStyle: 'normal' }}>Smart</span>
           </span>
         </Link>
 
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-2.5">
-          {NAV_ITEMS.map((item, i) => {
-            const prev = NAV_ITEMS[i - 1];
-            const showSection = item.section && item.section !== prev?.section;
-            if (item.freeOnly && !isFree) return null;
-            const isActive = pathname === item.href;
+        {/* Nav links */}
+        <nav className="flex-1 overflow-y-auto py-3 px-2.5 space-y-0.5">
+          {NAV.map((item, i) => {
+            if ('freeOnly' in item && item.freeOnly && !isFree) return null;
+            const active = pathname === item.href;
+            const prevSection = i > 0 && 'section' in NAV[i] ? (NAV[i] as any).section : null;
+            const showSection = 'section' in item && item.section && item.section !== (i > 0 && 'section' in NAV[i-1] ? (NAV[i-1] as any).section : null);
 
             return (
               <div key={item.href}>
-                {showSection && (
-                  <SectionLabel className="mt-3">{item.section}</SectionLabel>
-                )}
+                {showSection && <SectionLabel className="mt-3">{(item as any).section}</SectionLabel>}
                 <Link
                   href={item.href}
                   onClick={closeSidebar}
-                  className="flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] text-sm font-medium mb-0.5 transition-all"
+                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group"
                   style={{
-                    background: isActive ? 'rgba(249,115,22,0.12)' : 'transparent',
-                    color: isActive ? '#F97316' : '#9490A8',
+                    background: active ? 'var(--accent-dim)' : 'transparent',
+                    color:      active ? 'var(--accent)' : 'var(--text-2)',
                   }}
+                  onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)'; }}
+                  onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
                 >
-                  {/* dot indicator */}
-                  <span
-                    className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-                    style={{ background: 'currentColor' }}
-                  />
-                  {item.label}
-                  {item.badge && (
-                    <span className="ml-auto text-[9px] font-bold text-white rounded px-1 py-0.5"
-                      style={{ background: '#F97316' }}>
+                  <item.icon className="w-[15px] h-[15px] flex-shrink-0" strokeWidth={active ? 2.5 : 2} />
+                  <span className="flex-1">{item.label}</span>
+                  {'badge' in item && item.badge && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: 'var(--emerald-dim)', color: 'var(--emerald)', border: '1px solid var(--emerald-border)' }}>
                       {item.badge}
                     </span>
                   )}
-                  {item.proBadge && isFree && (
-                    <span className="ml-auto text-[9px] font-bold rounded px-1 py-0.5"
-                      style={{ background: 'rgba(255,255,255,0.08)', color: '#9490A8' }}>
+                  {'proBadge' in item && item.proBadge && isFree && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: 'var(--surface-3)', color: 'var(--text-3)' }}>
                       PRO
                     </span>
                   )}
@@ -120,33 +149,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* User chip */}
-        <div className="p-2 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+        {/* User footer */}
+        <div className="p-3 border-t flex-shrink-0" style={{ borderColor: 'var(--border)' }}>
           <button
             onClick={() => { router.push('/profile'); closeSidebar(); }}
-            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-[10px] transition-all"
-            style={{ color: '#F5F3FF' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+            className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-colors duration-200 text-left"
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
           >
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{
-                background: 'linear-gradient(135deg, rgba(249,115,22,0.3), rgba(139,92,246,0.3))',
-                color: '#F5F3FF',
-              }}
+              style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' }}
             >
               {avatar}
             </div>
-            <div className="flex-1 text-left min-w-0">
-              <div className="text-xs font-semibold truncate" style={{ color: '#F5F3FF' }}>{name}</div>
-              <div className="text-[10px]" style={{ color: '#5C5770' }}>{planLabel}</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold truncate" style={{ color: 'var(--text-1)' }}>{name}</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-3)' }}>{planLabel} plan</p>
             </div>
           </button>
         </div>
       </aside>
 
-      {/* ── Sidebar overlay (mobile) ────────────────── */}
+      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/60 lg:hidden"
@@ -154,48 +179,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* ── Main content ────────────────────────────── */}
-      <div className="flex-1 flex flex-col lg:pl-[220px] min-h-screen" style={{ background: '#0C0A10' }}>
+      {/* ── Main ────────────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-h-screen lg:pl-56">
+        {/* Ambient atmosphere matching the landing, toned down */}
+        <div className="app-ambient lg:left-56">
+          <div className="app-orb app-orb-violet" />
+          <div className="app-orb app-orb-gold" />
+          <div className="app-grid" />
+        </div>
+
         {/* Topbar */}
         <header
-          className="sticky top-0 z-30 h-12 flex items-center justify-between px-5 border-b backdrop-blur"
-          style={{ background: 'rgba(12,10,16,0.85)', borderColor: 'rgba(255,255,255,0.07)' }}
+          className="sticky top-0 z-30 h-14 flex items-center justify-between px-5 border-b backdrop-blur-xl"
+          style={{ background: 'var(--nav-bg)', borderColor: 'var(--border)' }}
         >
           <div className="flex items-center gap-3">
             <button
               onClick={toggleSidebar}
-              className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl transition-colors"
-              style={{ color: '#9490A8' }}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+              style={{ color: 'var(--text-2)' }}
             >
-              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
-            <span className="text-sm font-semibold hidden sm:block" style={{ color: '#F5F3FF' }}>
-              {getPageTitle(pathname)}
+            <span className="text-sm font-semibold hidden sm:block" style={{ color: 'var(--text-1)' }}>
+              {PAGE_TITLES[pathname] ?? 'SpeakSmart'}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={toggleTheme}
-              className="w-10 h-10 flex items-center justify-center rounded-lg border transition-colors"
-              style={{ border: '0.5px solid rgba(255,255,255,0.07)', color: '#9490A8', background: 'transparent' }}
-              title="Toggle theme"
-            >
+          <div className="flex items-center gap-1">
+            <IconBtn onClick={toggleTheme} title="Toggle theme">
               {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="w-10 h-10 flex items-center justify-center rounded-lg border transition-colors"
-              style={{ border: '0.5px solid rgba(255,255,255,0.07)', color: '#9490A8', background: 'transparent' }}
-              title="Sign out"
-            >
+            </IconBtn>
+            <IconBtn onClick={handleLogout} title="Sign out">
               <LogOut className="w-3.5 h-3.5" />
-            </button>
+            </IconBtn>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 relative z-[1]">
           {children}
         </main>
       </div>
@@ -203,16 +224,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function getPageTitle(pathname: string): string {
-  const map: Record<string, string> = {
-    '/dashboard': 'Dashboard',
-    '/interview/setup': 'New Interview',
-    '/interview/session': 'Interview',
-    '/interview/summary': 'Session Report',
-    '/english': 'English Practice',
-    '/history': 'Past Sessions',
-    '/profile': 'Profile & Plan',
-    '/referral': 'Refer & Earn',
-  };
-  return map[pathname] ?? 'SpeakSmart';
+function IconBtn({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      className="w-9 h-9 flex items-center justify-center rounded-lg border transition-colors duration-200"
+      style={{ borderColor: 'var(--border)', color: 'var(--text-2)', background: 'transparent' }}
+      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
+      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      {...props}
+    >
+      {children}
+    </button>
+  );
 }

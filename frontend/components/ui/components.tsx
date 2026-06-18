@@ -1,323 +1,389 @@
 'use client';
 
-import { cva, type VariantProps } from 'class-variance-authority';
+/**
+ * components/ui/components.tsx
+ *
+ * Shared UI primitives — fully theme-aware via CSS custom properties.
+ * No hardcoded hex values; everything derives from the design tokens
+ * defined in globals.css ([data-theme="dark"] / [data-theme="light"]).
+ */
+
 import { cn } from '@/lib/utils';
-import { forwardRef } from 'react';
+import React, { forwardRef } from 'react';
 
-// ── Design tokens ──────────────────────────────────────────────────
-const T = {
-  bg:          '#0C0A10',
-  surface:     '#141118',
-  surface2:    '#1E1A26',
-  border:      'rgba(255,255,255,0.07)',
-  border2:     'rgba(255,255,255,0.13)',
-  orange:      '#F97316',
-  orangeDim:   'rgba(249,115,22,0.12)',
-  orangeBorder:'rgba(249,115,22,0.25)',
-  violet:      '#8B5CF6',
-  violetDim:   'rgba(139,92,246,0.12)',
-  violetBorder:'rgba(139,92,246,0.25)',
-  emerald:     '#10B981',
-  emeraldDim:  'rgba(16,185,129,0.12)',
-  emeraldBorder:'rgba(16,185,129,0.25)',
-  amber:       '#F59E0B',
-  amberDim:    'rgba(245,158,11,0.12)',
-  amberBorder: 'rgba(245,158,11,0.25)',
-  red:         '#EF4444',
-  redDim:      'rgba(239,68,68,0.12)',
-  redBorder:   'rgba(239,68,68,0.2)',
-  text1:       '#F5F3FF',
-  text2:       '#9490A8',
-  text3:       '#5C5770',
-};
+// ── Button ────────────────────────────────────────────────────────────────────
 
-// ── Button ────────────────────────────────────────────────────────
-//
-// variant mapping:
-//   primary   → orange→amber gradient  (was blue)
-//   secondary → subtle surface + border
-//   ghost     → transparent, muted text
-//   danger    → red tint
-//   upgrade   → violet→purple gradient  (was blue→purple)
-//   outline   → border only
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' | 'upgrade';
+type ButtonSize    = 'sm' | 'md' | 'lg';
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 font-semibold rounded-[10px] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2',
-  {
-    variants: {
-      variant: {
-        primary:
-          'bg-gradient-to-br from-[#F97316] to-[#F59E0B] hover:brightness-110 text-white focus-visible:ring-[#F97316]/40',
-        secondary:
-          'bg-white/[0.06] hover:bg-white/[0.10] text-[#F5F3FF] border border-white/[0.13] focus-visible:ring-white/20',
-        ghost:
-          'hover:bg-white/[0.04] text-[#9490A8] hover:text-[#F5F3FF] focus-visible:ring-white/10',
-        danger:
-          'bg-[rgba(239,68,68,0.10)] hover:bg-[rgba(239,68,68,0.18)] text-[#EF4444] border border-[rgba(239,68,68,0.2)] focus-visible:ring-red-500/30',
-        upgrade:
-          'bg-gradient-to-br from-[#8B5CF6] to-[#A855F7] hover:brightness-110 text-white focus-visible:ring-[#8B5CF6]/40',
-        outline:
-          'border border-white/[0.13] hover:border-white/[0.22] text-[#F5F3FF] hover:bg-white/[0.04] focus-visible:ring-white/10',
-      },
-      size: {
-        sm:   'text-xs px-3 py-2 min-h-[36px]',
-        md:   'text-sm px-4 py-2.5 min-h-[44px]',
-        lg:   'text-sm px-5 py-3 min-h-[44px]',
-        xl:   'text-base px-7 py-3.5 min-h-[48px]',
-        icon: 'w-10 h-10 p-0 rounded-lg',
-      },
-    },
-    defaultVariants: { variant: 'primary', size: 'md' },
-  }
-);
-
-export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof buttonVariants> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
   loading?: boolean;
+  leftIcon?: React.ReactNode;
+  rightIcon?: React.ReactNode;
 }
 
+const BTN_BASE =
+  'inline-flex items-center justify-center gap-2 font-semibold rounded-[10px] ' +
+  'transition-all duration-200 disabled:opacity-50 disabled:pointer-events-none ' +
+  'focus-visible:outline-none focus-visible:ring-2';
+
+const BTN_SIZE: Record<ButtonSize, string> = {
+  sm: 'h-8 px-3.5 text-xs',
+  md: 'h-10 px-5 text-sm',
+  lg: 'h-12 px-7 text-base',
+};
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, loading, children, disabled, ...props }, ref) => (
-    <button
-      ref={ref}
-      className={cn(buttonVariants({ variant, size }), className)}
-      disabled={disabled || loading}
-      {...props}
-    >
-      {loading && <Spinner className="w-4 h-4" />}
-      {children}
-    </button>
-  )
+  ({ variant = 'primary', size = 'md', loading, leftIcon, rightIcon, children, className, style, ...rest }, ref) => {
+    const variantStyle: React.CSSProperties =
+      variant === 'primary'   ? { background: 'var(--accent-bg)', color: 'var(--accent-text)', boxShadow: '0 0 0 1px var(--accent-border)' } :
+      variant === 'secondary' ? { background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border2)' } :
+      variant === 'ghost'     ? { background: 'transparent', color: 'var(--text-2)' } :
+      variant === 'outline'   ? { background: 'transparent', color: 'var(--text-1)', border: '1px solid var(--border2)' } :
+      variant === 'danger'    ? { background: 'var(--error-dim)', color: 'var(--error)', border: '1px solid var(--error-border)' } :
+      /* upgrade */             { background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' };
+
+    return (
+      <button
+        ref={ref}
+        className={cn(BTN_BASE, BTN_SIZE[size], className)}
+        style={{ ...variantStyle, ...style }}
+        disabled={loading || rest.disabled}
+        {...rest}
+      >
+        {loading ? <Spinner size={size === 'lg' ? 18 : 14} /> : leftIcon}
+        {children}
+        {!loading && rightIcon}
+      </button>
+    );
+  }
 );
 Button.displayName = 'Button';
 
-// ── Badge ─────────────────────────────────────────────────────────
-//
-// Colour system aligned to redesign tokens:
-//   accent   → orange (was blue)
-//   success  → emerald ✓
-//   warn     → amber  ✓
-//   danger   → red    ✓
-//   purple   → violet (was purple)
-//   pro      → orange→violet gradient
-//   elite    → violet gradient
+// ── Badge ─────────────────────────────────────────────────────────────────────
 
-const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-md font-semibold border',
-  {
-    variants: {
-      variant: {
-        default: 'bg-white/[0.05] text-[#9490A8] border-white/[0.10]',
-        accent:  'bg-[rgba(249,115,22,0.12)] text-[#F97316] border-[rgba(249,115,22,0.25)]',
-        success: 'bg-[rgba(16,185,129,0.12)] text-[#10B981] border-[rgba(16,185,129,0.25)]',
-        warn:    'bg-[rgba(245,158,11,0.12)] text-[#F59E0B] border-[rgba(245,158,11,0.25)]',
-        danger:  'bg-[rgba(239,68,68,0.12)] text-[#EF4444] border-[rgba(239,68,68,0.2)]',
-        purple:  'bg-[rgba(139,92,246,0.12)] text-[#8B5CF6] border-[rgba(139,92,246,0.25)]',
-        pro:     'bg-gradient-to-r from-[rgba(249,115,22,0.15)] to-[rgba(139,92,246,0.15)] text-[#C4B5FD] border-[rgba(139,92,246,0.3)]',
-        elite:   'bg-gradient-to-r from-[rgba(139,92,246,0.2)] to-[rgba(168,85,247,0.2)] text-[#C4B5FD] border-[rgba(139,92,246,0.35)]',
-        free:    'bg-white/[0.05] text-[#9490A8] border-white/[0.10]',
-      },
-      size: {
-        sm: 'px-1.5 py-0.5 text-[10px]',
-        md: 'px-2 py-0.5 text-[10px]',
-        lg: 'px-2.5 py-1 text-xs',
-      },
-    },
-    defaultVariants: { variant: 'default', size: 'md' },
-  }
-);
+type BadgeVariant = 'default' | 'accent' | 'success' | 'warn' | 'danger' | 'purple' | 'pro' | 'elite' | 'free';
 
-export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
-    VariantProps<typeof badgeVariants> {}
-
-export function Badge({ className, variant, size, ...props }: BadgeProps) {
-  return <span className={cn(badgeVariants({ variant, size }), className)} {...props} />;
-}
-
-// ── Card ──────────────────────────────────────────────────────────
-
-export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn('rounded-2xl', className)}
-      style={{ background: T.surface, border: `0.5px solid ${T.border}` }}
-      {...props}
-    />
-  );
-}
-
-export function CardHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn('px-4 py-3', className)}
-      style={{ borderBottom: `0.5px solid ${T.border}` }}
-      {...props}
-    />
-  );
-}
-
-export function CardBody({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('px-4 py-3', className)} {...props} />;
-}
-
-// ── Spinner ───────────────────────────────────────────────────────
-
-export function Spinner({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return (
-    <div
-      className={cn(
-        'rounded-full border-2 border-current border-t-transparent animate-spin',
-        className ?? 'w-5 h-5'
-      )}
-    />
-  );
-}
-
-// ── Input ─────────────────────────────────────────────────────────
-
-export const Input = forwardRef<
-  HTMLInputElement,
-  React.InputHTMLAttributes<HTMLInputElement>
->(({ className, style, ...props }, ref) => (
-  <input
-    ref={ref}
-    className={cn(
-      'w-full px-3 py-2.5 rounded-[10px] text-xs transition-colors disabled:opacity-50 outline-none',
-      'placeholder:text-[#5C5770]',
-      className
-    )}
-    style={{
-      background:  T.surface2,
-      border:      `0.5px solid ${T.border2}`,
-      color:       T.text2,
-      ...style,
-    }}
-    onFocus={e  => (e.target.style.borderColor = T.orange)}
-    onBlur={e   => (e.target.style.borderColor = T.border2)}
-    {...props}
-  />
-));
-Input.displayName = 'Input';
-
-// ── Textarea ──────────────────────────────────────────────────────
-
-export const Textarea = forwardRef<
-  HTMLTextAreaElement,
-  React.TextareaHTMLAttributes<HTMLTextAreaElement>
->(({ className, style, ...props }, ref) => (
-  <textarea
-    ref={ref}
-    className={cn(
-      'w-full px-3 py-2.5 rounded-[10px] text-xs transition-colors disabled:opacity-50 outline-none resize-none',
-      'placeholder:text-[#5C5770]',
-      className
-    )}
-    style={{
-      background: T.surface2,
-      border:     `0.5px solid ${T.border2}`,
-      color:      T.text2,
-      ...style,
-    }}
-    onFocus={e  => (e.target.style.borderColor = T.orange)}
-    onBlur={e   => (e.target.style.borderColor = T.border2)}
-    {...props}
-  />
-));
-Textarea.displayName = 'Textarea';
-
-// ── ScoreBadge ────────────────────────────────────────────────────
-
-export function ScoreBadge({ score, className }: { score: number; className?: string }) {
-  const variant = score >= 7 ? 'success' : score >= 4 ? 'warn' : 'danger';
-  return (
-    <Badge variant={variant} size="lg" className={cn('font-bold tabular-nums', className)}>
-      {score}/10
-    </Badge>
-  );
-}
-
-// ── ProgressBar ───────────────────────────────────────────────────
-
-export function ProgressBar({
-  value,
-  max = 100,
-  className,
-  barClassName,
-  style,
-}: {
-  value:        number;
-  max?:         number;
-  className?:   string;
-  barClassName?: string;
-  style?:       React.CSSProperties;
-}) {
-  const pct = Math.min(100, Math.round((value / max) * 100));
-  return (
-    <div
-      className={cn('h-[5px] rounded-full overflow-hidden', className)}
-      style={{ background: 'rgba(255,255,255,0.05)' }}
-    >
-      <div
-        className={cn('h-full rounded-full transition-[width] duration-700 ease-out', barClassName)}
-        style={{ width: `${pct}%`, background: T.orange, ...style }}
-      />
-    </div>
-  );
-}
-
-// ── SectionLabel ──────────────────────────────────────────────────
-
-export function SectionLabel({
-  children,
-  className,
-}: {
-  children:  React.ReactNode;
+interface BadgeProps {
+  variant?: BadgeVariant;
+  children: React.ReactNode;
   className?: string;
-}) {
+}
+
+export function Badge({ variant = 'default', children, className }: BadgeProps) {
+  const s: React.CSSProperties =
+    variant === 'accent'  ? { background: 'var(--accent-dim)',   color: 'var(--accent)',   border: '1px solid var(--accent-border)' } :
+    variant === 'success' ? { background: 'var(--success-dim)',  color: 'var(--success)',  border: '1px solid var(--success-border)' } :
+    variant === 'warn'    ? { background: 'var(--warn-dim)',     color: 'var(--warn)',     border: '1px solid var(--warn-border)' } :
+    variant === 'danger'  ? { background: 'var(--error-dim)',    color: 'var(--error)',    border: '1px solid var(--error-border)' } :
+    variant === 'purple'  ? { background: 'var(--violet-dim)',   color: 'var(--violet)',   border: '1px solid var(--violet-border)' } :
+    variant === 'pro'     ? { background: 'var(--gold-dim)',     color: 'var(--gold)',     border: '1px solid var(--gold-border)' } :
+    variant === 'elite'   ? { background: 'linear-gradient(135deg,var(--violet-dim),var(--gold-dim))', color: 'var(--text-1)', border: '1px solid var(--violet-border)' } :
+    variant === 'free'    ? { background: 'var(--surface-3)',    color: 'var(--text-3)',   border: '1px solid var(--border)' } :
+                            { background: 'var(--surface-2)',    color: 'var(--text-2)',   border: '1px solid var(--border2)' };
+
   return (
     <span
-      className={cn(
-        'block text-[10px] font-semibold uppercase tracking-widest px-2.5 py-1.5',
-        className
-      )}
-      style={{ color: T.text3 }}
+      className={cn('inline-flex items-center gap-1 text-[11px] font-semibold rounded-md px-2 py-0.5', className)}
+      style={s}
     >
       {children}
     </span>
   );
 }
 
-// ── ChipGroup ─────────────────────────────────────────────────────
+// ── Card ──────────────────────────────────────────────────────────────────────
 
-export function ChipGroup<T extends string>({
-  options,
-  value,
-  onChange,
-  className,
-}: {
-  options:   { label: string; value: T; icon?: string }[];
-  value:     T;
-  onChange:  (v: T) => void;
+interface CardProps {
+  children: React.ReactNode;
   className?: string;
-}) {
+  style?: React.CSSProperties;
+  hover?: boolean;
+  onClick?: () => void;
+}
+
+export function Card({ children, className, style, hover, onClick }: CardProps) {
+  return (
+    <div
+      className={cn(
+        'rounded-2xl border transition-all duration-200',
+        hover && 'hover:border-[var(--border2)] hover:-translate-y-0.5',
+        onClick && 'cursor-pointer',
+        className
+      )}
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--card-shadow)', ...style }}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function CardHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn('px-5 pt-5 pb-3 border-b', className)} style={{ borderColor: 'var(--border)' }}>
+      {children}
+    </div>
+  );
+}
+
+export function CardBody({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('p-5', className)}>{children}</div>;
+}
+
+// ── Spinner ───────────────────────────────────────────────────────────────────
+
+export function Spinner({ size = 18, className }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 24 24"
+      className={cn('animate-spin', className)}
+      style={{ color: 'currentColor' }}
+      fill="none"
+      aria-label="Loading"
+    >
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeOpacity="0.2" />
+      <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ── Input ─────────────────────────────────────────────────────────────────────
+
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label?: string;
+  error?: string;
+  hint?: string;
+  leftElement?: React.ReactNode;
+  rightElement?: React.ReactNode;
+}
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ label, error, hint, leftElement, rightElement, className, id, ...rest }, ref) => {
+    const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    return (
+      <div className="flex flex-col gap-1.5">
+        {label && (
+          <label htmlFor={inputId} className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+            {label}
+          </label>
+        )}
+        <div className="relative">
+          {leftElement && (
+            <div className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }}>
+              {leftElement}
+            </div>
+          )}
+          <input
+            id={inputId}
+            ref={ref}
+            className={cn(
+              'w-full h-10 text-sm rounded-[10px] border px-3 transition-all duration-150',
+              'focus:outline-none focus:ring-2',
+              leftElement && 'pl-9',
+              rightElement && 'pr-9',
+              className
+            )}
+            style={{
+              background: 'var(--surface-2)',
+              border: error ? '1px solid var(--error)' : '1px solid var(--border2)',
+              color: 'var(--text-1)',
+              '--tw-ring-color': 'var(--accent)',
+            } as React.CSSProperties}
+            {...rest}
+          />
+          {rightElement && (
+            <div className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-3)' }}>
+              {rightElement}
+            </div>
+          )}
+        </div>
+        {error && <p className="text-xs" style={{ color: 'var(--error)' }}>{error}</p>}
+        {hint && !error && <p className="text-xs" style={{ color: 'var(--text-3)' }}>{hint}</p>}
+      </div>
+    );
+  }
+);
+Input.displayName = 'Input';
+
+// ── Textarea ──────────────────────────────────────────────────────────────────
+
+interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label?: string;
+  error?: string;
+}
+
+export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
+  ({ label, error, className, id, ...rest }, ref) => {
+    const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+    return (
+      <div className="flex flex-col gap-1.5">
+        {label && (
+          <label htmlFor={inputId} className="text-xs font-semibold" style={{ color: 'var(--text-2)' }}>
+            {label}
+          </label>
+        )}
+        <textarea
+          id={inputId}
+          ref={ref}
+          className={cn(
+            'w-full text-sm rounded-[10px] border px-3 py-2.5 transition-all duration-150 resize-none',
+            'focus:outline-none focus:ring-2',
+            className
+          )}
+          style={{
+            background: 'var(--surface-2)',
+            border: error ? '1px solid var(--error)' : '1px solid var(--border2)',
+            color: 'var(--text-1)',
+            '--tw-ring-color': 'var(--accent)',
+          } as React.CSSProperties}
+          {...rest}
+        />
+        {error && <p className="text-xs" style={{ color: 'var(--error)' }}>{error}</p>}
+      </div>
+    );
+  }
+);
+Textarea.displayName = 'Textarea';
+
+// ── ProgressBar ───────────────────────────────────────────────────────────────
+
+interface ProgressBarProps {
+  value: number;       // 0–100
+  max?: number;
+  color?: string;      // CSS var string e.g. 'var(--emerald)'
+  className?: string;
+  label?: string;
+  showValue?: boolean;
+  animated?: boolean;
+}
+
+export function ProgressBar({ value, max = 100, color, className, label, showValue, animated }: ProgressBarProps) {
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  const fill = color ?? 'var(--accent)';
+
+  return (
+    <div className={cn('flex flex-col gap-1', className)}>
+      {(label || showValue) && (
+        <div className="flex items-center justify-between">
+          {label && <span className="text-xs" style={{ color: 'var(--text-3)' }}>{label}</span>}
+          {showValue && <span className="text-xs font-semibold tabular-nums" style={{ color: 'var(--text-2)' }}>{Math.round(pct)}</span>}
+        </div>
+      )}
+      <div className="h-1.5 w-full rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+        <div
+          className={cn('h-full rounded-full', animated && 'transition-all duration-700 ease-out')}
+          style={{ width: `${pct}%`, background: fill }}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── ScoreBadge ────────────────────────────────────────────────────────────────
+
+export function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
+  const color =
+    score >= 80 ? 'var(--emerald)' :
+    score >= 60 ? 'var(--gold)' :
+    'var(--rose)';
+  const dim =
+    score >= 80 ? 'var(--emerald-dim)' :
+    score >= 60 ? 'var(--gold-dim)' :
+    'var(--rose-dim)';
+  const border =
+    score >= 80 ? 'var(--emerald-border)' :
+    score >= 60 ? 'var(--gold-border)' :
+    'var(--rose-dim)';
+
+  const cls = size === 'sm' ? 'text-sm w-9 h-9' : size === 'lg' ? 'text-xl w-14 h-14' : 'text-base w-11 h-11';
+
+  return (
+    <div
+      className={cn('rounded-xl font-bold flex items-center justify-center tabular-nums', cls)}
+      style={{ background: dim, color, border: `1px solid ${border}` }}
+    >
+      {score}
+    </div>
+  );
+}
+
+// ── ScoreRing ─────────────────────────────────────────────────────────────────
+
+export function ScoreRing({ score, size = 80, label }: { score: number; size?: number; label?: string }) {
+  const r = (size / 2) - 8;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (score / 100) * circ;
+  const color =
+    score >= 80 ? 'var(--emerald)' :
+    score >= 60 ? 'var(--gold)' :
+    'var(--rose)';
+
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90">
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-3)" strokeWidth="7" />
+          <circle
+            cx={size / 2} cy={size / 2} r={r} fill="none"
+            stroke={color} strokeWidth="7" strokeLinecap="round"
+            strokeDasharray={circ} strokeDashoffset={offset}
+            style={{ transition: 'stroke-dashoffset 0.8s var(--ease-spring)' }}
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-bold tabular-nums" style={{ fontSize: size * 0.26, color }}>{score}</span>
+        </div>
+      </div>
+      {label && <span className="text-xs" style={{ color: 'var(--text-3)' }}>{label}</span>}
+    </div>
+  );
+}
+
+// ── SectionLabel ──────────────────────────────────────────────────────────────
+
+export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <p
+      className={cn('text-[10px] font-bold uppercase tracking-widest px-3 mb-1', className)}
+      style={{ color: 'var(--text-3)', letterSpacing: '0.1em' }}
+    >
+      {children}
+    </p>
+  );
+}
+
+// ── ChipGroup ─────────────────────────────────────────────────────────────────
+
+interface ChipOption { label: string; value: string; icon?: React.ReactNode }
+
+interface ChipGroupProps {
+  options: ChipOption[];
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+}
+
+export function ChipGroup({ options, value, onChange, className }: ChipGroupProps) {
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
       {options.map((opt) => {
-        const active = value === opt.value;
+        const active = opt.value === value;
         return (
           <button
             key={opt.value}
+            type="button"
             onClick={() => onChange(opt.value)}
-            className="px-3 py-2 rounded-full text-xs font-medium border transition-all min-h-[36px]"
-            style={{
-              background:   active ? T.orangeDim            : 'rgba(255,255,255,0.03)',
-              borderColor:  active ? 'rgba(249,115,22,0.4)' : T.border,
-              color:        active ? T.orange               : T.text2,
-            }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
+            style={
+              active
+                ? { background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }
+                : { background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }
+            }
           >
-            {opt.icon && <span className="mr-1">{opt.icon}</span>}
+            {opt.icon}
             {opt.label}
           </button>
         );
@@ -326,95 +392,60 @@ export function ChipGroup<T extends string>({
   );
 }
 
-// ── EmptyState ────────────────────────────────────────────────────
+// ── EmptyState ────────────────────────────────────────────────────────────────
 
-export function EmptyState({
-  icon,
-  title,
-  description,
-  action,
-}: {
-  icon:         string;
-  title:        string;
+interface EmptyStateProps {
+  icon?: React.ReactNode;
+  title: string;
   description?: string;
-  action?:      React.ReactNode;
-}) {
+  action?: React.ReactNode;
+  className?: string;
+}
+
+export function EmptyState({ icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-      <span className="text-4xl">{icon}</span>
-      <p className="font-semibold" style={{ color: T.text1 }}>{title}</p>
-      {description && (
-        <p className="text-sm max-w-xs" style={{ color: T.text2 }}>{description}</p>
+    <div className={cn('flex flex-col items-center justify-center gap-4 py-16 text-center', className)}>
+      {icon && (
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center"
+          style={{ background: 'var(--surface-2)', color: 'var(--text-3)' }}
+        >
+          {icon}
+        </div>
       )}
+      <div className="flex flex-col gap-1.5">
+        <p className="text-base font-semibold" style={{ color: 'var(--text-1)' }}>{title}</p>
+        {description && <p className="text-sm max-w-xs" style={{ color: 'var(--text-3)' }}>{description}</p>}
+      </div>
       {action}
     </div>
   );
 }
 
-// ── ScoreRing ─────────────────────────────────────────────────────
-// New in redesign — circular readiness indicator
+// ── UpgradeStrip ──────────────────────────────────────────────────────────────
 
-export function ScoreRing({
-  score,
-  label = 'Job Ready',
-  size = 70,
-}: {
-  score:  number;
-  label?: string;
-  size?:  number;
-}) {
-  return (
-    <div
-      className="flex flex-col items-center justify-center rounded-full flex-shrink-0"
-      style={{
-        width:      size,
-        height:     size,
-        border:     `3px solid ${T.orangeBorder}`,
-        background: 'rgba(249,115,22,0.05)',
-      }}
-    >
-      <span className="font-bold" style={{ fontSize: size * 0.29, color: T.orange, lineHeight: 1 }}>
-        {score}
-      </span>
-      <span style={{ fontSize: size * 0.115, color: T.text3, letterSpacing: '0.05em' }}>
-        {label}
-      </span>
-    </div>
-  );
+interface UpgradeStripProps {
+  message: string;
+  onUpgrade: () => void;
+  className?: string;
 }
 
-// ── UpgradeStrip ──────────────────────────────────────────────────
-// New in redesign — inline upgrade CTA banner
-
-export function UpgradeStrip({
-  title   = "🚀 You're improving!",
-  subtitle = 'Unlock unlimited sessions to keep your momentum.',
-  cta     = 'Upgrade → ₹299/mo',
-  onClick,
-}: {
-  title?:    string;
-  subtitle?: string;
-  cta?:      string;
-  onClick?:  () => void;
-}) {
+export function UpgradeStrip({ message, onUpgrade, className }: UpgradeStripProps) {
   return (
     <div
-      className="flex items-center justify-between gap-4 flex-wrap rounded-xl px-4 py-3 border"
-      style={{
-        background:  'linear-gradient(135deg, rgba(249,115,22,0.10), rgba(139,92,246,0.10))',
-        borderColor: T.orangeBorder,
-      }}
+      className={cn('flex items-center justify-between gap-4 rounded-xl px-4 py-3', className)}
+      style={{ background: 'var(--violet-dim)', border: '1px solid var(--violet-border)' }}
     >
-      <div>
-        <div className="text-sm font-semibold" style={{ color: T.text1 }}>{title}</div>
-        <div className="text-xs"             style={{ color: T.text2 }}>{subtitle}</div>
+      <div className="flex items-center gap-2.5">
+        <span className="text-base">✦</span>
+        <p className="text-sm" style={{ color: 'var(--text-2)' }}>{message}</p>
       </div>
       <button
-        onClick={onClick}
-        className="text-xs font-bold text-white px-4 py-2 rounded-lg border-none whitespace-nowrap transition-opacity hover:opacity-90"
-        style={{ background: `linear-gradient(135deg, ${T.orange}, ${T.amber})` }}
+        onClick={onUpgrade}
+        className="flex-shrink-0 text-xs font-bold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+        style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' }}
       >
-        {cta}
+        Upgrade →
       </button>
     </div>
   );

@@ -53,7 +53,17 @@ export const useUIStore = create<UIStore>()(
   persist(
     (set, get) => ({
       isDark: true,
-      toggleTheme: () => set((s) => ({ isDark: !s.isDark })),
+      toggleTheme: () => {
+        const next = !get().isDark;
+        set({ isDark: next });
+        // Sync with the same key the landing page reads so theme carries over
+        // the moment the user crosses from the marketing site into the app.
+        if (typeof window !== 'undefined') {
+          const theme = next ? 'dark' : 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          localStorage.setItem('ssi-theme', theme);
+        }
+      },
 
       sidebarOpen: false,
       toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),

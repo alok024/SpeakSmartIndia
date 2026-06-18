@@ -77,11 +77,26 @@ const AIFeedbackOutputSchema = z.object({
 
 function parseFeedbackJson(text: string): Partial<Feedback> {
   try {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1) return { score: parseScoreFromAI(text) };
+    // Find the first '{' then walk forward tracking depth so we land on the
+    // matching '}' — not the last '}' in the whole string.  Naive indexOf/
+    // lastIndexOf grabs the wrong span when the model's prose contains any
+    // curly braces (e.g. code examples, template literals) before or after
+    // the real JSON object, silently falling back to a bare score.
+    const startIdx = text.indexOf('{');
+    if (startIdx === -1) return { score: parseScoreFromAI(text) };
 
-    const raw = JSON.parse(text.slice(start, end + 1));
+    let depth = 0;
+    let endIdx = -1;
+    for (let i = startIdx; i < text.length; i++) {
+      if (text[i] === '{') depth++;
+      else if (text[i] === '}') {
+        depth--;
+        if (depth === 0) { endIdx = i; break; }
+      }
+    }
+    if (endIdx === -1) return { score: parseScoreFromAI(text) };
+
+    const raw = JSON.parse(text.slice(startIdx, endIdx + 1));
 
     // C1: Validate structure — safeParse so bad AI output degrades gracefully
     const result = AIFeedbackOutputSchema.safeParse(raw);
@@ -535,7 +550,17 @@ function InterviewSessionPageInner() {
 
     // Bug 1 fix: actually call the mutation
     const result = await saveSession.mutateAsync({
-      client_session_id: session.clientSessionId ?? crypto.randomUUID(),
+      client_session_id: (() => {
+        // startSession() always sets clientSessionId — a null here would mean
+        // the store was reset between session start and finish, which defeats
+        // the backend's idempotency guarantee for this save.  Log a warning
+        // so it's visible in Sentry/console rather than silently generating a
+        // throwaway UUID that can't deduplicate a retry.
+        if (!session.clientSessionId) {
+          console.warn('[finishSession] clientSessionId is null — idempotency lost for this save');
+        }
+        return session.clientSessionId ?? crypto.randomUUID();
+      })(),
       profession: config.profession,
       mode: config.mode,
       interview_type: config.interviewType,
@@ -566,7 +591,7 @@ function InterviewSessionPageInner() {
   if (phase === 'loading_questions') {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Spinner className="w-10 h-10 text-blue-400" />
+        <Spinner className="w-10 h-10 " />
         <p className="text-[#8B90A0] text-sm">Generating your {store.config.profession} questions…</p>
       </div>
     );
@@ -585,7 +610,7 @@ function InterviewSessionPageInner() {
   if (phase === 'saving') {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
-        <Spinner className="w-10 h-10 text-blue-400" />
+        <Spinner className="w-10 h-10 " />
         <p className="text-[#8B90A0] text-sm">Saving your session…</p>
       </div>
     );
@@ -597,7 +622,7 @@ function InterviewSessionPageInner() {
     return (
       <div className="flex flex-col" style={{ height: 'calc(100dvh - 48px)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.07] bg-[#16181F]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)]">
           <div>
             <span className="text-sm font-semibold text-white">{store.config.profession}</span>
             <span className="text-xs text-[#555A6A] ml-2">AI Chat · {store.config.difficulty}</span>
@@ -623,8 +648,8 @@ function InterviewSessionPageInner() {
               <div
                 className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   msg.role === 'user'
-                    ? 'bg-blue-500/20 text-white ml-8'
-                    : 'bg-[#1D2029] text-white mr-8'
+                    ? 'bg-[var(--accent-dim)] ml-8'
+                    : 'mr-8'
                 }`}
               >
                 {msg.content}
@@ -633,7 +658,7 @@ function InterviewSessionPageInner() {
           ))}
           {chatLoading && history.length > 0 && (
             <div className="flex justify-start">
-              <div className="bg-[#1D2029] rounded-2xl px-4 py-3 flex items-center gap-2">
+              <div className="bg-[var(--surface-2)] rounded-2xl px-4 py-3 flex items-center gap-2">
                 <Spinner className="w-3.5 h-3.5 text-[#8B90A0]" />
                 <span className="text-xs text-[#8B90A0]">Interviewer is typing…</span>
               </div>
@@ -643,7 +668,7 @@ function InterviewSessionPageInner() {
         </div>
 
         {/* Input */}
-        <div className="px-4 pb-4 pt-2 border-t border-white/[0.07] bg-[#0E0F14]">
+        <div className="px-4 pb-4 pt-2 border-t border-[var(--border)] bg-[var(--surface)]">
           <div className="flex gap-2 max-w-3xl mx-auto">
             <textarea
               value={chatInput}
@@ -657,7 +682,7 @@ function InterviewSessionPageInner() {
               placeholder="Type your answer… (Enter to send)"
               rows={2}
               maxLength={MAX_ANSWER_LENGTH}
-              className="flex-1 px-4 py-3 rounded-xl bg-[#1D2029] border border-white/[0.07] text-white placeholder:text-[#555A6A] text-sm resize-none focus:outline-none focus:border-blue-500/50"
+              className="flex-1 px-4 py-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-white placeholder:text-[#555A6A] text-sm resize-none focus:outline-none focus:border-[var(--accent-border)]"
               disabled={chatLoading}
             />
             <Button
@@ -684,7 +709,7 @@ function InterviewSessionPageInner() {
       <div className="flex items-center gap-3">
         <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
           <div
-            className="h-full bg-blue-500 rounded-full transition-[width] duration-500"
+            className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500"
             style={{ width: `${(qNum / totalQ) * 100}%` }}
           />
         </div>
@@ -712,7 +737,7 @@ function InterviewSessionPageInner() {
             rows={6}
             maxLength={MAX_ANSWER_LENGTH}
             autoFocus
-            className="w-full px-4 py-3 rounded-xl bg-[#1D2029] border border-white/[0.07] text-white placeholder:text-[#555A6A] text-sm resize-none focus:outline-none focus:border-blue-500/50 transition-colors"
+            className="w-full px-4 py-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-white placeholder:text-[#555A6A] text-sm resize-none focus:outline-none focus:border-[var(--accent-border)] transition-colors"
           />
 
           {/* Live feedback chips */}
@@ -740,8 +765,9 @@ function InterviewSessionPageInner() {
               variant="secondary"
               size="sm"
               onClick={() => finishSession()}
+              disabled={phase === 'saving'}
             >
-              End Session
+              {phase === 'saving' ? 'Ending…' : 'End Session'}
             </Button>
             <Button
               className="flex-1"
@@ -757,7 +783,7 @@ function InterviewSessionPageInner() {
       {/* Loading feedback */}
       {phase === 'loading_feedback' && (
         <div className="flex flex-col items-center py-8 gap-3">
-          <Spinner className="w-8 h-8 text-blue-400" />
+          <Spinner className="w-8 h-8 " />
           <p className="text-[#8B90A0] text-sm">Analysing your answer…</p>
         </div>
       )}
@@ -784,7 +810,7 @@ function InterviewSessionPageInner() {
             <Card className="p-4 space-y-2">
               <div className="text-xs text-[#555A6A] uppercase tracking-widest mb-2">English Corrections</div>
               {currentFeedback.corrections!.map((c, i) => (
-                <div key={i} className="text-xs bg-[#0E0F14] rounded-lg px-3 py-2">
+                <div key={i} className="text-xs bg-[var(--surface)] rounded-lg px-3 py-2">
                   <span className="text-red-400 line-through">{c.wrong ?? c.mistake}</span>
                   <span className="text-[#555A6A] mx-2">→</span>
                   <span className="text-emerald-400">{c.correct ?? c.correction}</span>

@@ -60,7 +60,7 @@ function DefaultErrorFallback({ error, onRetry }: { error: Error; onRetry: () =>
       <div className="p-6 max-w-md mx-auto pt-16 text-center space-y-4">
         <div className="text-4xl">⚠️</div>
         <p className="text-white font-semibold">Something went wrong</p>
-        <p className="text-sm text-[#8B90A0]">
+        <p className="text-sm" style={{ color: 'var(--text-3)' }}>
           This session crashed unexpectedly. Your progress up to this point may
           already be saved — try again, or head back to set up a new session.
         </p>
@@ -72,7 +72,7 @@ function DefaultErrorFallback({ error, onRetry }: { error: Error; onRetry: () =>
             ← Back to Setup
           </Button>
         </div>
-        <p className="text-[10px] text-[#555A6A] mt-2 break-all">{error.message}</p>
+        <p className="text-[10px] mt-2 break-all" style={{ color: 'var(--text-3)' }}>{error.message}</p>
       </div>
     </AppShell>
   );

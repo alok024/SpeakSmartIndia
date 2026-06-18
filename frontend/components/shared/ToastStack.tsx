@@ -16,7 +16,7 @@ export function ToastStack() {
           key={toast.id}
           className={cn(
             'pointer-events-auto flex items-start gap-3 min-w-[280px] max-w-[min(400px,calc(100vw-2rem))]',
-            'bg-[#16181F] border border-white/[0.07] rounded-2xl px-4 py-3 shadow-glow',
+            'border rounded-2xl px-4 py-3 shadow-glow',
             'animate-slide-up',
             toast.className
           )}

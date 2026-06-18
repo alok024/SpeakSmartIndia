@@ -17,7 +17,6 @@ import { asyncHandler }            from '../../core/middleware';
 import { callAI, streamAI, AIMessage } from './ai.service';
 import { getCachedAIResponse, setCachedAIResponse } from '../../infra/ai-cache';
 import { buildPromptContext }      from './ai.prompt-service';
-import { incrementAIUsage }        from '../user/user.service';
 import { env, PLAN_LIMITS, PlanType } from '../../core/config/env';
 import { aiLogger }                from '../../infra/logger';
 import { checkBurstLimit }         from '../../infra/burst-limiter';

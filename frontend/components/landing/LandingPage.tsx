@@ -103,15 +103,6 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  /* ── Hero score bars on load ── */
-  useEffect(() => {
-    setTimeout(() => {
-      document.querySelectorAll('.ssi-fcs-bar-fill').forEach((b, i) => {
-        setTimeout(() => { (b as HTMLElement).style.width = (b as HTMLElement).dataset.w || '70%'; }, 800 + i * 200);
-      });
-    }, 500);
-  }, []);
-
   /* ── Big number counter ── */
   useEffect(() => {
     if (!bigNumRef.current) return;
@@ -150,11 +141,10 @@ export default function LandingPage() {
   }, [demoTyped]);
 
   /* ── Marquee content ── */
-  const mqItems = [...TRACKS, ...TRACKS].map((t, i) => (
+  const mqItems = TRACKS.map((t, i) => (
     <span key={i} className="ssi-mq-item"><span className="ssi-mq-dot" />{t}</span>
   ));
 
-  const navTop = topbarOpen ? 'top-9' : 'top-0';
 
   return (
     <>
@@ -512,7 +502,7 @@ export default function LandingPage() {
                   <li key={f}><span className="ssi-b2b-check">✓</span>{f}</li>
                 ))}
               </ul>
-              <a href="mailto:hello@speaksmart.in?subject=B2B%20Teams%20enquiry" className="ssi-h-cta" style={{ marginTop: 28, display: 'inline-flex' }}>Talk to us about your batch →</a>
+              <Link href="/b2b" className="ssi-h-cta" style={{ marginTop: 28, display: 'inline-flex' }}>Talk to us about your batch →</Link>
               <p className="ssi-b2b-note">B2B plans are launching shortly — reach out now to lock in early-access pricing.</p>
             </div>
             <div>

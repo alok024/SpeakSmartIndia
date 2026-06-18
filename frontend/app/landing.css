@@ -3,13 +3,6 @@
    Imported only in the landing page component tree.
 ═══════════════════════════════════════════════════════════════════ */
 
-/* ─── CURSOR (desktop only) ─── */
-#ssi-cur { position:fixed;width:8px;height:8px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%);transition:width .15s,height .15s,opacity .15s,background var(--dur-med);mix-blend-mode:difference }
-#ssi-cur-r { position:fixed;width:32px;height:32px;border:1px solid var(--border2);border-radius:50%;pointer-events:none;z-index:9998;transform:translate(-50%,-50%);transition:width .35s var(--ease-spring),height .35s var(--ease-spring),border-color var(--dur-med) }
-body.ssi-hov #ssi-cur { width:48px;height:48px;opacity:.08 }
-body.ssi-hov #ssi-cur-r { width:60px;height:60px;border-color:var(--border3) }
-@media(hover:none){#ssi-cur,#ssi-cur-r{display:none}body{cursor:auto}}
-
 /* ─── KEYFRAMES ─── */
 @keyframes ssi-blink{0%,100%{opacity:1}50%{opacity:.15}}
 @keyframes ssi-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
@@ -44,7 +37,10 @@ body.ssi-hov #ssi-cur-r { width:60px;height:60px;border-color:var(--border3) }
 /* ─── NAV ─── */
 .ssi-nav{position:fixed;top:36px;left:0;right:0;z-index:200;height:64px;display:flex;align-items:center;padding:0 52px;justify-content:space-between;transition:background var(--dur-med),border-color var(--dur-med),top var(--dur-med);border-bottom:1px solid transparent}
 .ssi-nav.s{background:var(--nav-bg);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-color:var(--border)}
-.ssi-nav.topbar-gone{top:0}
+/* Fix 5: .ssi-nav.topbar-gone{top:0} intentionally removed —
+   the nav uses style={{ top: topbarOpen ? 36 : 0 }} in React which is the
+   sole source of truth; having a CSS rule here would race with that inline
+   style on low-powered devices and win on specificity after a repaint. */
 .ssi-nlogo{font-family:var(--serif);font-size:18px;font-style:italic;color:var(--text1);text-decoration:none;transition:color var(--dur-med);letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
 .ssi-nlogo-mark{flex-shrink:0;transition:transform var(--dur-med)}
 .ssi-nlogo:hover .ssi-nlogo-mark{transform:rotate(-6deg) scale(1.05)}
@@ -86,6 +82,7 @@ body.ssi-hov #ssi-cur-r { width:60px;height:60px;border-color:var(--border3) }
 .ssi-hero{position:relative;min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:120px 52px 80px;overflow:hidden}
 .ssi-hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
 .ssi-h-orb{position:absolute;border-radius:50%;filter:blur(120px);opacity:.35}
+[data-theme="light"] .ssi-h-orb{opacity:.12}
 .ssi-h-orb-1{width:700px;height:700px;background:var(--violet);bottom:-20%;left:-10%;animation:ssi-float-a 12s ease-in-out infinite}
 .ssi-h-orb-2{width:500px;height:500px;background:var(--gold);top:-15%;right:-5%;animation:ssi-float-b 15s ease-in-out infinite 3s}
 .ssi-h-orb-3{width:400px;height:400px;background:var(--emerald);top:40%;left:40%;animation:ssi-float-c 10s ease-in-out infinite 1.5s;transform:translateY(-50%)}
@@ -359,4 +356,23 @@ body.ssi-hov #ssi-cur-r { width:60px;height:60px;border-color:var(--border3) }
   .ssi-nav{padding:0 20px}
   .ssi-footer-inner{flex-direction:column;align-items:flex-start}
   .ssi-india-stats-grid{grid-template-columns:1fr 1fr}
+}
+
+/* Fix 4 — prefers-reduced-motion: stop all decorative animations so
+   the page is comfortable for users with vestibular disorders.
+   Reveal transitions keep the opacity fade but strip transform motion. */
+@media(prefers-reduced-motion:reduce){
+  .ssi-mq-track,
+  .ssi-h-orb-1,.ssi-h-orb-2,.ssi-h-orb-3,
+  .ssi-fcard-a,.ssi-fcard-b,.ssi-fcard-bubble,.ssi-fcard-score,
+  .ssi-h-grain,
+  .ssi-hero-eyebrow-dot,.ssi-bdot,.ssi-fu-live-dot,
+  .ssi-topbar::after{animation:none !important}
+  /* Freeze cursor blink at visible */
+  .ssi-tc{animation:none !important;opacity:1}
+  /* Reveals keep opacity transition, strip transform */
+  .ssi-rv,.ssi-rvl,.ssi-rvr,.ssi-rvs{
+    transition:opacity .4s ease !important;
+    transform:none !important
+  }
 }

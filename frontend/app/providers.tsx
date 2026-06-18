@@ -54,11 +54,25 @@ function PostHogInit() {
 // custom properties (--bg, --text1, etc.) never applied. Now we set the
 // data-theme attribute so all theme variables work correctly.
 function ThemeApplier() {
-  const isDark = useUIStore((s) => s.isDark);
+  const { isDark, toggleTheme } = useUIStore((s) => ({ isDark: s.isDark, toggleTheme: s.toggleTheme }));
+
+  useEffect(() => {
+    // On first mount, sync with the landing page's ssi-theme localStorage key.
+    // If the user set a theme on the marketing site, honour it in the app.
+    const stored = localStorage.getItem('ssi-theme');
+    const shouldBeDark = stored ? stored === 'dark' : true;
+    if (shouldBeDark !== isDark) toggleTheme();
+    // Always write back so the two keys stay aligned going forward.
+    const theme = shouldBeDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    document.documentElement.classList.toggle('dark', shouldBeDark);
+    document.documentElement.classList.toggle('light', !shouldBeDark);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     const theme = isDark ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', theme);
-    // Keep class toggle for any Tailwind dark: utilities
     document.documentElement.classList.toggle('dark', isDark);
     document.documentElement.classList.toggle('light', !isDark);
   }, [isDark]);

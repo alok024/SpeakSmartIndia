@@ -55,9 +55,15 @@ export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBre
     return Math.max(0, 10 - errors * 1.5);
   }));
 
-  // Relevance: proxy via answer length + negative tip keywords
+  // Relevance: proxy via answer length + negative tip keywords.
+  // Guard against JS split quirk: ''.split(/\s+/) → [''] (length 1) and
+  // '   '.split(/\s+/) → ['', ''] (length 2), both of which would assign a
+  // non-zero base score to a fully skipped answer.  Trim first so genuinely
+  // empty or whitespace-only answers correctly score 0.
   const relevance = avg(feedbacks.map(f => {
-    const wordCount = (f.answer || '').split(/\s+/).length;
+    const trimmed = (f.answer || '').trim();
+    if (!trimmed) return 0;
+    const wordCount = trimmed.split(/\s+/).length;
     let score = Math.min(10, 3 + wordCount * 0.08);
     if (f.tips && /irrelevant|off.topic|didn.t answer|avoid/i.test(f.tips)) {
       score = Math.max(0, score - 3);
