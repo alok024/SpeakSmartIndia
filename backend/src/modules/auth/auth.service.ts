@@ -106,7 +106,7 @@ export async function registerUser(
     await createVerificationToken(user.id, user.email);
     emailSent = true;
   } catch (err) {
-    authLogger.error('createVerificationToken failed after register', { userId: user.id, err });
+    authLogger.error('createVerificationToken failed after register', { userId: user.id, error: (err as Error).message, stack: (err as Error).stack });
   }
 
   // Attribute referral if a ref code was provided at signup (non-fatal)
