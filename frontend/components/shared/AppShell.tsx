@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Play, History, User, Gift,
   MessageSquare, LogOut, Sun, Moon, Menu, X,
+  type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -16,7 +17,7 @@ import Link from 'next/link';
 type NavItem = {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  icon: LucideIcon;
   section?: string;
   badge?: string;
   proBadge?: boolean;
