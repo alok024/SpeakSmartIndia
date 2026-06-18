@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useSessions } from '@/hooks/queries';
 import { useAuthStore } from '@/store/auth';
@@ -52,17 +53,17 @@ export default function HistoryPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {sessions.map((s) => (
+          {sessions.map((s: any) => (
             <button
               key={s.id}
               onClick={() => router.push(`/interview/summary?session=${s.id}`)}
               className="w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all duration-200"
               style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
-              onMouseEnter={e => {
+              onMouseEnter={(e: React.MouseEvent<HTMLElement>) => {
                 e.currentTarget.style.borderColor = 'var(--border2)';
                 e.currentTarget.style.background = 'var(--surface-2)';
               }}
-              onMouseLeave={e => {
+              onMouseLeave={(e: React.MouseEvent<HTMLElement>) => {
                 e.currentTarget.style.borderColor = 'var(--border)';
                 e.currentTarget.style.background = 'var(--surface)';
               }}

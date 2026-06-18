@@ -77,7 +77,7 @@ export const useUIStore = create<UIStore>()(
         set({ upgradeModalOpen: false, upgradeTrigger: null }),
 
       toasts: [],
-      showToast: (message, opts = {}) => {
+      showToast: (message, opts: { className?: string; duration?: number } = {}) => {
         const id = crypto.randomUUID();
         set((s) => ({
           toasts: [...s.toasts, { id, message, ...opts }],

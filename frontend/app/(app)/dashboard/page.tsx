@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 /**
  * app/(app)/dashboard/page.tsx — fully CSS-var themed, no hardcoded hex.
  */
@@ -120,7 +121,7 @@ export default function DashboardPage() {
             { label: 'Sessions',    value: stats?.sessions ?? 0,                                       sub: 'completed',          color: 'var(--accent)' },
             { label: 'Best Score',  value: stats?.best_score != null ? `${stats.best_score}/10` : '—', sub: 'personal best',      color: 'var(--emerald)' },
             { label: 'AI Sessions', value: aiUsed,                                                     sub: FREE_LIMIT ? `of ${FREE_LIMIT} used` : 'used', color: 'var(--violet)' },
-          ].map((s) => (
+          ].map((s: any) => (
             <div key={s.label} className="rounded-xl p-4 text-center border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
               <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-3)' }}>{s.label}</div>
               <div className="text-2xl font-bold tabular-nums" style={{ color: s.color, letterSpacing: '-0.03em' }}>{s.value}</div>
@@ -169,14 +170,14 @@ export default function DashboardPage() {
               </button>
             </div>
             <div>
-              {(history ?? []).slice(0, 4).map((s) => (
+              {(history ?? []).slice(0, 4).map((s: any) => (
                 <button
                   key={s.id}
                   onClick={() => router.push(`/interview/summary?session=${s.id}`)}
                   className="w-full flex items-center justify-between px-4 py-3 border-b text-left transition-colors last:border-0"
                   style={{ borderColor: 'var(--border)' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  onMouseEnter={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div>
                     <div className="text-xs font-medium" style={{ color: 'var(--text-1)' }}>{s.profession}</div>
@@ -204,8 +205,8 @@ export default function DashboardPage() {
                   onClick={() => handleQuickStart(qs.profession, qs.mode)}
                   className="w-full flex items-center gap-3 px-4 py-3 border-b text-left transition-colors last:border-0"
                   style={{ borderColor: 'var(--border)' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  onMouseEnter={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'transparent')}
                 >
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
                     style={{ background: 'var(--accent-dim)' }}>
@@ -220,8 +221,8 @@ export default function DashboardPage() {
               <button
                 onClick={() => router.push('/interview/setup')}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface-2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                onMouseEnter={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                onMouseLeave={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'transparent')}
               >
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
                   style={{ background: 'var(--surface-3)' }}>
@@ -262,20 +263,21 @@ export default function DashboardPage() {
             <span className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Areas to Improve</span>
           </div>
           <div className="px-4 py-4 space-y-4">
-            {weakAreas.map((wa) => (
-              <ProgressBar
-                key={wa.topic}
-                value={wa.avg_score}
-                max={10}
-                label={wa.topic}
-                showValue
-                animated
-                color={
-                  wa.avg_score >= 7 ? 'var(--emerald)' :
-                  wa.avg_score >= 5 ? 'var(--gold)' :
-                  'var(--rose)'
-                }
+            {weakAreas.map((wa: any) => (
+              <div key={wa.topic}>
+                <ProgressBar
+                  value={wa.avg_score}
+                  max={10}
+                  label={wa.topic}
+                  showValue
+                  animated
+                  color={
+                    wa.avg_score >= 7 ? 'var(--emerald)' :
+                    wa.avg_score >= 5 ? 'var(--gold)' :
+                    'var(--rose)'
+                  }
               />
+              </div>
             ))}
           </div>
         </div>

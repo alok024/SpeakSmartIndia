@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 /**
  * app/(auth)/register/page.tsx
  *
@@ -176,7 +178,7 @@ export default function RegisterPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children?: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{label}</label>

@@ -1,15 +1,7 @@
 'use client';
 
-/**
- * components/ui/components.tsx
- *
- * Shared UI primitives — fully theme-aware via CSS custom properties.
- * No hardcoded hex values; everything derives from the design tokens
- * defined in globals.css ([data-theme="dark"] / [data-theme="light"]).
- */
-
-import { cn } from '@/lib/utils';
 import React, { forwardRef } from 'react';
+import { cn } from '@/lib/utils';
 
 // ── Button ────────────────────────────────────────────────────────────────────
 
@@ -36,7 +28,7 @@ const BTN_SIZE: Record<ButtonSize, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', loading, leftIcon, rightIcon, children, className, style, ...rest }, ref) => {
+  function Button({ variant = 'primary', size = 'md', loading, leftIcon, rightIcon, children, className, style, ...rest }, ref) {
     const variantStyle: React.CSSProperties =
       variant === 'primary'   ? { background: 'var(--accent-bg)', color: 'var(--accent-text)', boxShadow: '0 0 0 1px var(--accent-border)' } :
       variant === 'secondary' ? { background: 'var(--surface-2)', color: 'var(--text-1)', border: '1px solid var(--border2)' } :
@@ -48,7 +40,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={cn(BTN_BASE, BTN_SIZE[size], className)}
+        className={cn(BTN_BASE, BTN_SIZE[size as ButtonSize], className)}
         style={{ ...variantStyle, ...style }}
         disabled={loading || rest.disabled}
         {...rest}
@@ -68,7 +60,7 @@ type BadgeVariant = 'default' | 'accent' | 'success' | 'warn' | 'danger' | 'purp
 
 interface BadgeProps {
   variant?: BadgeVariant;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
 }
 
@@ -97,7 +89,7 @@ export function Badge({ variant = 'default', children, className }: BadgeProps) 
 // ── Card ──────────────────────────────────────────────────────────────────────
 
 interface CardProps {
-  children: React.ReactNode;
+  children?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;
   hover?: boolean;
@@ -121,7 +113,7 @@ export function Card({ children, className, style, hover, onClick }: CardProps) 
   );
 }
 
-export function CardHeader({ children, className }: { children: React.ReactNode; className?: string }) {
+export function CardHeader({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <div className={cn('px-5 pt-5 pb-3 border-b', className)} style={{ borderColor: 'var(--border)' }}>
       {children}
@@ -129,7 +121,7 @@ export function CardHeader({ children, className }: { children: React.ReactNode;
   );
 }
 
-export function CardBody({ children, className }: { children: React.ReactNode; className?: string }) {
+export function CardBody({ children, className }: { children?: React.ReactNode; className?: string }) {
   return <div className={cn('p-5', className)}>{children}</div>;
 }
 
@@ -161,7 +153,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, leftElement, rightElement, className, id, ...rest }, ref) => {
+  function Input({ label, error, hint, leftElement, rightElement, className, id, ...rest }, ref) {
     const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
     return (
       <div className="flex flex-col gap-1.5">
@@ -190,8 +182,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               background: 'var(--surface-2)',
               border: error ? '1px solid var(--error)' : '1px solid var(--border2)',
               color: 'var(--text-1)',
-              '--tw-ring-color': 'var(--accent)',
-            } as React.CSSProperties}
+            }}
             {...rest}
           />
           {rightElement && (
@@ -216,7 +207,7 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 }
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, error, className, id, ...rest }, ref) => {
+  function Textarea({ label, error, className, id, ...rest }, ref) {
     const inputId = id ?? (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
     return (
       <div className="flex flex-col gap-1.5">
@@ -237,8 +228,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             background: 'var(--surface-2)',
             border: error ? '1px solid var(--error)' : '1px solid var(--border2)',
             color: 'var(--text-1)',
-            '--tw-ring-color': 'var(--accent)',
-          } as React.CSSProperties}
+          }}
           {...rest}
         />
         {error && <p className="text-xs" style={{ color: 'var(--error)' }}>{error}</p>}
@@ -250,10 +240,10 @@ Textarea.displayName = 'Textarea';
 
 // ── ProgressBar ───────────────────────────────────────────────────────────────
 
-interface ProgressBarProps {
-  value: number;       // 0–100
+export interface ProgressBarProps {
+  value: number;
   max?: number;
-  color?: string;      // CSS var string e.g. 'var(--emerald)'
+  color?: string;
   className?: string;
   label?: string;
   showValue?: boolean;
@@ -286,18 +276,11 @@ export function ProgressBar({ value, max = 100, color, className, label, showVal
 
 export function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
   const color =
-    score >= 80 ? 'var(--emerald)' :
-    score >= 60 ? 'var(--gold)' :
-    'var(--rose)';
+    score >= 80 ? 'var(--emerald)' : score >= 60 ? 'var(--gold)' : 'var(--rose)';
   const dim =
-    score >= 80 ? 'var(--emerald-dim)' :
-    score >= 60 ? 'var(--gold-dim)' :
-    'var(--rose-dim)';
+    score >= 80 ? 'var(--emerald-dim)' : score >= 60 ? 'var(--gold-dim)' : 'var(--rose-dim)';
   const border =
-    score >= 80 ? 'var(--emerald-border)' :
-    score >= 60 ? 'var(--gold-border)' :
-    'var(--rose-dim)';
-
+    score >= 80 ? 'var(--emerald-border)' : score >= 60 ? 'var(--gold-border)' : 'var(--rose-dim)';
   const cls = size === 'sm' ? 'text-sm w-9 h-9' : size === 'lg' ? 'text-xl w-14 h-14' : 'text-base w-11 h-11';
 
   return (
@@ -317,9 +300,7 @@ export function ScoreRing({ score, size = 80, label }: { score: number; size?: n
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
   const color =
-    score >= 80 ? 'var(--emerald)' :
-    score >= 60 ? 'var(--gold)' :
-    'var(--rose)';
+    score >= 80 ? 'var(--emerald)' : score >= 60 ? 'var(--gold)' : 'var(--rose)';
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -344,7 +325,7 @@ export function ScoreRing({ score, size = 80, label }: { score: number; size?: n
 
 // ── SectionLabel ──────────────────────────────────────────────────────────────
 
-export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
+export function SectionLabel({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
     <p
       className={cn('text-[10px] font-bold uppercase tracking-widest px-3 mb-1', className)}
@@ -383,8 +364,7 @@ export function ChipGroup({ options, value, onChange, className }: ChipGroupProp
                 : { background: 'var(--surface-2)', color: 'var(--text-2)', border: '1px solid var(--border)' }
             }
           >
-            {opt.icon}
-            {opt.label}
+            {opt.icon}{opt.label}
           </button>
         );
       })}

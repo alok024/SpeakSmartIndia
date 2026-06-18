@@ -175,7 +175,7 @@ function InterviewSetupPageInner() {
       {/* Difficulty */}
       <Card className="p-5">
         <SectionLabel>Difficulty</SectionLabel>
-        <ChipGroup options={DIFFICULTIES} value={store.config.difficulty} onChange={(v) => store.setDifficulty(v)} />
+        <ChipGroup options={DIFFICULTIES} value={store.config.difficulty} onChange={(v) => store.setDifficulty(v as Difficulty)} />
       </Card>
 
       {/* Advanced toggle */}
@@ -194,7 +194,7 @@ function InterviewSetupPageInner() {
         <div className="space-y-4">
           <Card className="p-5">
             <SectionLabel>Interview Type</SectionLabel>
-            <ChipGroup options={INTERVIEW_TYPES} value={store.config.interviewType} onChange={(v) => store.setInterviewType(v)} />
+            <ChipGroup options={INTERVIEW_TYPES} value={store.config.interviewType} onChange={(v) => store.setInterviewType(v as InterviewType)} />
           </Card>
 
           {store.config.mode === 'classic' && (
