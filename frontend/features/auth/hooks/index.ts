@@ -37,6 +37,9 @@ export function useLogin() {
 
 // ── Register ──────────────────────────────────────────────────────
 export function useRegister() {
+  const setSession = useAuthStore((s) => s.setSession);
+  const qc = useQueryClient();
+
   return useMutation({
     mutationFn: ({
       name,
@@ -49,6 +52,12 @@ export function useRegister() {
       password: string;
       ref?: string;
     }) => authApi.register(name, email, password, ref),
+    onSuccess: async (res) => {
+      if (res.ok) {
+        qc.clear();
+        setSession(res.data.user);
+      }
+    },
   });
 }
 
