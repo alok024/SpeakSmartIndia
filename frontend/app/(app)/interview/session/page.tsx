@@ -765,9 +765,9 @@ function InterviewSessionPageInner() {
               variant="secondary"
               size="sm"
               onClick={() => finishSession()}
-              disabled={phase === 'saving'}
+              disabled={(phase as string) === 'saving'}
             >
-              {phase === 'saving' ? 'Ending…' : 'End Session'}
+              {(phase as string) === 'saving' ? 'Ending…' : 'End Session'}
             </Button>
             <Button
               className="flex-1"
