@@ -49,12 +49,12 @@ function LogoMark({ size = 26 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
       <defs>
-        <linearGradient id="authLogoG" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+        <linearGradient id="ssLG" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="var(--violet)" />
           <stop offset="1" stopColor="var(--gold)" />
         </linearGradient>
       </defs>
-      <path d="M16 2C8.27 2 2 7.85 2 15.1c0 3.62 1.55 6.9 4.1 9.26-.18 1.84-.74 3.4-1.62 4.74-.2.3.05.7.4.64 2.4-.4 4.46-1.4 6.1-2.62 1.55.55 3.25.86 5.02.86 7.73 0 14-5.85 14-13.1S23.73 2 16 2Z" fill="url(#authLogoG)" />
+      <path d="M16 2C8.27 2 2 7.85 2 15.1c0 3.62 1.55 6.9 4.1 9.26-.18 1.84-.74 3.4-1.62 4.74-.2.3.05.7.4.64 2.4-.4 4.46-1.4 6.1-2.62 1.55.55 3.25.86 5.02.86 7.73 0 14-5.85 14-13.1S23.73 2 16 2Z" fill="url(#ssLG)" />
       <path d="M10.5 17.5c1.2 1.7 3.2 2.8 5.5 2.8s4.3-1.1 5.5-2.8" stroke="var(--bg)" strokeWidth="1.8" strokeLinecap="round" fill="none" />
       <circle cx="11.5" cy="13" r="1.6" fill="var(--bg)" />
       <circle cx="20.5" cy="13" r="1.6" fill="var(--bg)" />
