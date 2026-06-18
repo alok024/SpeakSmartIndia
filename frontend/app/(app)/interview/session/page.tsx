@@ -659,7 +659,7 @@ function InterviewSessionPageInner() {
           {chatLoading && history.length > 0 && (
             <div className="flex justify-start">
               <div className="bg-[var(--surface-2)] rounded-2xl px-4 py-3 flex items-center gap-2">
-                <Spinner className="w-3.5 h-3.5 text-[#8B90A0]" />
+                <Spinner className="w-3.5 h-3.5" style={{ color: 'var(--text-3)' }} />
                 <span className="text-xs text-[#8B90A0]">Interviewer is typing…</span>
               </div>
             </div>

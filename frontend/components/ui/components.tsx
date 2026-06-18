@@ -135,12 +135,12 @@ export function CardBody({ children, className }: { children: React.ReactNode; c
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 
-export function Spinner({ size = 18, className }: { size?: number; className?: string }) {
+export function Spinner({ size = 18, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
     <svg
       width={size} height={size} viewBox="0 0 24 24"
       className={cn('animate-spin', className)}
-      style={{ color: 'currentColor' }}
+      style={{ color: 'currentColor', ...style }}
       fill="none"
       aria-label="Loading"
     >
