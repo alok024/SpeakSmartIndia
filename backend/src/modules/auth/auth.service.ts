@@ -100,14 +100,22 @@ export async function registerUser(
 
   authLogger.info('User registered', { userId: user.id, email: user.email });
 
-  // Send verification email — non-fatal so signup doesn't fail if email is down
-  let emailSent = false;
-  try {
-    await createVerificationToken(user.id, user.email);
-    emailSent = true;
-  } catch (err) {
-    authLogger.error('createVerificationToken failed after register', { userId: user.id, error: (err as Error).message, stack: (err as Error).stack });
-  }
+  // EMAIL VERIFICATION DISABLED — no domain configured for sending emails.
+  // Users are auto-verified on signup so they can log in immediately.
+  // Re-enable by: restoring the createVerificationToken call below +
+  // setting RESEND_API_KEY and EMAIL_FROM in Railway once a domain is ready.
+  //
+  // let emailSent = false;
+  // try {
+  //   await createVerificationToken(user.id, user.email);
+  //   emailSent = true;
+  // } catch (err) {
+  //   authLogger.error('createVerificationToken failed', { userId: user.id, err });
+  // }
+  const emailSent = false;
+
+  // Auto-verify the user so they can log in without clicking an email link.
+  await db.updateUser(user.id, { email_verified: true });
 
   // Attribute referral if a ref code was provided at signup (non-fatal)
   if (dto.ref) {
@@ -144,17 +152,8 @@ export async function loginUser(
     throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
   }
 
-  // EMAIL VERIFICATION GATE — temporarily softened.
-  // Hard-blocking login while email delivery is unconfirmed locks out all
-  // existing users (old accounts never verified) and new users who didn't
-  // receive the email. Re-enable once SMTP is confirmed working by
-  // uncommenting the block below and removing the warning-only path.
-  //
-  // if (!user.email_verified) {
-  //   throw new AppError(403, 'email_not_verified', 'Please verify your email before logging in.');
-  // }
   if (!user.email_verified) {
-    authLogger.warn('Unverified user logging in (soft gate active)', { userId: user.id });
+    throw new AppError(403, 'email_not_verified', 'Please verify your email before logging in.');
   }
 
   const usage = await db.getUsage(user.id);

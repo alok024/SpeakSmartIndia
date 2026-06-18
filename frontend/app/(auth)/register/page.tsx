@@ -67,7 +67,9 @@ export default function RegisterPage() {
     // requires email verification; going to /dashboard would immediately
     // bounce back to /login because the backend rejects unverified logins.
     await register.mutateAsync({ name, email, password });
-    router.push(`/verify-email-sent?email=${encodeURIComponent(email)}`);
+    // Email verification disabled — user is auto-verified on the backend.
+    // Send straight to login so they can sign in immediately.
+    router.push('/login');
   }
 
   return (
