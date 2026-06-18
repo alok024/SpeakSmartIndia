@@ -32,11 +32,33 @@ export async function createOrder(
   const amount = PLAN_PRICES[plan];
   const useTest = testMode && !!env.RAZORPAY_TEST_KEY_ID;
 
-  const order = await getRazorpay(useTest).orders.create({
-    amount,
-    currency: 'INR',
-    notes:    { user_id: userId, email, plan, test_mode: useTest ? '1' : '0' },
-  });
+  // FIX 3: The Razorpay SDK throws a plain object on failure
+  // ({ statusCode, error: { code, description } }), not a real Error —
+  // it has no `.message`, so the global error handler's
+  // `err.message` read comes back undefined and the client sees a
+  // blank "Something went wrong." with no actionable detail. Catch
+  // here and re-throw as a proper AppError carrying Razorpay's real
+  // status/code/description through to the client and the logs.
+  let order;
+  try {
+    order = await getRazorpay(useTest).orders.create({
+      amount,
+      currency: 'INR',
+      notes:    { user_id: userId, email, plan, test_mode: useTest ? '1' : '0' },
+    });
+  } catch (err) {
+    const rzpErr = err as { statusCode?: number; error?: { code?: string; description?: string } };
+    paymentLogger.error('Razorpay order creation failed', {
+      userId, plan, testMode: useTest,
+      statusCode: rzpErr.statusCode,
+      rzpError:   rzpErr.error,
+    });
+    throw new AppError(
+      rzpErr.statusCode && rzpErr.statusCode < 500 ? rzpErr.statusCode : 502,
+      rzpErr.error?.code ?? 'razorpay_order_failed',
+      rzpErr.error?.description ?? 'Could not create payment order. Please try again.'
+    );
+  }
 
   paymentLogger.info('Razorpay order created', {
     userId, plan, orderId: order.id, amount, testMode: useTest,
