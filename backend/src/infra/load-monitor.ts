@@ -11,7 +11,7 @@
  *   4. A load-shedding gate: if RPM exceeds threshold, early-reject
  *      with 503 before even acquiring a slot — protects Groq quota.
  *
- * ── Load shedding ─────────────────────────────────────────────────
+ * Load shedding
  *   Config:
  *     SYSTEM_MAX_RPM       — max AI requests/min system-wide (default 60)
  *     SYSTEM_SHED_ENABLED  — set to "false" to disable shedding (default true)
@@ -20,11 +20,11 @@
  *     requestExceedsSystemLoad() returns { overloaded: true }
  *     → controller responds 503 immediately, no slot acquired, no Groq call
  *
- * ── Metrics endpoint ─────────────────────────────────────────────
+ * Metrics endpoint
  *   getSystemLoadStats() is called by GET /health/metrics (see app.ts)
  *   and logged every 5 minutes by the background monitor.
  *
- * ── Implementation ────────────────────────────────────────────────
+ * Implementation
  *   Sliding window via a ring buffer of timestamps (in-process).
  *   Redis is NOT used here — system load is a per-process concern.
  *   If you scale to multiple processes, use Redis INCR + expiry instead.
@@ -41,7 +41,7 @@ const MAX_RPM      = env.SYSTEM_MAX_RPM;
 const SHED_ENABLED = env.SYSTEM_SHED_ENABLED;   // boolean — coerced by Zod in env.ts
 const WINDOW_MS    = 60_000;
 
-// ── Sliding window ring buffer ────────────────────────────────────
+// Sliding window ring buffer
 
 const _timestamps: number[] = [];
 
@@ -67,7 +67,7 @@ function currentRPM(): number {
   return count;
 }
 
-// ── Public API ────────────────────────────────────────────────────
+// Public API
 
 export interface LoadCheckResult {
   overloaded: boolean;
@@ -113,7 +113,7 @@ export function getSystemLoadStats(): SystemLoadStats {
   };
 }
 
-// ── Background logger (every 5 min) ──────────────────────────────
+// Background logger (every 5 min)
 // Called once at startup from app.ts — gives ops a heartbeat in logs.
 
 export function startLoadMonitor(): void {

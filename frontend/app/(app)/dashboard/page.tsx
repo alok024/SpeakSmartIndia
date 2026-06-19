@@ -85,7 +85,7 @@ export default function DashboardPage() {
           <div className="text-5xl mb-4">🎙️</div>
           <h2 className="text-xl font-extrabold mb-2" style={{ color: 'var(--text-1)' }}>
             In 10 minutes, you'll know your{' '}
-            <span style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            <span style={{ background: 'var(--blue)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               exact weak areas
             </span>
           </h2>
@@ -110,7 +110,7 @@ export default function DashboardPage() {
           <button
             onClick={() => router.push('/interview/setup')}
             className="px-6 py-3 rounded-xl text-sm font-bold text-white transition-opacity hover:opacity-90"
-            style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))' }}
+            style={{ background: 'var(--blue)' }}
           >
             Start My First Interview Now
           </button>
@@ -124,8 +124,8 @@ export default function DashboardPage() {
           {[
             { label: 'Streak',      value: stats?.streak ?? 0,                                         sub: 'days 🔥',           color: 'var(--warn)' },
             { label: 'Sessions',    value: stats?.sessions ?? 0,                                       sub: 'completed',          color: 'var(--accent)' },
-            { label: 'Best Score',  value: stats?.best_score != null ? `${stats.best_score}/10` : '—', sub: 'personal best',      color: 'var(--emerald)' },
-            { label: 'AI Sessions', value: aiUsed,                                                     sub: FREE_LIMIT ? `of ${FREE_LIMIT} used` : 'used', color: 'var(--violet)' },
+            { label: 'Best Score',  value: stats?.best_score != null ? `${stats.best_score}/10` : '—', sub: 'personal best',      color: 'var(--success)' },
+            { label: 'AI Sessions', value: aiUsed,                                                     sub: FREE_LIMIT ? `of ${FREE_LIMIT} used` : 'used', color: 'var(--accent)' },
           ].map((s: { label: string; value: string | number; sub: string; color: string }) => (
             <div key={s.label} className="rounded-xl p-4 text-center border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
               <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-3)' }}>{s.label}</div>
@@ -277,9 +277,9 @@ export default function DashboardPage() {
                   showValue
                   animated
                   color={
-                    wa.avg_score >= 7 ? 'var(--emerald)' :
-                    wa.avg_score >= 5 ? 'var(--gold)' :
-                    'var(--rose)'
+                    wa.avg_score >= 7 ? 'var(--success)' :
+                    wa.avg_score >= 5 ? 'var(--warn)' :
+                    'var(--error)'
                   }
               />
               </div>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
       {/* Upgrade strip */}
       {isFree && (stats?.sessions ?? 0) >= 3 && (
         <div className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap border"
-          style={{ background: 'var(--violet-dim)', borderColor: 'var(--violet-border)' }}>
+          style={{ background: 'var(--blue-dim)', borderColor: 'var(--blue-border)' }}>
           <div>
             <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>🚀 You're improving!</div>
             <div className="text-xs mt-0.5" style={{ color: 'var(--text-2)' }}>Unlock unlimited sessions to keep your momentum.</div>
@@ -299,7 +299,7 @@ export default function DashboardPage() {
           <button
             onClick={() => showUpgradeModal('nudge')}
             className="text-xs font-bold text-white px-4 py-2 rounded-lg whitespace-nowrap"
-            style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))' }}
+            style={{ background: 'var(--blue)' }}
           >
             Upgrade → ₹299/mo
           </button>

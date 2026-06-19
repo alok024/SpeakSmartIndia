@@ -3,7 +3,7 @@
 import React, { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
-// ── Button ────────────────────────────────────────────────────────────────────
+// Button
 
 type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline' | 'upgrade';
 type ButtonSize    = 'sm' | 'md' | 'lg';
@@ -35,7 +35,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       variant === 'ghost'     ? { background: 'transparent', color: 'var(--text-2)' } :
       variant === 'outline'   ? { background: 'transparent', color: 'var(--text-1)', border: '1px solid var(--border2)' } :
       variant === 'danger'    ? { background: 'var(--error-dim)', color: 'var(--error)', border: '1px solid var(--error-border)' } :
-      /* upgrade */             { background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' };
+      /* upgrade */             { background: 'var(--blue)', color: '#fff' };
 
     return (
       <button
@@ -54,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = 'Button';
 
-// ── Badge ─────────────────────────────────────────────────────────────────────
+// Badge
 
 type BadgeVariant = 'default' | 'accent' | 'success' | 'warn' | 'danger' | 'purple' | 'pro' | 'elite' | 'free';
 
@@ -70,9 +70,9 @@ export function Badge({ variant = 'default', children, className }: BadgeProps) 
     variant === 'success' ? { background: 'var(--success-dim)',  color: 'var(--success)',  border: '1px solid var(--success-border)' } :
     variant === 'warn'    ? { background: 'var(--warn-dim)',     color: 'var(--warn)',     border: '1px solid var(--warn-border)' } :
     variant === 'danger'  ? { background: 'var(--error-dim)',    color: 'var(--error)',    border: '1px solid var(--error-border)' } :
-    variant === 'purple'  ? { background: 'var(--violet-dim)',   color: 'var(--violet)',   border: '1px solid var(--violet-border)' } :
-    variant === 'pro'     ? { background: 'var(--gold-dim)',     color: 'var(--gold)',     border: '1px solid var(--gold-border)' } :
-    variant === 'elite'   ? { background: 'linear-gradient(135deg,var(--violet-dim),var(--gold-dim))', color: 'var(--text-1)', border: '1px solid var(--violet-border)' } :
+    variant === 'purple'  ? { background: 'var(--blue-dim)',   color: 'var(--accent)',   border: '1px solid var(--blue-border)' } :
+    variant === 'pro'     ? { background: 'var(--warn-dim)',     color: 'var(--warn)',     border: '1px solid var(--warn-border)' } :
+    variant === 'elite'   ? { background: 'linear-gradient(135deg,var(--blue-dim),var(--warn-dim))', color: 'var(--text-1)', border: '1px solid var(--blue-border)' } :
     variant === 'free'    ? { background: 'var(--surface-3)',    color: 'var(--text-3)',   border: '1px solid var(--border)' } :
                             { background: 'var(--surface-2)',    color: 'var(--text-2)',   border: '1px solid var(--border2)' };
 
@@ -86,7 +86,7 @@ export function Badge({ variant = 'default', children, className }: BadgeProps) 
   );
 }
 
-// ── Card ──────────────────────────────────────────────────────────────────────
+// Card
 
 interface CardProps {
   children?: React.ReactNode;
@@ -125,7 +125,7 @@ export function CardBody({ children, className }: { children?: React.ReactNode; 
   return <div className={cn('p-5', className)}>{children}</div>;
 }
 
-// ── Spinner ───────────────────────────────────────────────────────────────────
+// Spinner
 
 export function Spinner({ size = 18, className, style }: { size?: number; className?: string; style?: React.CSSProperties }) {
   return (
@@ -142,7 +142,7 @@ export function Spinner({ size = 18, className, style }: { size?: number; classN
   );
 }
 
-// ── Input ─────────────────────────────────────────────────────────────────────
+// Input
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -199,7 +199,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
 );
 Input.displayName = 'Input';
 
-// ── Textarea ──────────────────────────────────────────────────────────────────
+// Textarea
 
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   label?: string;
@@ -238,7 +238,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
 );
 Textarea.displayName = 'Textarea';
 
-// ── ProgressBar ───────────────────────────────────────────────────────────────
+// ProgressBar
 
 export interface ProgressBarProps {
   value: number;
@@ -272,15 +272,15 @@ export function ProgressBar({ value, max = 100, color, className, label, showVal
   );
 }
 
-// ── ScoreBadge ────────────────────────────────────────────────────────────────
+// ScoreBadge
 
 export function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
   const color =
-    score >= 80 ? 'var(--emerald)' : score >= 60 ? 'var(--gold)' : 'var(--rose)';
+    score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warn)' : 'var(--error)';
   const dim =
-    score >= 80 ? 'var(--emerald-dim)' : score >= 60 ? 'var(--gold-dim)' : 'var(--rose-dim)';
+    score >= 80 ? 'var(--success-dim)' : score >= 60 ? 'var(--warn-dim)' : 'var(--error-dim)';
   const border =
-    score >= 80 ? 'var(--emerald-border)' : score >= 60 ? 'var(--gold-border)' : 'var(--rose-dim)';
+    score >= 80 ? 'var(--success-border)' : score >= 60 ? 'var(--warn-border)' : 'var(--error-dim)';
   const cls = size === 'sm' ? 'text-sm w-9 h-9' : size === 'lg' ? 'text-xl w-14 h-14' : 'text-base w-11 h-11';
 
   return (
@@ -293,14 +293,14 @@ export function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' 
   );
 }
 
-// ── ScoreRing ─────────────────────────────────────────────────────────────────
+// ScoreRing
 
 export function ScoreRing({ score, size = 80, label }: { score: number; size?: number; label?: string }) {
   const r = (size / 2) - 8;
   const circ = 2 * Math.PI * r;
   const offset = circ - (score / 100) * circ;
   const color =
-    score >= 80 ? 'var(--emerald)' : score >= 60 ? 'var(--gold)' : 'var(--rose)';
+    score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warn)' : 'var(--error)';
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -323,7 +323,7 @@ export function ScoreRing({ score, size = 80, label }: { score: number; size?: n
   );
 }
 
-// ── SectionLabel ──────────────────────────────────────────────────────────────
+// SectionLabel
 
 export function SectionLabel({ children, className }: { children?: React.ReactNode; className?: string }) {
   return (
@@ -336,7 +336,7 @@ export function SectionLabel({ children, className }: { children?: React.ReactNo
   );
 }
 
-// ── ChipGroup ─────────────────────────────────────────────────────────────────
+// ChipGroup
 
 interface ChipOption { label: string; value: string; icon?: React.ReactNode }
 
@@ -372,7 +372,7 @@ export function ChipGroup({ options, value, onChange, className }: ChipGroupProp
   );
 }
 
-// ── EmptyState ────────────────────────────────────────────────────────────────
+// EmptyState
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -402,7 +402,7 @@ export function EmptyState({ icon, title, description, action, className }: Empt
   );
 }
 
-// ── UpgradeStrip ──────────────────────────────────────────────────────────────
+// UpgradeStrip
 
 interface UpgradeStripProps {
   message: string;
@@ -414,7 +414,7 @@ export function UpgradeStrip({ message, onUpgrade, className }: UpgradeStripProp
   return (
     <div
       className={cn('flex items-center justify-between gap-4 rounded-xl px-4 py-3', className)}
-      style={{ background: 'var(--violet-dim)', border: '1px solid var(--violet-border)' }}
+      style={{ background: 'var(--blue-dim)', border: '1px solid var(--blue-border)' }}
     >
       <div className="flex items-center gap-2.5">
         <span className="text-base">✦</span>
@@ -423,7 +423,7 @@ export function UpgradeStrip({ message, onUpgrade, className }: UpgradeStripProp
       <button
         onClick={onUpgrade}
         className="flex-shrink-0 text-xs font-bold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-        style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' }}
+        style={{ background: 'var(--blue)', color: '#fff' }}
       >
         Upgrade →
       </button>

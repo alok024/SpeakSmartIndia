@@ -6,7 +6,7 @@ import { db } from '../../core/database/client';
 import { generateTokens } from '../auth/auth.service';
 import { paymentLogger } from '../../infra/logger';
 
-// ── Razorpay instance ─────────────────────────────────────────────
+// Razorpay instance
 
 function getRazorpay(testMode = false): Razorpay {
   if (testMode && env.RAZORPAY_TEST_KEY_ID && env.RAZORPAY_TEST_KEY_SECRET) {
@@ -21,7 +21,7 @@ function getRazorpay(testMode = false): Razorpay {
   });
 }
 
-// ── Create Razorpay order ─────────────────────────────────────────
+// Create Razorpay order
 
 export async function createOrder(
   userId: string,
@@ -32,7 +32,7 @@ export async function createOrder(
   const amount = PLAN_PRICES[plan];
   const useTest = testMode && !!env.RAZORPAY_TEST_KEY_ID;
 
-  // FIX 3: The Razorpay SDK throws a plain object on failure
+  // Fix (3): The Razorpay SDK throws a plain object on failure
   // ({ statusCode, error: { code, description } }), not a real Error —
   // it has no `.message`, so the global error handler's
   // `err.message` read comes back undefined and the client sees a
@@ -73,7 +73,20 @@ export async function createOrder(
   };
 }
 
-// ── Verify payment signature (client callback) ────────────────────
+// Constant-time hex digest comparison
+// Used for all HMAC signature checks below. Plain === leaks timing
+// information proportional to how many leading characters match,
+// which is a known side-channel against MAC verification — especially
+// relevant here since a forged webhook signature directly gates
+// granting a paid subscription for free.
+function hexDigestsEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'hex');
+  const bufB = Buffer.from(b, 'hex');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+// Verify payment signature (client callback)
 
 export function verifySignature(
   orderId:   string,
@@ -81,15 +94,18 @@ export function verifySignature(
   signature: string
 ): boolean {
   const check = (secret: string) =>
-    crypto.createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex') === signature;
+    hexDigestsEqual(
+      crypto.createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex'),
+      signature
+    );
 
   if (check(env.RAZORPAY_KEY_SECRET)) return true;
   if (env.RAZORPAY_TEST_KEY_SECRET && check(env.RAZORPAY_TEST_KEY_SECRET)) return true;
   return false;
 }
 
-// ── Fetch order from Razorpay (for ownership verification) ────────
-// FIX 2: Used by the payment verify endpoint to confirm that the supplied
+// Fetch order from Razorpay (for ownership verification)
+// Fix (2): Used by the payment verify endpoint to confirm that the supplied
 // razorpay_order_id was actually created for the requesting user.
 // Tries live keys first, then test keys if configured.
 
@@ -114,7 +130,7 @@ export async function fetchRazorpayOrder(
   }
 }
 
-// ── Activate subscription ─────────────────────────────────────────
+// Activate subscription
 // Idempotent — safe to call from both client callback AND webhook.
 // Uses ON CONFLICT on razorpay_order_id to prevent the race where both
 // the client verify and the webhook arrive simultaneously, both read
@@ -151,7 +167,7 @@ export async function activateSubscription(
     }),
   });
 
-  // FIX 1: Always check the response — a silent 4xx/5xx here means the
+  // Fix (1): Always check the response — a silent 4xx/5xx here means the
   // subscriptions row was never written, leaving the user's plan upgraded
   // in the users table but with no subscription record. Throw so the caller
   // (client-verify or webhook) returns an error and can be retried.
@@ -179,7 +195,7 @@ export async function activateSubscription(
   return token;
 }
 
-// ── Webhook (PRIMARY activation path) ────────────────────────────
+// Webhook (PRIMARY activation path)
 // Registered in app.ts BEFORE express.json() with raw body parser.
 
 export async function handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
@@ -187,9 +203,9 @@ export async function handleWebhook(rawBody: Buffer, signature: string): Promise
   const sign = (secret: string) =>
     crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
-  const matchesLive = sign(env.RAZORPAY_WEBHOOK_SECRET) === signature;
+  const matchesLive = hexDigestsEqual(sign(env.RAZORPAY_WEBHOOK_SECRET), signature);
   const matchesTest = !!env.RAZORPAY_TEST_WEBHOOK_SECRET &&
-    sign(env.RAZORPAY_TEST_WEBHOOK_SECRET) === signature;
+    hexDigestsEqual(sign(env.RAZORPAY_TEST_WEBHOOK_SECRET), signature);
 
   if (!matchesLive && !matchesTest) {
     paymentLogger.warn('Webhook signature mismatch — possible spoofing attempt');
@@ -229,7 +245,7 @@ export async function handleWebhook(rawBody: Buffer, signature: string): Promise
   }
 }
 
-// ── Webhook event handlers ────────────────────────────────────────
+// Webhook event handlers
 
 async function onPaymentCaptured(event: RazorpayWebhookEvent): Promise<void> {
   const payment = event.payload?.payment?.entity;
@@ -284,7 +300,7 @@ async function onSubscriptionCancelled(event: RazorpayWebhookEvent): Promise<voi
   paymentLogger.info('Subscription cancelled via webhook', { userId: existing.user_id });
 }
 
-// ── Subscription expiry cron ──────────────────────────────────────
+// Subscription expiry cron
 // Called on app startup then every hour via setInterval in app.ts.
 // Marks expired subscriptions and downgrades the user's plan to free.
 
@@ -306,7 +322,7 @@ export async function expireOverdueSubscriptions(): Promise<void> {
   );
 }
 
-// ── Razorpay webhook types ────────────────────────────────────────
+// Razorpay webhook types
 
 interface RazorpayPaymentEntity {
   id:                 string;

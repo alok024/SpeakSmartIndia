@@ -1,4 +1,4 @@
-// ─── Domain types ────────────────────────────────────────────────────────────
+// Domain types
 
 export interface User {
   id: string;
@@ -23,14 +23,14 @@ export interface EmailVerificationSend {
   sent_at: string;
 }
 
-// ─── Service return types ─────────────────────────────────────────────────────
+// Service return types
 
 export interface VerifyTokenResult {
   success: boolean;
   message: string;
 }
 
-// ─── Request body shapes ──────────────────────────────────────────────────────
+// Request body shapes
 
 export interface SignupBody {
   email?: string;
@@ -50,7 +50,7 @@ export interface ResendVerificationBody {
   email?: string;
 }
 
-// ─── JWT payload ──────────────────────────────────────────────────────────────
+// JWT payload
 
 export interface JwtPayload {
   sub: string;
@@ -59,7 +59,7 @@ export interface JwtPayload {
   exp: number;
 }
 
-// ─── Prompt-injection defence ─────────────────────────────────────────────────
+// Prompt-injection defence
 // Strip common override patterns from user-supplied strings before they are
 // concatenated into a system prompt. Not a complete defence on its own — the
 // model's own instruction-following and the fixed system prompt are the primary

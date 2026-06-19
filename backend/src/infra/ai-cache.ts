@@ -8,7 +8,7 @@
  *
  * Phase 9 fixes:
  *
- * ── Structured key: ai:cache:<type>:<topic>:<hash> ───────────────
+ * Structured key: ai:cache:<type>:<topic>:<hash>
  *   type  = 'interview' | 'feedback' | 'tip' | 'general'
  *           (inferred from the last user message)
  *   topic = normalized topic slug  (e.g. "software-engineering")
@@ -19,19 +19,19 @@
  *   invalidateCacheByTopic('software-engineering') → deletes all
  *   keys matching ai:cache:*:software-engineering:*
  *
- * ── Partial invalidation API ──────────────────────────────────────
+ * Partial invalidation API
  *   invalidateCacheByTopic(topic)  — when topic content changes
  *   invalidateCacheByType(type)    — e.g. flush all 'tip' prompts
  *   invalidateCacheAll()           — nuclear option
  *
- * ── TTL by type ───────────────────────────────────────────────────
+ * TTL by type
  *   interview → 10 min  (contextual, changes often)
  *   feedback  → 15 min  (semi-stable)
  *   tip       → 60 min  (generic advice — very cache-friendly)
  *   general   → 10 min
  *   personalised (any type, M2) → 3 min, bucketed per-user
  *
- * ── System prompt excluded from hash ──────────────────────────────
+ * System prompt excluded from hash
  *   The system prompt contains injected memory/weak-area context that
  *   is unique per user. Hashing it would make every key unique even
  *   for identical user questions. M2: personalised responses are now
@@ -50,7 +50,7 @@ import { logger }      from './logger';
 const log    = logger.child({ module: 'ai-cache' });
 const PREFIX = 'ai:cache';
 
-// ── TTL by call type (seconds) ────────────────────────────────────
+// TTL by call type (seconds)
 
 type CacheType = 'interview' | 'feedback' | 'tip' | 'general';
 
@@ -73,7 +73,7 @@ function ttlFor(type: CacheType, personalised: boolean): number {
   return GLOBAL_TTL ?? DEFAULT_TTL[type];
 }
 
-// ── Key derivation ────────────────────────────────────────────────
+// Key derivation
 
 export interface CacheContext {
   type?:       CacheType;
@@ -129,10 +129,26 @@ function buildKey(
   const topic  = slugify(ctx.topic ?? 'general');
   const persona = ctx.personaKey ? `:${slugify(ctx.personaKey)}` : '';
 
-  // M2: personalised responses are bucketed per-user so cached coaching
-  // context for one user is never served to another.
+  // M10: personalised responses are bucketed per-user so cached coaching
+  // context for one user is never served to another. Every current call
+  // site always passes userId alongside personalised:true (see
+  // ai.controller.ts), but that's a convention, not something the type
+  // system enforces — a future call site could set personalised:true and
+  // simply forget userId. Silently falling through to a key with no user
+  // segment in that case would mean two different users' personalised
+  // (memory/weak-area/adaptive-context) responses end up on the exact
+  // same cache key, and a cache hit serves user A's coaching context to
+  // user B. Fail loudly instead: this is a programming error at the call
+  // site, not a degraded-but-safe condition, so callers must fix it
+  // rather than silently caching wrong data.
   const personalised = !!ctx.personalised;
-  const userSegment  = personalised && ctx.userId ? `:u${slugify(ctx.userId)}` : '';
+  if (personalised && !ctx.userId) {
+    throw new Error(
+      'ai-cache: ctx.personalised=true requires ctx.userId — refusing to build an ' +
+      'unscoped cache key for a personalised response (would risk a cross-user leak).'
+    );
+  }
+  const userSegment = personalised ? `:u${slugify(ctx.userId!)}` : '';
 
   const turns = messages.filter(m => m.role !== 'system');
   const hash  = createHash('sha256')
@@ -143,14 +159,14 @@ function buildKey(
   return { key: `${PREFIX}:${type}:${topic}${persona}${userSegment}:${hash}`, type, topic, personalised };
 }
 
-// ── Types ─────────────────────────────────────────────────────────
+// Types
 
 export interface CachedAIResponse {
   text:     string;
   provider: 'groq' | 'openai_fallback';
 }
 
-// ── Read ──────────────────────────────────────────────────────────
+// Read
 
 export async function getCachedAIResponse(
   messages: Array<{ role: string; content: string }>,
@@ -173,7 +189,7 @@ export async function getCachedAIResponse(
   }
 }
 
-// ── Write ─────────────────────────────────────────────────────────
+// Write
 
 export async function setCachedAIResponse(
   messages:  Array<{ role: string; content: string }>,
@@ -193,7 +209,7 @@ export async function setCachedAIResponse(
   }
 }
 
-// ── Partial invalidation ──────────────────────────────────────────
+// Partial invalidation
 
 /**
  * Delete all cached responses for a given topic.

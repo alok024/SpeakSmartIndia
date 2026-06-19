@@ -1,5 +1,5 @@
 /**
- * public/sw.js — SpeakSmart Service Worker
+ * public/sw.js — Vachix Service Worker
  *
  * Strategy:
  *  - Static assets (JS/CSS/fonts): Cache-first (fast loads)
@@ -15,7 +15,7 @@ const PRECACHE_URLS = [
   '/offline.html',
 ];
 
-// ── Install: precache shell ────────────────────────────────────────
+// Install: precache shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
@@ -23,7 +23,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// ── Activate: clean old caches ────────────────────────────────────
+// Activate: clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -37,7 +37,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// ── Fetch: routing strategies ─────────────────────────────────────
+// Fetch: routing strategies
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);

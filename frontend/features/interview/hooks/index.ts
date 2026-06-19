@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { interviewApi } from '../api';
 import { QK } from '@/lib/query-keys';
 
-// ── Save a completed session ──────────────────────────────────────
+// Save a completed session
 export function useSaveSession() {
   const qc = useQueryClient();
 
@@ -25,7 +25,7 @@ export function useSaveSession() {
   });
 }
 
-// ── Single session detail (interview summary page) ────────────────
+// Single session detail (interview summary page)
 export function useSession(id: string | null) {
   return useQuery({
     queryKey: QK.session(id ?? ''),

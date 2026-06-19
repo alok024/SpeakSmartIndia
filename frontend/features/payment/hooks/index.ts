@@ -9,14 +9,14 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { paymentApi } from '../api';
 import { QK } from '@/lib/query-keys';
 
-// ── Create order ────────────────────────────────────────────────────
+// Create order
 export function useCreateOrder() {
   return useMutation({
     mutationFn: (plan: 'pro' | 'elite') => paymentApi.createOrder(plan),
   });
 }
 
-// ── Verify payment ───────────────────────────────────────────────────
+// Verify payment
 export function useVerifyPayment() {
   const qc = useQueryClient();
 
@@ -24,7 +24,7 @@ export function useVerifyPayment() {
     mutationFn: paymentApi.verifyPayment,
     onSuccess: (res) => {
       if (res.ok) {
-        // Backend already rotated the ss_at cookie to embed the new plan.
+        // Backend already rotated the vachix_at cookie to embed the new plan.
         // Refetch /me to pick up the upgraded plan + reset usage.
         qc.invalidateQueries({ queryKey: QK.me });
       }

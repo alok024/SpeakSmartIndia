@@ -39,7 +39,7 @@ export function startBackgroundWorker(): Worker | null {
 
       switch (job.name) {
 
-        // ── Persist AI memory mistakes ──────────────────────────────
+        // Persist AI memory mistakes
         case 'persist-mistakes': {
           const { persistMistakesFromFeedback } =
             await import('../../modules/ai/ai.memory');
@@ -51,7 +51,7 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
-        // ── Recompute weak areas ────────────────────────────────────
+        // Recompute weak areas
         case 'recompute-weak-areas': {
           const { recomputeWeakAreas } =
             await import('../../modules/analytics/weak_areas.service');
@@ -59,14 +59,14 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
-        // ── Retry-persist a batch of analytics events ───────────────
+        // Retry-persist a batch of analytics events
         case 'persist-analytics-events': {
           const { db } = await import('../../core/database/client');
           await db.createAnalyticsEvents(job.data.events);
           break;
         }
 
-        // ── Expire overdue subscriptions (hourly cron) ──────────────
+        // Expire overdue subscriptions (hourly cron)
         case 'expire-subscriptions': {
           const { expireOverdueSubscriptions } =
             await import('../../modules/payment/payment.service');
@@ -74,7 +74,7 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
-        // ── Expire stale 'scoring' sessions (every 15 min) ──────────
+        // Expire stale 'scoring' sessions (every 15 min)
         case 'expire-stale-sessions': {
           const { expireStaleSessions } =
             await import('../../modules/analytics/sessions.service');
@@ -82,7 +82,7 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
-        // ── B2B lead 24h follow-up email ────────────────────────────
+        // B2B lead 24h follow-up email
         // Skips if a human has already moved the lead past "new"
         // (e.g. team marked it "contacted"/"qualified"/"closed").
         case 'lead-followup-email': {
@@ -126,7 +126,7 @@ export function startBackgroundWorker(): Worker | null {
     }
   );
 
-  // ── Event listeners ─────────────────────────────────────────────
+  // Event listeners
 
   worker.on('completed', (job: Job) =>
     log.info('Job completed', {

@@ -14,7 +14,7 @@ import { startLoadMonitor, getSystemLoadStats }      from './infra/load-monitor'
 import { getAILimiterStats }                         from './infra/ai-limiter';
 import { groqBreaker, openaiBreaker }                from './infra/circuit-breaker';
 
-// ── Route modules ─────────────────────────────────────────────────
+// Route modules
 import authRoutes    from './modules/auth/auth.routes';
 import paymentRoutes from './modules/payment/payment.routes';
 import userRoutes    from './modules/user/user.routes';
@@ -27,7 +27,7 @@ import voiceRoutes   from './modules/voice/voice.routes';
 import eventsRoutes  from './modules/analytics/events.routes';
 import { registerShutdownFlush } from './modules/analytics/events.service';
 
-// ── Extend Express Request with requestId ─────────────────────────
+// Extend Express Request with requestId
 declare global {
   namespace Express {
     interface Request {
@@ -36,20 +36,20 @@ declare global {
   }
 }
 
-// ── Boot: Sentry + load monitor ───────────────────────────────────
+// Boot: Sentry + load monitor
 initSentry().catch(() => {});   // fire-and-forget; never blocks startup
 startLoadMonitor();              // heartbeat log every 5 min
 
 const app = express();
 app.set('trust proxy', 1);
 
-// ── Security headers ──────────────────────────────────────────────
+// Security headers
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: IS_PROD ? undefined : false,
 }));
 
-// ── CORS ──────────────────────────────────────────────────────────
+// CORS
 const PROD_ORIGINS = [
   'https://vachix.in',
   'https://www.vachix.in',
@@ -64,7 +64,7 @@ const DEV_ORIGINS = [
   'http://127.0.0.1:5500',
 ];
 
-// FIX M2: Vercel preview deployments use dynamic subdomain URLs
+// Fix (M2): Vercel preview deployments use dynamic subdomain URLs
 // (e.g. vachixindia-git-fix-branch-xyz.vercel.app) that can't be
 // hardcoded here. EXTRA_ALLOWED_ORIGINS (comma-separated) lets you add
 // preview/staging origins via a Railway env var without a code deploy.
@@ -80,7 +80,7 @@ const ALLOWED_ORIGINS = IS_PROD
 
 app.use(cors({
   origin: (origin, cb) => {
-    // FIX H2: Always validate against the allowlist regardless of environment.
+    // Fix (H2): Always validate against the allowlist regardless of environment.
     // Previously `if (!IS_PROD) return cb(null, true)` allowed every origin on
     // staging/preview deployments, making credentialed cross-origin requests
     // possible from any attacker-controlled site. Same-origin and null-origin
@@ -92,7 +92,7 @@ app.use(cors({
   credentials: true,
 }));
 
-// ── Webhook — raw body BEFORE express.json() ─────────────────────
+// Webhook — raw body BEFORE express.json()
 app.post(
   '/api/payment/webhook',
   express.raw({ type: 'application/json' }),
@@ -103,19 +103,19 @@ app.post(
   }
 );
 
-// ── Body parsing ──────────────────────────────────────────────────
+// Body parsing
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use(cookieParser());
 
-// ── Global rate limit ─────────────────────────────────────────────
+// Global rate limit
 app.use(rateLimit({
   windowMs: 60_000, max: 200,
   standardHeaders: true, legacyHeaders: false,
   message: { success: false, error: { code: 'rate_limited', message: 'Too many requests. Please slow down.' } },
 }));
 
-// ── Request ID + structured request logging ────────────────────────
+// Request ID + structured request logging
 // Every request gets a unique requestId attached to req and to the
 // response header (X-Request-Id). Downstream log calls reference
 // req.requestId so every log line for a request is trivially filterable.
@@ -132,7 +132,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// ── Health & status endpoints ─────────────────────────────────────
+// Health & status endpoints
 
 app.get('/', (_req: Request, res: Response) => {
   res.json({
@@ -162,11 +162,21 @@ app.get('/health/metrics', (req: Request, res: Response) => {
   const token    = env.METRICS_TOKEN || undefined;
   const provided = req.headers['x-metrics-token'];
 
+  // Constant-time comparison — avoids leaking the token via response-timing
+  // differences on a per-character mismatch.
+  const tokensMatch = (() => {
+    if (typeof provided !== 'string' || !token) return false;
+    const a = Buffer.from(provided);
+    const b = Buffer.from(token);
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  })();
+
   // In production: always require a token — fail closed if one isn't configured.
   // In development: allow access when no token is set (local debugging convenience).
   const authOk = IS_PROD
-    ? (!!token && provided === token)
-    : (!token || provided === token);
+    ? tokensMatch
+    : (!token || tokensMatch);
 
   if (!authOk) {
     unauthorized(res, 'Unauthorized', 'unauthorized');
@@ -184,7 +194,7 @@ app.get('/health/metrics', (req: Request, res: Response) => {
   });
 });
 
-// ── Routes ────────────────────────────────────────────────────────
+// Routes
 app.use('/api',          userRoutes);
 app.use('/api',          authRoutes);
 app.use('/api/payment',  paymentRoutes);
@@ -198,12 +208,12 @@ app.use('/api/events',   eventsRoutes);
 
 registerShutdownFlush();
 
-// ── 404 ───────────────────────────────────────────────────────────
+// 404
 app.use((_req: Request, res: Response) => {
   notFound(res, 'Route not found');
 });
 
-// ── Global error handler ──────────────────────────────────────────
+// Global error handler
 app.use((err: Error, req: Request, res: Response, next: express.NextFunction) => {
   captureException(err, {
     userId:    (req as Request & { user?: { id: string; plan: string } }).user?.id,
@@ -213,7 +223,7 @@ app.use((err: Error, req: Request, res: Response, next: express.NextFunction) =>
   errorHandler(err, req, res, next);
 });
 
-// ── Start ─────────────────────────────────────────────────────────
+// Start
 const PORT = env.PORT;
 
 app.listen(PORT, () => {
@@ -222,7 +232,7 @@ app.listen(PORT, () => {
     queue: env.REDIS_URL ? 'BullMQ (Redis)' : 'inline (no Redis)',
   });
 
-  // ── Health-check assertion: B2B lead follow-up depends on Redis ──
+  // Health-check assertion: B2B lead follow-up depends on Redis
   // Without REDIS_URL, dispatchLeadFollowUp() silently skips scheduling
   // the 24h follow-up job. That's expected in dev, but in production it
   // means every new B2B lead gets zero automated follow-up — surface it
@@ -235,7 +245,7 @@ app.listen(PORT, () => {
     }
   }
 
-  // FIX L2: Warn loudly at boot when METRICS_TOKEN is absent in production.
+  // Fix (L2): Warn loudly at boot when METRICS_TOKEN is absent in production.
   // Without a token, the /health/metrics endpoint is publicly accessible —
   // anyone can read AI call counters, system RPM, concurrency stats, and
   // circuit-breaker states. The auth logic in app.get('/health/metrics')

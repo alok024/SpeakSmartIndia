@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useUIStore } from '@/store/ui';
 import '@/app/landing.css';
 
-/* ─── FAQ DATA ─────────────────────────────────────────── */
+/* FAQ DATA */
 const FAQS = [
   { q: 'Do I need to speak aloud, or can I type my answers?', a: 'Both work. You can type or speak — if your device has a microphone, Vachix will transcribe your answer in real time. Elara then analyses whichever form she receives.' },
   { q: 'Is it useful if my English is already decent?', a: 'Yes — Elara catches the subtle mistakes standard spell-checkers miss: "myself is", "I am having experience", prepositional errors, and bureaucratic phrases that weaken interview impact.' },
@@ -39,8 +39,8 @@ export default function LandingPage() {
   const [topbarOpen, setTopbarOpen] = useState(true);
   const [navScrolled, setNavScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  // BUG FIX: the landing page used to keep its own private `theme` state +
-  // its own 'ssi-theme' read/write, completely separate from the zustand
+  // Fix: the landing page used to keep its own private `theme` state +
+  
   // `useUIStore` that the rest of the app (AppShell, etc.) reads from. That
   // meant toggling theme here never updated the store, so the very next
   // client-side navigation into the app could show a stale toggle state,
@@ -59,14 +59,14 @@ export default function LandingPage() {
   const [showScores, setShowScores] = useState(false);
   const [ansText, setAnsText] = useState('');
 
-  /* ── Nav scroll ── */
+  /* Nav scroll */
   useEffect(() => {
     const onScroll = () => setNavScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  /* ── Reveal observer ── */
+  /* Reveal observer */
   useEffect(() => {
     const io = new IntersectionObserver(entries => {
       entries.forEach(e => { if (e.isIntersecting) { (e.target as HTMLElement).classList.add('in'); io.unobserve(e.target); } });
@@ -81,7 +81,7 @@ export default function LandingPage() {
     return () => io.disconnect();
   }, []);
 
-  /* ── Stat bars animate ── */
+  /* Stat bars animate */
   useEffect(() => {
     if (!barsRef.current) return;
     const obs = new IntersectionObserver(entries => {
@@ -100,7 +100,7 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  /* ── Big number counter ── */
+  /* Big number counter */
   useEffect(() => {
     if (!bigNumRef.current) return;
     const obs = new IntersectionObserver(entries => {
@@ -115,7 +115,7 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  /* ── Demo typer ── */
+  /* Demo typer */
   useEffect(() => {
     if (!demoRef.current) return;
     const obs = new IntersectionObserver(entries => {
@@ -137,7 +137,7 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, [demoTyped]);
 
-  /* ── Marquee content ── */
+  /* Marquee content */
   const mqItems = TRACKS.map((t, i) => (
     <span key={i} className="ssi-mq-item"><span className="ssi-mq-dot" />{t}</span>
   ));
@@ -186,16 +186,16 @@ export default function LandingPage() {
             aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-pressed={isDark}
           >
-            <div className="ssi-tt-track">
-              {/* Moon */}
-              <svg className="ssi-tt-icon ssi-tt-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-              {/* Sun */}
-              <svg className="ssi-tt-icon ssi-tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" />
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                <line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" />
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-              </svg>
+            <div className="ssi-tt-pill">
+              <div className="ssi-tt-track">
+                <svg className="ssi-tt-icon ssi-tt-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+                <svg className="ssi-tt-icon ssi-tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="4.5" /><line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
+                  <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
+                  <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
+                  <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" /><line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
+                </svg>
+              </div>
             </div>
           </button>
           <Link href="/login" className="ssi-btn-signin">Sign In</Link>
@@ -213,12 +213,33 @@ export default function LandingPage() {
           <a key={href} href={href} onClick={() => setMobileOpen(false)}>{label}</a>
         ))}
         <div className="ssi-mobile-menu-btns">
+          <div className="ssi-mobile-theme-row">
+            <span className="ssi-mobile-theme-label">{isDark ? 'Dark mode' : 'Light mode'}</span>
+            <button
+              className="ssi-theme-toggle"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-pressed={isDark}
+            >
+              <div className="ssi-tt-pill">
+                <div className="ssi-tt-track">
+                  <svg className="ssi-tt-icon ssi-tt-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
+                  <svg className="ssi-tt-icon ssi-tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="4.5" /><line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
+                    <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
+                    <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
+                    <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" /><line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
+                  </svg>
+                </div>
+              </div>
+            </button>
+          </div>
           <Link href="/login" onClick={() => setMobileOpen(false)} className="ssi-btn-signin" style={{ textAlign: 'center' }}>Sign In</Link>
           <Link href="/register" onClick={() => setMobileOpen(false)} className="ssi-btn-cta" style={{ justifyContent: 'center' }}>Start Free</Link>
         </div>
       </div>
 
-      {/* ─── HERO ─── */}
+      {/* HERO */}
       <section className="ssi-hero" id="hero">
         <div className="ssi-hero-bg">
           <div className="ssi-h-grid" />
@@ -235,7 +256,7 @@ export default function LandingPage() {
               <span className="upright">Say it like<br />you mean it.</span><br />
               <span className="glow-word">We'll fix<br />the rest.</span>
             </h1>
-            <p className="ssi-hero-sub ssi-rv d3">Practice real questions for UPSC, Bank PO, SSC, campus placements and tech roles — then let Elara catch every language slip before your panel does.</p>
+            <p className="ssi-hero-sub ssi-rv d3">Practice real questions for UPSC, Bank PO, SSC, campus placements and tech roles — then let Aria ask the questions and Elara catch every language slip.</p>
             <div className="ssi-hero-actions ssi-rv d4">
               <Link href="/register" className="ssi-h-cta">Start practicing free →</Link>
               <a href="#coaches" className="ssi-h-ghost">See how it works</a>
@@ -258,7 +279,7 @@ export default function LandingPage() {
             </div>
             <div className="ssi-fcard-score">
               <span className="ssi-fcs-title">Interview Readiness · Live</span>
-              {[['Grammar', '8.1', 'var(--emerald)', '81%'], ['Fluency', '7.4', 'var(--gold)', '74%'], ['Vocabulary', '7.9', 'var(--violet)', '79%']].map(([label, val, color, w]) => (
+              {[['Grammar', '8.1', 'var(--success)', '81%'], ['Fluency', '7.4', 'var(--warn)', '74%'], ['Vocabulary', '7.9', 'var(--accent)', '79%']].map(([label, val, color, w]) => (
                 <div key={label as string}>
                   <div className="ssi-fcs-row">
                     <span className="ssi-fcs-label">{label}</span>
@@ -269,7 +290,7 @@ export default function LandingPage() {
               ))}
               <div className="ssi-fcs-row" style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
                 <span className="ssi-fcs-label" style={{ color: 'var(--text1)', fontWeight: 700 }}>Readiness</span>
-                <span className="ssi-fcs-val" style={{ color: 'var(--violet)', fontSize: 16 }}>87%</span>
+                <span className="ssi-fcs-val" style={{ color: 'var(--accent)', fontSize: 16 }}>87%</span>
               </div>
             </div>
             <div className="ssi-fcard-users">
@@ -288,7 +309,7 @@ export default function LandingPage() {
         <div className="ssi-scroll-hint"><div className="ssi-scroll-line" />scroll</div>
       </section>
 
-      {/* ─── STAT STRIP ─── */}
+      {/* STAT STRIP */}
       <div className="ssi-stat-strip">
         <div className="ssi-ss-inner">
           {[['11', 'Exam & Role Tracks', 'c-v'], ['7', 'Free AI Sessions to Try', 'c-g'], ['₹299', 'Pro Plan / Month', ''], ['₹0', 'To Start, No Card', '']].map(([n, l, cls]) => (
@@ -300,7 +321,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ─── TRUST BAND ─── */}
+      {/* TRUST BAND */}
       <div className="ssi-trust-band ssi-rv">
         <span className="ssi-trust-label">Tracks Covered</span>
         <div className="ssi-trust-badges">
@@ -310,12 +331,12 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ─── MARQUEE ─── */}
+      {/* MARQUEE */}
       <div className="ssi-mq">
         <div className="ssi-mq-track">{mqItems}{mqItems}</div>
       </div>
 
-      {/* ─── COACHES ─── */}
+      {/* COACHES */}
       <section className="ssi-sect" id="coaches">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center' }}>
@@ -324,16 +345,16 @@ export default function LandingPage() {
           </div>
           <div className="ssi-coaches-grid" style={{ marginTop: 56 }}>
             <div className="ssi-coach-card ssi-rv d1">
-              <div className="ssi-cc-icon" style={{ background: 'var(--violet-dim)' }}>🧑‍💼</div>
-              <div className="ssi-cc-name">The Interview Coach</div>
-              <div className="ssi-cc-role">Domain expert · All 11 tracks</div>
+              <div className="ssi-cc-icon" style={{ background: 'var(--blue-dim)' }}>🧑‍💼</div>
+              <div className="ssi-cc-name">Aria</div>
+              <div className="ssi-cc-role">Interview coach · All 11 tracks</div>
               <p className="ssi-cc-desc">Fires realistic questions from official UPSC, Bank PO, SSC, tech, and campus interview formats. Adapts difficulty as your readiness score rises.</p>
               <div className="ssi-cc-tags">
                 <span className="ssi-tag">UPSC / IAS</span><span className="ssi-tag">Bank PO</span><span className="ssi-tag">SSC</span><span className="ssi-tag">Tech</span><span className="ssi-tag">Campus</span>
               </div>
             </div>
             <div className="ssi-coach-card ssi-rv d2">
-              <div className="ssi-cc-icon" style={{ background: 'var(--gold-dim)' }}>✨</div>
+              <div className="ssi-cc-icon" style={{ background: 'var(--warn-dim)' }}>✨</div>
               <div className="ssi-cc-name">Elara</div>
               <div className="ssi-cc-role">English coach · Real-time correction</div>
               <p className="ssi-cc-desc">Catches every grammar slip, Hinglish error, and filler phrase the moment you answer — not after. Scores your Grammar, Fluency, and Vocabulary separately.</p>
@@ -355,7 +376,7 @@ export default function LandingPage() {
               <p className="ssi-body-copy ssi-rv d2" style={{ marginTop: 16 }}>Grammar, Fluency, and Vocabulary — tracked across every session so you can see which dimension is holding you back and fix it before your real panel.</p>
             </div>
             <div className="ssi-score-bars">
-              {[['Grammar', '8.1 / 10', 'var(--emerald)', '81%'], ['Fluency', '7.4 / 10', 'var(--gold)', '74%'], ['Vocabulary', '7.9 / 10', 'var(--violet)', '79%'], ['Interview Readiness', '87%', 'var(--text1)', '87%']].map(([label, val, color, w]) => (
+              {[['Grammar', '8.1 / 10', 'var(--success)', '81%'], ['Fluency', '7.4 / 10', 'var(--warn)', '74%'], ['Vocabulary', '7.9 / 10', 'var(--accent)', '79%'], ['Interview Readiness', '87%', 'var(--text1)', '87%']].map(([label, val, color, w]) => (
                 <div key={label as string} className="ssi-sbar ssi-rv">
                   <div className="ssi-sbar-header">
                     <span className="ssi-sbar-label">{label}</span>
@@ -369,7 +390,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── HOW IT WORKS ─── */}
+      {/* HOW IT WORKS */}
       <section className="ssi-sect" id="how">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center' }}>
@@ -410,7 +431,7 @@ export default function LandingPage() {
               ))}
             </div>
             <div className={`ssi-dc-scores${showScores ? ' show' : ''}`}>
-              {[['6.1', 'var(--wrong)', 'Grammar'], ['7.2', 'var(--gold)', 'Fluency'], ['6.8', 'var(--violet)', 'Vocabulary']].map(([val, color, label]) => (
+              {[['6.1', 'var(--wrong)', 'Grammar'], ['7.2', 'var(--warn)', 'Fluency'], ['6.8', 'var(--accent)', 'Vocabulary']].map(([val, color, label]) => (
                 <div key={label as string} className="ssi-ds">
                   <span className="ssi-ds-val" style={{ color: color as string }}>{val}</span>
                   <span className="ssi-ds-label">{label}</span>
@@ -421,7 +442,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── TESTIMONIALS ─── */}
+      {/* TESTIMONIALS */}
       <section className="ssi-sect">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center' }}>
@@ -443,7 +464,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── PRICING ─── */}
+      {/* PRICING */}
       <section className="ssi-sect" id="pricing">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center' }}>
@@ -490,7 +511,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── B2B ─── */}
+      {/* B2B */}
       <section className="ssi-sect" id="b2b">
         <div className="ssi-si">
           <div className="ssi-b2b-wrap ssi-rv">
@@ -520,7 +541,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── INDIA / ABOUT ─── */}
+      {/* INDIA / ABOUT */}
       <section className="ssi-india-sect" id="about">
         <div className="ssi-india-inner">
           <div className="ssi-rvl">
@@ -546,7 +567,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── ROADMAP ─── */}
+      {/* ROADMAP */}
       <section className="ssi-sect" id="roadmap">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto' }}>
@@ -572,7 +593,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── FAQ ─── */}
+      {/* FAQ */}
       <section className="ssi-sect" id="faq">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center' }}>
@@ -592,7 +613,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── FINAL CTA ─── */}
+      {/* FINAL CTA */}
       <section className="ssi-cta-sect">
         <div className="ssi-cta-orb-1" />
         <div className="ssi-cta-orb-2" />
@@ -608,10 +629,10 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── FOOTER ─── */}
+      {/* FOOTER */}
       <footer className="ssi-footer">
         <div className="ssi-footer-inner">
-          <span className="ssi-foot-brand">Speak<span>Smart</span></span>
+          <span className="ssi-foot-brand">Vachix</span>
           <div className="ssi-foot-links">
             <Link href="/privacy">Privacy</Link>
             <Link href="/terms">Terms</Link>

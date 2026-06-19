@@ -24,7 +24,7 @@ import { env }                                        from '../../core/config/en
 import { aiLogger }                                   from '../../infra/logger';
 import { trimMessagesToTokenBudget }                  from '../../core/utils/tokens';
 
-// ── Aria base prompt ───────────────────────────────────────────────
+// Aria base prompt
 // Single source of truth — imported by the controller, never duplicated.
 
 export const BASE_SYSTEM_PROMPT =
@@ -33,7 +33,7 @@ export const BASE_SYSTEM_PROMPT =
   `and improve their English communication. Only assist with interview-related tasks. ` +
   `Be concise and direct. Always respond with valid JSON when asked.`;
 
-// ── Types ──────────────────────────────────────────────────────────
+// Types
 
 export interface PromptContext {
   systemPrompt:    string;
@@ -51,7 +51,7 @@ export interface PromptContext {
   trimmedCount:    number;
 }
 
-// ── Main export ────────────────────────────────────────────────────
+// Main export
 //
 // Builds a fully personalised message array for a given user + plan + topic.
 // Fetches memory, weak areas, stats, and onboarding data concurrently, then

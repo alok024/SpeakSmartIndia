@@ -34,7 +34,7 @@ import {
 } from '@/lib/interview-prompts';
 import type { Feedback, ErrorCorrection } from '@/types';
 
-// ── Score parsing ─────────────────────────────────────────────────
+// Score parsing
 // Looks for patterns like "score: 7", "7/10", "rating: 6.5", etc.
 function parseScoreFromAI(text: string): number {
   const patterns = [
@@ -57,7 +57,7 @@ function parseScoreFromAI(text: string): number {
 // Matches the backend AIMessageSchema content cap (2,000).
 const MAX_ANSWER_LENGTH = 2_000;
 
-// ── Feedback JSON parsing ─────────────────────────────────────────
+// Feedback JSON parsing
 // C1: Parse and validate AI feedback output with Zod so malformed
 // responses degrade safely instead of silently corrupting session data.
 import { z } from 'zod';
@@ -113,7 +113,7 @@ function parseFeedbackJson(text: string): Partial<Feedback> {
   }
 }
 
-// ── Prompt builders ───────────────────────────────────────────────
+// Prompt builders
 
 // Shared language instruction so question generation, feedback, and chat
 // mode all describe each language option the same way.
@@ -195,7 +195,7 @@ function buildChatSystemPrompt(config: ReturnType<typeof useInterviewStore.getSt
   ].join('\n');
 }
 
-// ── Component ─────────────────────────────────────────────────────
+// Component
 
 type Phase =
   | 'loading_questions'  // classic: fetching questions
@@ -235,12 +235,12 @@ function InterviewSessionPageInner() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const initRef = useRef(false);
 
-  // Read config/session once Zustand has hydrated — Fix 4:
+  // Read config/session once Zustand has hydrated — Fix (4):
   // we defer inside useEffect but read state at call-time via getState(),
   // not via a stale closure capture from mount.
   const mode = store.config.mode;
 
-  // ── Classic: load questions ───────────────────────────────────────
+  // Classic: load questions
   const generateClassicQuestions = useCallback(async () => {
     // Read fresh state at call time — not from mount-time closure
     const { config } = useInterviewStore.getState();
@@ -265,7 +265,7 @@ function InterviewSessionPageInner() {
       return;
     }
 
-    // FIX H1: parseJsonArray previously used a > 10 char threshold that
+    // Fix (H1): parseJsonArray previously used a > 10 char threshold that
     // could silently drop short valid questions (e.g. "Why IT?"), making
     // questions.length < config.totalQ. The progress bar would show "Q1/4"
     // for a 5-question session, and accessing questions[currentQ] at the
@@ -286,7 +286,7 @@ function InterviewSessionPageInner() {
     startTimer(); // begin per-question countdown
   }, [store, startTimer]);
 
-  // ── Chat: send opening message ────────────────────────────────────
+  // Chat: send opening message
   const startChatSession = useCallback(async () => {
     const { config } = useInterviewStore.getState();
     const systemPrompt = buildChatSystemPrompt(config);
@@ -322,7 +322,7 @@ function InterviewSessionPageInner() {
     setPhase('chat_active');
   }, [store]);
 
-  // ── Init — runs once after hydration ─────────────────────────────
+  // Init — runs once after hydration
   useEffect(() => {
     if (initRef.current) return;
     initRef.current = true;
@@ -347,13 +347,13 @@ function InterviewSessionPageInner() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [store.session.chatHistory]);
 
-  // ── Timer expiry → auto-submit ────────────────────────────────────
+  // Timer expiry → auto-submit
   // expireSession() zeros timerRemaining and clears the interval; we
   // watch for zero here so the component can react (submit current answer
   // or finish session) without polling the store in every render.
   useEffect(() => {
     if (store.session.timerRemaining === 0 && phase === 'answering') {
-      // FIX H2: Previously called submitAnswer() unconditionally.
+      // Fix (H2): Previously called submitAnswer() unconditionally.
       // submitAnswer() has a !answer.trim() early-return but it returns
       // silently — phase stays 'answering', timer is stopped, and the user
       // is stuck on a frozen screen with no way to advance (must hard-refresh,
@@ -383,7 +383,7 @@ function InterviewSessionPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store.session.timerRemaining, phase]);
 
-  // ── Cleanup on unmount ────────────────────────────────────────────
+  // Cleanup on unmount
   // Ensures the interval is always cleared if the user navigates away
   // mid-interview (back button, route change, tab close).
   useEffect(() => {
@@ -395,7 +395,7 @@ function InterviewSessionPageInner() {
     setLiveChips(getLiveFeedback(answer));
   }, [answer]);
 
-  // ── Classic: submit answer ────────────────────────────────────────
+  // Classic: submit answer
   async function submitAnswer() {
     const { config, session } = useInterviewStore.getState();
     const question = session.questions[session.currentQ];
@@ -432,7 +432,7 @@ function InterviewSessionPageInner() {
     setPhase('feedback');
   }
 
-  // ── Classic: next question or finish ─────────────────────────────
+  // Classic: next question or finish
   function nextQuestion() {
     const { session } = useInterviewStore.getState();
     const isLast = session.currentQ >= session.questions.length - 1;
@@ -450,7 +450,7 @@ function InterviewSessionPageInner() {
     }
   }
 
-  // ── Chat: send user message ────────────────────────────────────────
+  // Chat: send user message
   async function sendChatMessage() {
     if (!chatInput.trim() || chatLoading) return;
     const { config, session } = useInterviewStore.getState();
@@ -481,7 +481,7 @@ function InterviewSessionPageInner() {
 
     const aiText = res.data.text;
 
-    // FIX M1: The old detection used aiText.includes('###INTERVIEW_COMPLETE###')
+    // Fix (M1): The old detection used aiText.includes('###INTERVIEW_COMPLETE###')
     // with a hardcoded slice offset of 24. This had two failure modes:
     //
     // 1. Case / whitespace variation — LLMs sometimes emit the marker with
@@ -532,7 +532,7 @@ function InterviewSessionPageInner() {
     }
   }
 
-  // ── Finish: save to backend then go to summary ────────────────────
+  // Finish: save to backend then go to summary
   async function finishSession() {
     stopTimer(); // always halt countdown before async work
     setPhase('saving');
@@ -583,7 +583,7 @@ function InterviewSessionPageInner() {
     }
   }
 
-  // ── Classic UI ────────────────────────────────────────────────────
+  // Classic UI
   const classicQ = store.session.questions[store.session.currentQ] ?? '';
   const totalQ = store.session.questions.length || store.config.totalQ;
   const qNum = store.session.currentQ + 1;
@@ -616,7 +616,7 @@ function InterviewSessionPageInner() {
     );
   }
 
-  // ── Chat Mode ─────────────────────────────────────────────────────
+  // Chat Mode
   if (mode === 'chat') {
     const history = store.session.chatHistory.filter((m) => m.content !== '__start__');
     return (
@@ -701,7 +701,7 @@ function InterviewSessionPageInner() {
     );
   }
 
-  // ── Classic Mode ──────────────────────────────────────────────────
+  // Classic Mode
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-5">
 

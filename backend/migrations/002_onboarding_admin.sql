@@ -17,4 +17,4 @@ ALTER TABLE users
   ADD COLUMN IF NOT EXISTS is_admin boolean NOT NULL DEFAULT false;
 
 -- Example (run manually, replace email):
--- UPDATE users SET is_admin = true WHERE email = 'founder@speaksmart.in';
+-- UPDATE users SET is_admin = true WHERE email = 'founder@vachix.in';

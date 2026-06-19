@@ -3,13 +3,13 @@ import { generateToken, hashToken } from './token';
 import { sendVerificationEmail } from './email.service';
 import { authLogger } from '../../infra/logger';
 
-// ── Constants ────────────────────────────────────────────────────
+// Constants
 
 const TOKEN_EXPIRY_HOURS = 24;
 const RESEND_LIMIT       = 3;
 const RESEND_WINDOW_MS   = 60 * 60 * 1000; // 1 hour
 
-// ── Custom errors ────────────────────────────────────────────────
+// Custom errors
 
 /**
  * Thrown when a user has hit the resend rate limit (3 emails / hour).
@@ -19,18 +19,17 @@ const RESEND_WINDOW_MS   = 60 * 60 * 1000; // 1 hour
 export { RateLimitError } from '../../core/utils/errors';
 import { RateLimitError } from '../../core/utils/errors';
 
-// ── Result type ─────────────────────────────────────────────────
+// Result type
 
 export interface VerifyTokenResult {
   success: boolean;
   message: string;
 }
 
-// ── Service functions ──────────────────────────────────────────────
+// Service functions
 
 /**
  * createVerificationToken
- * ────────────────────────────────────────────────────────────────
  * 1. Invalidate all previous unused tokens for this user
  * 2. Generate a new 256-bit token, store its SHA-256 hash
  * 3. Record the send event (used for rate-limiting)
@@ -64,7 +63,6 @@ export async function createVerificationToken(userId: string, email: string): Pr
 
 /**
  * verifyEmailToken
- * ────────────────────────────────────────────────────────────────
  * 1. Hash the incoming raw token
  * 2. Look it up in the DB — NEVER query by raw value
  * 3. Validate: exists, not used, not expired
@@ -107,7 +105,6 @@ export async function verifyEmailToken(rawToken: string): Promise<VerifyTokenRes
 
 /**
  * resendVerification
- * ────────────────────────────────────────────────────────────────
  * Always resolves silently for unknown / already-verified emails —
  * never reveals account existence or verification status.
  * Throws RateLimitError (caught by the controller) to return 429

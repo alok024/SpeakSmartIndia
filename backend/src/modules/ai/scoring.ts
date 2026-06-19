@@ -30,7 +30,7 @@ export interface FeedbackForScoring {
   answer?:         string;
 }
 
-// ── Main export ───────────────────────────────────────────────────
+// Main export
 
 export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBreakdown {
   if (!feedbacks || feedbacks.length === 0) {
@@ -89,7 +89,7 @@ export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBre
   };
 }
 
-// ── Readiness label for UI ────────────────────────────────────────
+// Readiness label for UI
 
 export function getReadinessLabel(score: number): {
   label:   string;
@@ -123,7 +123,7 @@ export function getReadinessLabel(score: number): {
   };
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// Helpers
 
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;

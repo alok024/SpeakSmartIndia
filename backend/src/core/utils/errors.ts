@@ -1,4 +1,3 @@
-// ════════════════════════════════════════════════════════════════════════════
 // Centralized error types
 //
 // All services must throw AppError (or a subclass) instead of plain
@@ -13,7 +12,6 @@
 //
 // RateLimitError is kept here alongside AppError so every module imports
 // from one place instead of from emailVerification.service.
-// ════════════════════════════════════════════════════════════════════════════
 
 export class AppError extends Error {
   constructor(
@@ -28,7 +26,7 @@ export class AppError extends Error {
   }
 }
 
-// ─── Convenience subclasses ───────────────────────────────────────────────────
+// Convenience subclasses
 
 /** 400 */
 export class BadRequestError extends AppError {
@@ -78,7 +76,7 @@ export class ServiceUnavailableError extends AppError {
   }
 }
 
-// ─── AI-specific errors ───────────────────────────────────────────────────────
+// AI-specific errors
 
 /**
  * 503 — thrown when all AI providers are unavailable or circuit-broken.

@@ -14,7 +14,7 @@ import { logger } from '../../infra/logger';
 
 const log = logger.child({ module: 'user' });
 
-// ── Types ─────────────────────────────────────────────────────────
+// Types
 
 export interface OnboardingInfo {
   completed:  boolean;
@@ -34,7 +34,7 @@ export interface UserProfile {
   onboarding:    OnboardingInfo;
 }
 
-// ── Profile lookup ───────────────────────────────────────────────
+// Profile lookup
 //
 // Fetches the user row, usage row, and stats row in parallel and
 // derives the plan/limit/usage/readiness/onboarding fields shared by
@@ -52,7 +52,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
   const plan          = dbUser.plan as PlanType;
   const baseLimit     = PLAN_LIMITS[plan].ai_calls;
-  // FIX: Include referral bonus calls in the limit so /api/me's
+  // Fix: Include referral bonus calls in the limit so /api/me's
   // usage.limit matches what checkUsageLimit middleware enforces.
   // Previously getUserProfile returned the raw PLAN_LIMITS value (7 for
   // free) while the middleware correctly added referral_bonus — meaning
@@ -73,13 +73,13 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   return { dbUser, usage, stats, plan, limit, callCount, jobReadyScore, readiness, onboarding };
 }
 
-// ── Onboarding ───────────────────────────────────────────────────
+// Onboarding
 
 export async function saveOnboarding(userId: string, profession: string, goal: string): Promise<void> {
   await db.saveOnboarding(userId, profession, goal);
 }
 
-// ── AI usage ─────────────────────────────────────────────────────
+// AI usage
 //
 // Wraps db.incrementUsage with the same non-fatal error handling that
 // was previously duplicated across handleAI / handleAIStream (3 call

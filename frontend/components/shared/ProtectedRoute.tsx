@@ -5,7 +5,7 @@
  *
  * Wraps any page under (app)/ — the perimeter auth check (is there a
  * valid session at all?) is now done server-side by middleware.ts
- * before this component ever renders, using the httpOnly ss_at cookie.
+ * before this component ever renders, using the httpOnly vachix_at cookie.
  *
  * This component handles the remaining client-side concerns:
  *  - Avoids a flash of empty UI while /me loads
@@ -37,7 +37,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: Props) {
   const cachedUser = useAuthStore((s) => s.user);
 
   // Always fetch /me here — middleware already guarantees a valid
-  // ss_at/ss_rt cookie reached this route, so no `enabled` gate is
+  // vachix_at/vachix_rt cookie reached this route, so no `enabled` gate is
   // needed. Shares its cache key with useMe() elsewhere.
   const { data: meData, isLoading, isError } = useQuery({
     queryKey: QK.me,

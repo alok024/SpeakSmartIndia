@@ -7,19 +7,19 @@
 
 import type { FeedbackItem } from '../../modules/ai/ai.memory';
 
-// ── persist-mistakes ──────────────────────────────────────────────
+// persist-mistakes
 export interface PersistMistakesData {
   userId:    string;
   topic:     string;
   feedbacks: FeedbackItem[];
 }
 
-// ── recompute-weak-areas ──────────────────────────────────────────
+// recompute-weak-areas
 export interface RecomputeWeakAreasData {
   userId: string;
 }
 
-// ── expire-subscriptions ──────────────────────────────────────────
+// expire-subscriptions
 export interface ExpireSubscriptionsData {
   triggeredAt: string; // ISO — for logging only
 }

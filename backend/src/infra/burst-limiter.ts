@@ -27,7 +27,7 @@ import { logger }   from './logger';
 
 const log = logger.child({ module: 'burst-limiter' });
 
-// ── Plan-aware config ─────────────────────────────────────────────
+// Plan-aware config
 
 interface BurstConfig { limit: number; windowMs: number; }
 

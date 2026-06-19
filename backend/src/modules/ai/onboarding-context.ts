@@ -21,7 +21,7 @@
  *
  * All outputs degrade gracefully: if onboarding is incomplete, returns ''/[].
  *
- * ── Goal → intent mapping ──────────────────────────────────────────
+ * Goal → intent mapping
  *
  *   "get_job"        → fresher preparing for first role
  *   "switch_career"  → changing industry/function, needs bridging language
@@ -30,7 +30,7 @@
  *   "confidence"     → performance anxiety, needs safe reps
  *   "salary_raise"   → negotiation + value articulation focus
  *
- * ── Profession → domain mapping ───────────────────────────────────
+ * Profession → domain mapping
  *
  * Professions are normalised to a domain tag (software, finance, sales,
  * operations, hr, healthcare, marketing, general) for prompt selection.
@@ -41,7 +41,7 @@ import { logger } from '../../infra/logger';
 
 const log = logger.child({ module: 'onboarding-context' });
 
-// ── Types ─────────────────────────────────────────────────────────
+// Types
 
 export interface OnboardingData {
   profession?: string | null;
@@ -67,7 +67,7 @@ interface UserStats {
   avg_job_ready: number;
 }
 
-// ── Domain classification ─────────────────────────────────────────
+// Domain classification
 
 type Domain = 'software' | 'finance' | 'sales' | 'operations' | 'hr' | 'healthcare' | 'marketing' | 'general';
 
@@ -91,7 +91,7 @@ function classifyDomain(profession: string): Domain {
   return 'general';
 }
 
-// ── Goal normalisation ────────────────────────────────────────────
+// Goal normalisation
 
 type GoalType = 'get_job' | 'switch_career' | 'promotion' | 'improve_english' | 'confidence' | 'salary_raise' | 'unknown';
 
@@ -121,7 +121,7 @@ function normaliseGoal(raw?: string | null): GoalType {
   return GOAL_ALIASES[lower] ?? 'unknown';
 }
 
-// ── Prompt fragments ──────────────────────────────────────────────
+// Prompt fragments
 
 const DOMAIN_PROMPT: Record<Domain, string> = {
   software: `
@@ -235,7 +235,7 @@ This user wants to negotiate a raise or higher starting salary:
   unknown: '',
 };
 
-// ── Session defaults per goal + domain ───────────────────────────
+// Session defaults per goal + domain
 
 function computeDifficulty(goal: GoalType, sessions: number): 'beginner' | 'intermediate' | 'advanced' {
   if (goal === 'promotion') return sessions < 5 ? 'intermediate' : 'advanced';
@@ -255,11 +255,11 @@ function computeInterviewType(goal: GoalType, domain: Domain): string {
   return 'mixed';
 }
 
-// ── 1. Prompt context ─────────────────────────────────────────────
+// 1. Prompt context
 
-// ── Coarse persona bucket — used to partition the AI response cache
+// Coarse persona bucket — used to partition the AI response cache
 //    so that cached answers stay relevant to a user's profession/goal
-//    instead of erasing onboarding personalisation on a cache hit. ──
+//    instead of erasing onboarding personalisation on a cache hit.
 
 export function getPersonaBucket(onboarding: OnboardingData): string {
   if (!onboarding.profession && !onboarding.goal) return '';
@@ -289,7 +289,7 @@ export function getOnboardingPromptContext(onboarding: OnboardingData): string {
   return result;
 }
 
-// ── 2. Session defaults ───────────────────────────────────────────
+// 2. Session defaults
 
 export function getSessionDefaults(
   onboarding: OnboardingData,
@@ -305,7 +305,7 @@ export function getSessionDefaults(
   };
 }
 
-// ── 3. Dashboard recommendations ─────────────────────────────────
+// 3. Dashboard recommendations
 
 export function getDashboardRecommendations(
   onboarding: OnboardingData,

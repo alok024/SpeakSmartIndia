@@ -1,10 +1,12 @@
 import { z } from 'zod';
 
-// ── Auth ──────────────────────────────────────────────────────────
+// Auth
 
 export const RegisterSchema = z.object({
   email:    z.string().email('Invalid email format'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  // M1: raised from 6 → 8. Login schema intentionally stays at min(1) so
+  // existing accounts with shorter passwords aren't locked out retroactively.
+  password: z.string().min(8, 'Password must be at least 8 characters'),
   name:     z.string().max(100).optional(),
   ref:      z.string().max(20).optional(),
 });
@@ -18,7 +20,7 @@ export const ForgotPasswordSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
 
-// ── Onboarding ────────────────────────────────────────────────────
+// Onboarding
 
 export const OnboardingSchema = z.object({
   profession: z.string().min(1).max(50),
@@ -27,7 +29,7 @@ export const OnboardingSchema = z.object({
 
 export const ResetPasswordSchema = z.object({
   token:        z.string().min(1, 'Token is required'),
-  new_password: z.string().min(6, 'Password must be at least 6 characters'),
+  new_password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export const RefreshTokenSchema = z.object({
@@ -42,7 +44,7 @@ export const ResendVerificationSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
 
-// ── Payment ───────────────────────────────────────────────────────
+// Payment
 
 export const CreateOrderSchema = z.object({
   plan: z.enum(['pro', 'elite']),
@@ -55,7 +57,7 @@ export const VerifyPaymentSchema = z.object({
   plan:                z.enum(['pro', 'elite']),
 });
 
-// ── AI ────────────────────────────────────────────────────────────
+// AI
 
 const AIMessageSchema = z.object({
   // C1+H1: 'system' role removed — clients must never inject system messages.
@@ -73,7 +75,7 @@ export const AIRequestSchema = z.object({
   free:       z.boolean().optional(),   // true = helper call (hint/drill/grammar) — does not count against session limit
 });
 
-// ── AI feedback output schema (C1) ───────────────────────────────
+// AI feedback output schema (C1)
 // Validates the JSON structure the LLM is expected to return for per-answer
 // feedback. safeParse() this on every AI response before storing or scoring.
 // All fields are optional so partial responses degrade gracefully rather than
@@ -110,7 +112,7 @@ export type AIRequestDTO = z.infer<typeof AIRequestSchema>;
 export type RegisterDTO = z.infer<typeof RegisterSchema>;
 export type LoginDTO    = z.infer<typeof LoginSchema>;
 
-// ── B2B Lead ─────────────────────────────────────────────────────
+// B2B Lead
 
 export const LeadSchema = z.object({
   name:    z.string().min(1).max(100),
@@ -123,7 +125,7 @@ export const LeadSchema = z.object({
 
 export type LeadDTO = z.infer<typeof LeadSchema>;
 
-// ── Admin: B2B lead status updates ──────────────────────────────────
+// Admin: B2B lead status updates
 
 export const LEAD_STATUSES = ['new', 'contacted', 'qualified', 'closed'] as const;
 
@@ -133,7 +135,7 @@ export const UpdateLeadStatusSchema = z.object({
 
 export type UpdateLeadStatusDTO = z.infer<typeof UpdateLeadStatusSchema>;
 
-// ── Analytics events ───────────────────────────────────────────────
+// Analytics events
 
 // Scalar-only property values — no nested objects, no unbounded strings.
 // Max 20 keys, each key ≤ 64 chars, each value ≤ 256 chars (or number/bool/null).
@@ -162,7 +164,7 @@ export const AnalyticsEventBatchSchema = z.object({
 export type AnalyticsEventDTO      = z.infer<typeof AnalyticsEventSchema>;
 export type AnalyticsEventBatchDTO = z.infer<typeof AnalyticsEventBatchSchema>;
 
-// ── Admin analytics query params ───────────────────────────────────
+// Admin analytics query params
 
 export const AdminEventQuerySchema = z.object({
   limit:   z.coerce.number().int().min(1).max(500).default(100),
@@ -173,7 +175,7 @@ export const AdminEventQuerySchema = z.object({
 export type AdminEventQueryDTO = z.infer<typeof AdminEventQuerySchema>;
 
 
-// ── Sessions ──────────────────────────────────────────────────────
+// Sessions
 // Zod handles coercion, defaults, and range-clamping in one place so
 // the controller stays free of imperative String()/Number()/Math.min() noise.
 
@@ -197,7 +199,7 @@ export const CreateSessionSchema = z.object({
 
 export type CreateSessionDTO = z.infer<typeof CreateSessionSchema>;
 
-// ── Pagination & query-param schemas (DRY fix for controllers) ────
+// Pagination & query-param schemas (DRY fix for controllers)
 // Controllers should use these instead of manual parseInt/Math.min
 // to keep query-param parsing and clamping in one place.
 

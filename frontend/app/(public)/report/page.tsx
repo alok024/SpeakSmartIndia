@@ -74,7 +74,7 @@ function ReportPageInner() {
       <header className="border-b border-white/[0.07] px-6 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <span className="text-lg font-bold tracking-tight">
-            Speak<span className="text-[#4F8EF7]">Smart</span>
+            Vachix
           </span>
           <a
             href={signupUrl}

@@ -18,7 +18,7 @@ import { db } from '../../core/database/client';
 
 const log = logger.child({ module: 'dispatcher' });
 
-// ── Enqueue: persist mistakes from a completed session ────────────
+// Enqueue: persist mistakes from a completed session
 
 export async function dispatchPersistMistakes(
   userId:    string,
@@ -47,7 +47,7 @@ export async function dispatchPersistMistakes(
   }
 }
 
-// ── Enqueue: recompute weak areas after a session ─────────────────
+// Enqueue: recompute weak areas after a session
 
 export async function dispatchRecomputeWeakAreas(userId: string): Promise<void> {
   const q = getBackgroundQueue();
@@ -71,7 +71,7 @@ export async function dispatchRecomputeWeakAreas(userId: string): Promise<void> 
   }
 }
 
-// ── Schedule: B2B lead 24h follow-up email ─────────────────────────
+// Schedule: B2B lead 24h follow-up email
 //
 // With Redis:    enqueues a delayed job (24h) on vachix:background.
 //               jobId is the lead's id — BullMQ dedupes on jobId, so
@@ -142,7 +142,7 @@ export async function scheduleSubscriptionExpiry(): Promise<void> {
   }
 }
 
-// ── Schedule: expire stale interview sessions (Issue 7) ────────────
+// Schedule: expire stale interview sessions (Issue 7)
 //
 // sessions.service.ts can leave a row in 'scoring' status forever if
 // the client disconnects before saveSession() reaches
@@ -190,7 +190,7 @@ export async function scheduleSessionExpiry(): Promise<void> {
   }
 }
 
-// ── Token blacklist cleanup ───────────────────────────────────────
+// Token blacklist cleanup
 // The token_blacklist table grows unboundedly without pruning.
 // Run a nightly DELETE to remove rows whose expires_at has passed.
 // This keeps isTokenBlacklisted() fast even under heavy auth load.

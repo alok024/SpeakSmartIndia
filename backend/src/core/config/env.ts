@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 
-// ── Schema ────────────────────────────────────────────────────────
+// Schema
 
 const EnvSchema = z.object({
 
@@ -24,40 +24,46 @@ const EnvSchema = z.object({
   // are undefined in most Docker builds.
   VERSION: z.string().default('unknown'),
 
-  // ─── Supabase ─────────────────────────────────────────────────
+  // Supabase
   SUPABASE_URL:         z.string().url('SUPABASE_URL must be a valid URL'),
   SUPABASE_SERVICE_KEY: z.string().min(1),
-  // Optional: falls back to SERVICE_KEY at runtime with a warning.
-  // Set to your Supabase project's anon/public key so RLS is enforced
-  // on client-facing queries.  See derived-key resolution below.
+  // M3: required in production. Falling back to SUPABASE_SERVICE_KEY
+  // bypasses Row Level Security on every client-facing query, so this can
+  // no longer be silently optional outside of local dev/test. Enforced
+  // below via .superRefine() (needs NODE_ENV, which isn't known yet here).
   SUPABASE_ANON_KEY:    z.string().min(1).optional(),
 
-  // ─── Auth ─────────────────────────────────────────────────────
+  // Auth
   JWT_SECRET:         z.string().min(1),
   JWT_REFRESH_SECRET: z.string().min(1),
 
-  // ─── AI providers ─────────────────────────────────────────────
+  // H3: secret used to HMAC-sign public report share tokens, preventing
+  // anyone from forging a valid token for a session UUID they don't
+  // already hold a legitimate token for.
+  REPORT_SECRET: z.string().min(1),
+
+  // AI providers
   GROQ_API_KEY:   z.string().min(1),
   OPENAI_API_KEY: z.string().default(''),
 
-  // ─── Voice (optional — browser TTS fallback when unset) ───────
+  // Voice (optional — browser TTS fallback when unset)
   ELEVENLABS_API_KEY:  z.string().default(''),
   ELEVENLABS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
 
-  // ─── Razorpay — live keys (required) ─────────────────────────
+  // Razorpay — live keys (required)
   RAZORPAY_KEY_ID:         z.string().min(1),
   RAZORPAY_KEY_SECRET:     z.string().min(1),
   RAZORPAY_WEBHOOK_SECRET: z.string().min(1),
 
-  // ─── Razorpay — test-mode keys (optional) ────────────────────
+  // Razorpay — test-mode keys (optional)
   RAZORPAY_TEST_KEY_ID:         z.string().default(''),
   RAZORPAY_TEST_KEY_SECRET:     z.string().default(''),
   RAZORPAY_TEST_WEBHOOK_SECRET: z.string().default(''),
 
-  // ─── URLs ─────────────────────────────────────────────────────
+  // URLs
   FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL').default('https://vachix.in'),
 
-  // FIX M2: Vercel preview deployments use dynamic subdomain URLs like
+  // Fix (M2): Vercel preview deployments use dynamic subdomain URLs like
   // vachixindia-git-fix-branch-xyz.vercel.app which can't be hardcoded
   // in PROD_ORIGINS. EXTRA_ALLOWED_ORIGINS is a comma-separated list of
   // additional origins to whitelist at runtime — set it in Railway/env to
@@ -66,21 +72,21 @@ const EnvSchema = z.object({
   //   EXTRA_ALLOWED_ORIGINS=https://preview.vachix.in,https://staging.vachix.in
   EXTRA_ALLOWED_ORIGINS: z.string().default(''),
 
-  // ─── Email / notifications ────────────────────────────────────
+  // Email / notifications
   RESEND_API_KEY:    z.string().default(''),
   EMAIL_FROM:        z.string().default(''),
   // Comma-separated list of recipients for internal B2B lead alerts.
   LEAD_NOTIFY_EMAIL: z.string().default(''),
 
-  // ─── Redis ────────────────────────────────────────────────────
+  // Redis
   REDIS_URL: z.string().default(''),
 
-  // ─── Observability ────────────────────────────────────────────
+  // Observability
   SENTRY_DSN:         z.string().default(''),
   SENTRY_TRACES_RATE: z.coerce.number().min(0).max(1).default(0.1),
   METRICS_TOKEN:      z.string().default(''),
 
-  // ─── AI rate-limiting / concurrency ──────────────────────────
+  // AI rate-limiting / concurrency
   // All coerced to their native type — no more parseInt() at call sites.
   SYSTEM_MAX_RPM:          z.coerce.number().int().positive().default(60),
   // Treated as true unless the string is exactly "false".
@@ -100,9 +106,29 @@ const EnvSchema = z.object({
   CB_FAILURE_THRESHOLD:    z.coerce.number().int().positive().default(5),
   CB_RESET_TIMEOUT_MS:     z.coerce.number().int().positive().default(60_000),
   REFERRAL_BONUS_CALLS:    z.coerce.number().int().nonnegative().default(10),
+  // Fix (H5): hard ceiling on accumulated referral_bonus per user. Without
+  // this, a coordinated abuse pattern (disposable accounts all referring one
+  // account, each completing a single session) grants unlimited free AI
+  // calls. Enforced atomically inside the increment_referral_bonus RPC
+  // (see migrations/007_referral_bonus_cap.sql) via LEAST(), not in app
+  // code, so concurrent reward grants can't race past the cap.
+  MAX_REFERRAL_BONUS_CALLS: z.coerce.number().int().positive().default(50),
+}).superRefine((data, ctx) => {
+  // M3: SUPABASE_ANON_KEY must be set in production — the silent fallback
+  // to SUPABASE_SERVICE_KEY bypasses Row Level Security. Dev/test environments
+  // can still omit it for local convenience.
+  if (data.NODE_ENV === 'production' && !data.SUPABASE_ANON_KEY) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['SUPABASE_ANON_KEY'],
+      message:
+        "SUPABASE_ANON_KEY is required in production. Set it to your Supabase project's " +
+        'anon/public key — falling back to the service-role key would bypass Row Level Security.',
+    });
+  }
 });
 
-// ── Parse & fail fast ─────────────────────────────────────────────
+// Parse & fail fast
 
 const _result = EnvSchema.safeParse(process.env);
 
@@ -117,23 +143,25 @@ if (!_result.success) {
 
 const _parsed = _result.data;
 
-// ── Derived keys ──────────────────────────────────────────────────
-// SUPABASE_ANON_KEY falls back to SERVICE_KEY with a loud warning when
-// unset, preserving backward compat while making the misconfiguration
-// visible.  Warning fires once at module load — not on every call.
+// Derived keys
+// M3: production builds can no longer reach this fallback — superRefine
+// above fails fast at startup if SUPABASE_ANON_KEY is missing in prod.
+// In dev/test, it's still convenient to omit it and fall back to the
+// service-role key, with a loud one-time warning so the gap stays visible.
 const _resolvedAnonKey: string = (() => {
   if (!_parsed.SUPABASE_ANON_KEY) {
     // eslint-disable-next-line no-console
     console.warn(
       '⚠️  SUPABASE_ANON_KEY is not set — falling back to SUPABASE_SERVICE_KEY. ' +
-      "This bypasses Row Level Security. Set SUPABASE_ANON_KEY to your project's anon/public key."
+      "This bypasses Row Level Security. Set SUPABASE_ANON_KEY to your project's anon/public key. " +
+      '(Allowed in dev/test only — production fails to start without it.)'
     );
     return _parsed.SUPABASE_SERVICE_KEY;
   }
   return _parsed.SUPABASE_ANON_KEY;
 })();
 
-// ── Exports ───────────────────────────────────────────────────────
+// Exports
 
 export const env = {
   ..._parsed,

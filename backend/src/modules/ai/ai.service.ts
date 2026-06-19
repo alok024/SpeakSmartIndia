@@ -6,7 +6,7 @@ import { getCachedAIResponse, setCachedAIResponse, CacheContext } from '../../in
 import { withAISlot }                                 from '../../infra/ai-limiter';
 import { increment }                                  from '../../infra/observability';
 
-// ── Types ─────────────────────────────────────────────────────────
+// Types
 
 export interface AIMessage {
   role:    'system' | 'user' | 'assistant';
@@ -19,7 +19,7 @@ export interface AIResponse {
   cached?:  boolean;
 }
 
-// ── Raw provider calls ────────────────────────────────────────────
+// Raw provider calls
 
 async function callGroqRaw(messages: AIMessage[], maxTokens: number): Promise<string> {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -71,7 +71,7 @@ async function callOpenAIRaw(messages: AIMessage[], maxTokens: number): Promise<
   return openaiResponsePayload.choices?.[0]?.message?.content ?? '';
 }
 
-// ── Streaming (real-time token-by-token) ──────────────────────────
+// Streaming (real-time token-by-token)
 //
 // Streams tokens as they arrive from Groq (OpenAI-compatible SSE),
 // falling back to OpenAI streaming if Groq fails before any token
@@ -201,7 +201,7 @@ export async function streamAI(
   });
 }
 
-// ── Main: cache → limiter → circuit breaker → provider ───────────
+// Main: cache → limiter → circuit breaker → provider
 
 export async function callAI(
   messages:  AIMessage[],

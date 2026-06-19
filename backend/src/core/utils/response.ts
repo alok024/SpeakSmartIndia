@@ -1,6 +1,5 @@
 import { Response } from 'express';
 
-// ════════════════════════════════════════════════════════════════════════════
 // Unified API response envelope
 //
 // Success: { success: true, data: {...} }
@@ -14,7 +13,6 @@ import { Response } from 'express';
 // server-side log line for this request (see app.ts's request-id middleware).
 // The frontend surfaces this as a "Error ref: <id>" support reference so a
 // user's bug report can be correlated with backend logs/Sentry traces.
-// ════════════════════════════════════════════════════════════════════════════
 
 /** Reads the per-request correlation ID set by app.ts's request-id middleware. */
 function requestIdOf(res: Response): string | undefined {
@@ -38,7 +36,7 @@ function errorBody(
   };
 }
 
-// ─── Success ──────────────────────────────────────────────────────────────────
+// Success
 
 export function ok(res: Response, data: object = {}): Response {
   return res.status(200).json({ success: true, data });
@@ -48,7 +46,7 @@ export function created(res: Response, data: object = {}): Response {
   return res.status(201).json({ success: true, data });
 }
 
-// ─── Client errors ────────────────────────────────────────────────────────────
+// Client errors
 
 export function badRequest(res: Response, message: string, code = 'bad_request', details?: unknown): Response {
   return res.status(400).json(errorBody(code, message, requestIdOf(res), details));
@@ -70,7 +68,7 @@ export function tooManyRequests(res: Response, message: string, code = 'too_many
   return res.status(429).json(errorBody(code, message, requestIdOf(res)));
 }
 
-// ─── Server errors ────────────────────────────────────────────────────────────
+// Server errors
 
 export function serverError(
   res: Response,
@@ -80,7 +78,7 @@ export function serverError(
   return res.status(500).json(errorBody(code, message, requestIdOf(res)));
 }
 
-// ─── Generic status-based error (for codes/statuses not covered above) ────────
+// Generic status-based error (for codes/statuses not covered above)
 
 export function fail(res: Response, status: number, code: string, message: string, details?: unknown): Response {
   return res.status(status).json(errorBody(code, message, requestIdOf(res), details));

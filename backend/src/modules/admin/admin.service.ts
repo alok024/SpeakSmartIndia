@@ -131,7 +131,7 @@ export async function getAdminRecentSubscriptions(limit: number) {
   return db.getRecentSubscriptions(limit);
 }
 
-// ── B2B Leads ────────────────────────────────────────────────────
+// B2B Leads
 
 export interface AdminLeadsPage {
   leads:  B2BLeadRow[];

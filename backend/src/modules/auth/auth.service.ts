@@ -5,24 +5,81 @@ import crypto from 'crypto';
 import { env } from '../../core/config/env';
 import { db } from '../../core/database/client';
 import { authLogger } from '../../infra/logger';
+import { getRedis } from '../../infra/queue/redis';
 import type { JWTPayload } from '../../core/middleware';
 import type { RegisterDTO, LoginDTO } from '../../core/utils/schemas';
 import { attributeReferral } from '../growth/referral.service';
 import { createVerificationToken } from './emailVerification.service';
 
-// ── Refresh-token grace cache ─────────────────────────────────────
+// Refresh-token grace cache
 // Next.js middleware fires per matched route (prefetches included), so
-// multiple requests arrive with the same ss_rt simultaneously — all
+// multiple requests arrive with the same vachix_rt simultaneously — all
 // before the browser receives the rotated cookie from the first response.
 // This cache returns the same new token pair for the same JTI within a
 // 30-second window instead of incorrectly treating it as token theft.
-// Note: REFRESH_GRACE_MS is intentionally 30 s (not 10 s) — Next.js
-// prefetches can fan out many requests simultaneously and 10 s proved
-// insufficient under slow connections in testing.
-const _refreshGrace = new Map<string, { tokens: AuthTokens; expiresAt: number }>();
-const REFRESH_GRACE_MS = 30_000;
+//
+// Fix (C3): The original implementation used a process-memory Map.
+// Under multi-instance deployment (Railway horizontal scale) or after any
+// restart, the in-memory cache is lost. This caused two problems:
+//   1. False positives: the same refresh token hitting different instances
+//      within 30s would be flagged as token theft and log the user out.
+//   2. False negatives: a stolen token replayed on a different instance
+//      wouldn't find the grace entry even though the DB blacklist was set.
+//
+// Fix: use Redis (EX 30s) when available, fall back to the in-process Map
+// for local dev / degraded mode. The fallback is explicitly safe — in dev
+// there's only one instance, so the in-process Map works correctly.
+const REFRESH_GRACE_MS      = 30_000;
+const REFRESH_GRACE_KEY_TTL = 30; // seconds — matches REFRESH_GRACE_MS
 
-// ── Types ─────────────────────────────────────────────────────────
+// In-process fallback (dev / no Redis). Never used in multi-instance prod.
+const _localGrace = new Map<string, { tokens: AuthTokens; expiresAt: number }>();
+
+async function getGraceTokens(jti: string): Promise<AuthTokens | null> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const raw = await redis.get(`refresh:grace:${jti}`);
+      if (!raw) return null;
+      return JSON.parse(raw) as AuthTokens;
+    } catch (err) {
+      authLogger.warn('Redis grace cache GET failed — falling back to local', { jti, error: (err as Error).message });
+      // Fall through to local cache
+    }
+  }
+  const local = _localGrace.get(jti);
+  if (local && local.expiresAt > Date.now()) return local.tokens;
+  return null;
+}
+
+async function setGraceTokens(jti: string, tokens: AuthTokens): Promise<void> {
+  const redis = getRedis();
+  if (redis) {
+    try {
+      await redis.set(`refresh:grace:${jti}`, JSON.stringify(tokens), 'EX', REFRESH_GRACE_KEY_TTL);
+      return;
+    } catch (err) {
+      authLogger.warn('Redis grace cache SET failed — falling back to local', { jti, error: (err as Error).message });
+      // Fall through to local cache
+    }
+  }
+  _localGrace.set(jti, { tokens, expiresAt: Date.now() + REFRESH_GRACE_MS });
+  setTimeout(() => _localGrace.delete(jti), REFRESH_GRACE_MS);
+}
+
+// Access token lifetime
+// Fix (H4): Access tokens were previously valid for 7 days. Combined
+// with a possibly-unavailable Redis blacklist (see grace cache above),
+// that meant a compromised, suspended, or downgraded account could stay
+// "valid" in the JWT claim for up to a week. The refresh-token rotation
+// flow (refreshAccessToken) already mints a fresh access token transparently
+// on every 401 (see frontend lib/api.ts), so a short-lived access token
+// costs nothing in UX — it's silently renewed in the background.
+// Exported so cookies.ts can set a matching cookie maxAge.
+export const ACCESS_TOKEN_EXPIRES_IN  = '30m';
+export const ACCESS_TOKEN_TTL_MS      = 30 * 60 * 1000;
+
+// Types
 
 export interface AuthTokens {
   token:        string;
@@ -38,7 +95,7 @@ export interface PublicUser {
   email_verified: boolean;
 }
 
-// ── Token generation ──────────────────────────────────────────────
+// Token generation
 
 export function generateTokens(
   user: Pick<JWTPayload, 'id' | 'email' | 'plan' | 'name'> & { email_verified?: boolean }
@@ -55,7 +112,7 @@ export function generateTokens(
   };
 
   const token = jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: '7d',
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN,
   } as jwt.SignOptions);
 
   const refreshToken = jwt.sign(
@@ -67,13 +124,13 @@ export function generateTokens(
   return { token, refreshToken };
 }
 
-// ── Register ──────────────────────────────────────────────────────
+// Register
 
-// Fix 1: Return type now includes emailSent
+// Fix (1): Return type now includes emailSent
 export async function registerUser(
   dto: RegisterDTO
 ): Promise<{ tokens: AuthTokens; user: PublicUser; emailSent: boolean }> {
-  // FIX 5: Normalise email at registration. Login and resend-verification
+  // Fix (5): Normalise email at registration. Login and resend-verification
   // already normalise, but the register path passed dto.email raw — meaning
   // "User@Email.com" and "user@email.com" were stored as different accounts,
   // and the mixed-case stored value caused lookup mismatches everywhere else.
@@ -103,29 +160,50 @@ export async function registerUser(
 
   authLogger.info('User registered', { userId: user.id, email: user.email });
 
-  // EMAIL VERIFICATION DISABLED — no domain configured for sending emails.
-  // Users are auto-verified on signup so they can log in immediately.
-  // Re-enable by: restoring the createVerificationToken call below +
-  // setting RESEND_API_KEY and EMAIL_FROM in Railway once a domain is ready.
+  // Fix (H6): Email verification was previously force-disabled for every
+  // signup, regardless of whether mail could actually be delivered. That
+  // meant anyone could register with someone else's email address and get
+  // an instantly "verified" account — the requireVerified guards on AI,
+  // session, and payment routes (core/middleware.ts) were a no-op.
   //
-  // let emailSent = false;
-  // try {
-  //   await createVerificationToken(user.id, user.email);
-  //   emailSent = true;
-  // } catch (err) {
-  //   authLogger.error('createVerificationToken failed', { userId: user.id, err });
-  // }
-  const emailSent = false;
+  // Now: if Resend is configured (RESEND_API_KEY + EMAIL_FROM — the same
+  // check email.service.ts uses to decide whether to actually call the
+  // Resend API or just log-and-skip), send a real verification email and
+  // leave email_verified at its DB default (false) until the user clicks
+  // the link. If it's not configured — local dev, or production before a
+  // sending domain is set up — fall back to auto-verifying so the product
+  // still works end-to-end, with a loud warning so the gap stays visible.
+  // This mirrors the SUPABASE_ANON_KEY fallback pattern in core/config/env.ts.
+  let emailSent = false;
+  let verified  = user.email_verified ?? false;
 
-  // Auto-verify the user so they can log in without clicking an email link.
-  await db.updateUser(user.id, { email_verified: true });
+  if (env.RESEND_API_KEY && env.EMAIL_FROM) {
+    try {
+      await createVerificationToken(user.id, user.email);
+      emailSent = true;
+    } catch (err) {
+      // Delivery failed — don't strand the user unable to log in at all.
+      // Fall back to auto-verify and let them resend later if they want to.
+      authLogger.error('createVerificationToken failed — falling back to auto-verify', { userId: user.id, err });
+      await db.updateUser(user.id, { email_verified: true });
+      verified = true;
+    }
+  } else {
+    authLogger.warn(
+      'RESEND_API_KEY/EMAIL_FROM not configured — auto-verifying new user. ' +
+      'Anyone can register with any email address while this is unset.',
+      { userId: user.id }
+    );
+    await db.updateUser(user.id, { email_verified: true });
+    verified = true;
+  }
 
   // Attribute referral if a ref code was provided at signup (non-fatal)
   if (dto.ref) {
     await attributeReferral(user.id, dto.ref).catch(() => {});
   }
 
-  const tokens = generateTokens(user);
+  const tokens = generateTokens({ ...user, email_verified: verified });
   return {
     tokens,
     emailSent,
@@ -135,12 +213,12 @@ export async function registerUser(
       plan:           user.plan,
       name:           user.name,
       ai_calls:       0,
-      email_verified: user.email_verified ?? false,
+      email_verified: verified,
     },
   };
 }
 
-// ── Login ─────────────────────────────────────────────────────────
+// Login
 
 export async function loginUser(
   dto: LoginDTO
@@ -177,7 +255,7 @@ export async function loginUser(
   };
 }
 
-// ── Logout — blacklist current access token ───────────────────────
+// Logout — blacklist current access token
 
 export async function logoutUser(
   jti:       string,
@@ -192,7 +270,7 @@ export async function logoutUser(
   authLogger.info('Token blacklisted on logout', { userId, jti });
 }
 
-// ── Refresh access token ──────────────────────────────────────────
+// Refresh access token
 
 export async function refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
   let payload: { id: string; jti?: string; type: string; exp?: number };
@@ -208,7 +286,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
     throw new AppError(401, 'invalid_token_type', 'Invalid token type');
   }
 
-  // FIX 4: Refresh token rotation — blacklist the incoming refresh token
+  // Fix (4): Refresh token rotation — blacklist the incoming refresh token
   // immediately so it cannot be reused. Without this, a stolen refresh token
   // stays valid for 30 days and can mint unlimited access tokens indefinitely.
   // We reuse the existing token_blacklist table (same one used for access tokens).
@@ -221,10 +299,11 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
     try {
       const alreadyBlacklisted = await db.isTokenBlacklisted(payload.jti);
       if (alreadyBlacklisted) {
-        const grace = _refreshGrace.get(payload.jti);
-        if (grace && grace.expiresAt > Date.now()) {
+        // Fix (C3): Use Redis-backed grace cache (works across instances).
+        const cachedTokens = await getGraceTokens(payload.jti);
+        if (cachedTokens) {
           authLogger.info('Refresh token reuse within grace window — returning cached tokens', { jti: payload.jti, userId: payload.id });
-          return grace.tokens;
+          return cachedTokens;
         }
         authLogger.warn('Refresh token reuse detected — possible token theft', { jti: payload.jti, userId: payload.id });
         throw new AppError(401, 'refresh_token_reused', 'Refresh token has already been used. Please log in again.');
@@ -257,15 +336,16 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
   // Only populate the grace cache when the blacklist write succeeded.
   // If the write failed, the JTI was never persisted — caching it here
   // would let concurrent requests bypass reuse detection for free.
+  // Fix (C3): setGraceTokens writes to Redis (EX 30s) so the entry
+  // is visible across all instances, not just the one that handled this refresh.
   if (payload.jti && blacklistConfirmed) {
-    _refreshGrace.set(payload.jti, { tokens, expiresAt: Date.now() + REFRESH_GRACE_MS });
-    setTimeout(() => _refreshGrace.delete(payload.jti!), REFRESH_GRACE_MS);
+    await setGraceTokens(payload.jti, tokens);
   }
 
   return tokens;
 }
 
-// ── Forgot password ───────────────────────────────────────────────
+// Forgot password
 
 export async function requestPasswordReset(email: string): Promise<string | null> {
   const user = await db.getUserByEmail(email);
@@ -287,7 +367,7 @@ export async function requestPasswordReset(email: string): Promise<string | null
   return resetToken; // raw token — goes into the email link only
 }
 
-// ── Confirm password reset ────────────────────────────────────────
+// Confirm password reset
 
 export async function confirmPasswordReset(
   token:       string,
@@ -307,8 +387,16 @@ export async function confirmPasswordReset(
 
   const password_hash = await bcrypt.hash(newPassword, 12);
 
+  // Fix (C1): Stamp tokens_invalidated_at so authMiddleware rejects
+  // any access token issued before this moment. Without this, a stolen session
+  // token remains valid until its own expiry (ACCESS_TOKEN_EXPIRES_IN, 30
+  // minutes — formerly 7 days) even after the user resets their password.
+  // The timestamp is checked in authMiddleware against payload.iat —
+  // tokens older than this value are rejected with 'session_invalidated'.
+  const nowIso = new Date().toISOString();
+
   await Promise.all([
-    db.updateUser(reset.user_id, { password_hash }),
+    db.updateUser(reset.user_id, { password_hash, tokens_invalidated_at: nowIso }),
     db.markPasswordResetUsed(reset.id!),
   ]);
 

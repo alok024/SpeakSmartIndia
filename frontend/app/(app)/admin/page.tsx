@@ -1,14 +1,20 @@
 'use client';
 
 /**
- * app/(public)/admin/page.tsx
+ * app/(app)/admin/page.tsx
  *
  * Admin dashboard — migrated from backend/public/admin.html.
  * Protected: only users with is_admin=true can access.
- * Uses ProtectedRoute with requireAdmin flag.
+ *  - Edge: middleware.ts gates /admin (and /admin/:path*) on a valid
+ *    vachix_at cookie before this component ever renders.
+ *  - Layout: (app)/layout.tsx wraps this page in ProtectedRoute, which
+ *    fetches /me and redirects unauthenticated/unverified sessions.
+ *  - Layout: admin/layout.tsx wraps it again with requireAdmin, which
+ *    bounces non-admin users (is_admin=false) to /dashboard. This used
+ *    to live in this file as a second nested ProtectedRoute — moved to
+ *    a layout so it only mounts once per navigation, not once per render.
  */
 
-import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
 import { useEffect, useState, useCallback } from 'react';
 import { apiCall } from '@/lib/api';
 
@@ -31,11 +37,7 @@ interface AdminUser {
 }
 
 export default function AdminPage() {
-  return (
-    <ProtectedRoute requireAdmin>
-      <AdminDashboard />
-    </ProtectedRoute>
-  );
+  return <AdminDashboard />;
 }
 
 function AdminDashboard() {
@@ -62,7 +64,7 @@ function AdminDashboard() {
       <header className="border-b border-white/[0.07] px-6 py-4 flex items-center justify-between">
         <div>
           <h1 className="text-lg font-extrabold">
-            Speak<span className="text-[#4F8EF7]">Smart</span>{' '}
+            Vachix{' '}
             <span className="text-white/40 font-normal text-sm ml-1">Admin</span>
           </h1>
         </div>

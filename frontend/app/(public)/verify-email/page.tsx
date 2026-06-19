@@ -75,7 +75,7 @@ function VerifyEmailPageInner() {
     <main className="flex min-h-screen items-center justify-center bg-[#06080F] px-4">
       <div className="w-full max-w-sm rounded-2xl border border-white/[0.07] bg-[#0D0F1A] p-8 text-center space-y-4">
         <a href="/" className="text-2xl font-extrabold tracking-tight">
-          Speak<span className="text-[#4F8EF7]">Smart</span>
+          Vachix
         </a>
 
         {status === 'loading' && (

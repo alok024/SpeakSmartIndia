@@ -12,7 +12,7 @@ import { userApi } from '../api';
 import { useAuthStore } from '@/store/auth';
 import { QK } from '@/lib/query-keys';
 
-// ── /me — user + usage + stats + weak areas ───────────────────────
+// /me — user + usage + stats + weak areas
 // Gated on cached `user` (persisted from a previous session). This is a
 // UX optimization, not a security boundary — real auth enforcement is
 // the httpOnly cookie, checked server-side by middleware.ts on every
@@ -41,7 +41,7 @@ export function useMe() {
   });
 }
 
-// ── Complete onboarding ───────────────────────────────────────────
+// Complete onboarding
 export function useCompleteOnboarding() {
   const qc = useQueryClient();
 
@@ -54,7 +54,7 @@ export function useCompleteOnboarding() {
   });
 }
 
-// ── Referral data ─────────────────────────────────────────────────
+// Referral data
 export function useReferral() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 

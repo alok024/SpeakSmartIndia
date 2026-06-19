@@ -8,7 +8,7 @@ import { ok, created, badRequest, tooManyRequests, unauthorized } from '../../co
 import { trackEvent } from '../analytics/events.service';
 import { setAuthCookies, clearAuthCookies, REFRESH_COOKIE } from './cookies';
 
-// ── Register ──────────────────────────────────────────────────────
+// Register
 
 export async function register(req: Request, res: Response): Promise<void> {
   const { tokens, user, emailSent } = await AuthService.registerUser(req.body);
@@ -17,7 +17,7 @@ export async function register(req: Request, res: Response): Promise<void> {
   created(res, { user, email_sent: emailSent });
 }
 
-// ── Login ─────────────────────────────────────────────────────────
+// Login
 
 export async function login(req: Request, res: Response): Promise<void> {
   const { tokens, user } = await AuthService.loginUser(req.body);
@@ -26,7 +26,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   ok(res, { user });
 }
 
-// ── Logout ────────────────────────────────────────────────────────
+// Logout
 
 export async function logout(req: Request, res: Response): Promise<void> {
   const user = req.user!;
@@ -37,7 +37,7 @@ export async function logout(req: Request, res: Response): Promise<void> {
   ok(res, { message: 'Logged out successfully' });
 }
 
-// ── Refresh token ─────────────────────────────────────────────────
+// Refresh token
 
 export async function refreshToken(req: Request, res: Response): Promise<void> {
   const rt = req.cookies?.[REFRESH_COOKIE] as string | undefined;
@@ -58,7 +58,7 @@ export async function refreshToken(req: Request, res: Response): Promise<void> {
   }
 }
 
-// ── Verify email ──────────────────────────────────────────────────
+// Verify email
 
 export async function verifyEmail(req: Request, res: Response): Promise<void> {
   const { token } = req.body as { token: string };
@@ -72,13 +72,13 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
   ok(res, { message: result.message });
 }
 
-// ── Resend verification ──────────────────────────────────────────
+// Resend verification
 
 export async function resendVerification(req: Request, res: Response): Promise<void> {
   const { email } = req.body as { email: string };
 
   try {
-    // FIX H1: Import renamed to sendVerificationEmail to avoid shadowing this
+    // Fix (H1): Import renamed to sendVerificationEmail to avoid shadowing this
     // exported handler. Previously the alias `resendVerification_` called
     // `resendVerification(email)` which resolved to THIS function — an
     // infinite loop that would stack-overflow at runtime.
@@ -95,7 +95,7 @@ export async function resendVerification(req: Request, res: Response): Promise<v
   ok(res, { message: 'If that email is registered and not yet verified, a verification link has been sent.' });
 }
 
-// ── Forgot password ───────────────────────────────────────────────
+// Forgot password
 
 export async function forgotPassword(req: Request, res: Response): Promise<void> {
   const { email } = req.body as { email: string };
@@ -115,7 +115,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
   ok(res, { message: 'If that email is registered, a reset link has been sent.' });
 }
 
-// ── Reset password ────────────────────────────────────────────────
+// Reset password
 
 export async function resetPassword(req: Request, res: Response): Promise<void> {
   const { token, new_password } = req.body as { token: string; new_password: string };

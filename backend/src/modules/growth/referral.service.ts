@@ -10,7 +10,7 @@
  *   4. Reward: +10 bonus AI calls credited to the referrer's account.
  *      (Configurable via REFERRAL_BONUS_CALLS env var.)
  *
- * ── DB schema additions (migration 003) ──────────────────────────
+ * DB schema additions (migration 003)
  *   users table:
  *     referral_code    TEXT UNIQUE  — this user's shareable code
  *     referred_by      TEXT         — code used at signup
@@ -23,7 +23,7 @@
  *     rewarded_at      TIMESTAMPTZ     — null until first session complete
  *     created_at       TIMESTAMPTZ DEFAULT now()
  *
- * ── Usage ─────────────────────────────────────────────────────────
+ * Usage
  *   // On signup (auth.service.ts):
  *   await attributeReferral(newUserId, refCode);
  *
@@ -43,9 +43,10 @@ import crypto     from 'crypto';
 const log = logger.child({ module: 'referral' });
 
 const BONUS_CALLS    = env.REFERRAL_BONUS_CALLS;
+const MAX_BONUS_CALLS = env.MAX_REFERRAL_BONUS_CALLS;
 const BASE_URL       = env.FRONTEND_URL;
 
-// ── Code generation ───────────────────────────────────────────────
+// Code generation
 
 /** 8-char alphanumeric code — human-readable, URL-safe */
 function generateCode(): string {
@@ -57,7 +58,7 @@ function generateCode(): string {
   return code;
 }
 
-// ── Public API ────────────────────────────────────────────────────
+// Public API
 
 export interface ReferralInfo {
   code:         string;
@@ -65,7 +66,7 @@ export interface ReferralInfo {
   uses:         number;   // how many people signed up with this code
   rewarded:     number;   // how many completed a session (reward triggered)
   bonus_calls:  number;   // total bonus calls earned
-  // ── Share context ─────────────────────────────────────────────────
+  // Share context
   // Pre-built copy for share buttons, success screens, and invite flows.
   // Computed once here so no frontend template string logic is needed.
   share_context: {
@@ -105,7 +106,7 @@ export async function getOrCreateReferralCode(userId: string): Promise<ReferralI
   const stats = await db.getReferralStats(userId);
 
   const shareUrl    = `${BASE_URL}?ref=${code}`;
-  const copyText    = `Practice English interviews with Aria on Vachix — it's genuinely helpful. Use my link and we both get ${BONUS_CALLS} extra AI sessions free: ${shareUrl}`;
+  const copyText    = `Practice for your next interview with Aria on Vachix — get real-time feedback and English corrections from Elara too. Use my link and we both get ${BONUS_CALLS} extra AI sessions free: ${shareUrl}`;
   const waMessage   = encodeURIComponent(`Hey! I've been using Vachix to prep for interviews and it's really good. Try it free — we both get ${BONUS_CALLS} bonus AI sessions: ${shareUrl}`);
 
   return {
@@ -157,8 +158,12 @@ export async function maybeRewardReferrer(userId: string): Promise<void> {
     const event = await db.getPendingReferralEvent(userId);
     if (!event) return; // not referred, or already rewarded
 
-    // Grant bonus calls to referrer
-    await db.addBonusCalls(event.referrer_id, BONUS_CALLS);
+    // Fix (H5): MAX_BONUS_CALLS is enforced atomically inside the RPC
+    // (LEAST(referral_bonus + p_amount, p_max)) — see migrations/007.
+    // Without a cap, a coordinated abuse pattern (disposable accounts all
+    // referring one account, each completing one session) grants unlimited
+    // free AI calls to the referrer.
+    await db.addBonusCalls(event.referrer_id, BONUS_CALLS, MAX_BONUS_CALLS);
     await db.markReferralRewarded(event.id);
 
     log.info('Referral reward granted', {

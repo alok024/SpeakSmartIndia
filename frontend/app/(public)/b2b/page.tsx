@@ -54,7 +54,7 @@ export default function B2BPage() {
       <nav className="border-b border-white/[0.06] px-6 py-4">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <a href="/" className="text-xl font-extrabold tracking-tight">
-            Speak<span className="text-[#4F8EF7]">Smart</span>
+            Vachix
             <span className="ml-2 text-xs font-normal text-white/40 uppercase tracking-widest">for Teams</span>
           </a>
           <a href="/register" className="text-sm font-medium text-white/60 hover:text-white transition-colors">

@@ -20,118 +20,128 @@
 
 /* ─── DARK THEME (default) ─── */
 [data-theme="dark"] {
-  --bg: #080810;
-  --bg2: #0e0e1a;
-  --bg3: #13131f;
-  --bg4: #181828;
-  --text1: #f0eeff;
-  --text2: #bfbbd6;
-  --text3: #7d789c;
-  --border: rgba(255, 255, 255, 0.06);
+  /* Backgrounds — blue-tinted dark, not purple, not pure black */
+  --bg:  #080c14;
+  --bg2: #0d1320;
+  --bg3: #111928;
+  --bg4: #1c2d4a;
+
+  /* Text — three levels */
+  --text1: #e2e8f0;
+  --text2: #94a3b8;
+  --text3: #475569;
+
+  /* Borders */
+  --border:  rgba(255, 255, 255, 0.06);
   --border2: rgba(255, 255, 255, 0.11);
-  --border3: rgba(255, 255, 255, 0.22);
-  --gold: #e2c97e;
-  --gold-dim: rgba(226, 201, 126, 0.08);
-  --gold-border: rgba(226, 201, 126, 0.2);
-  --violet: #9b7fff;
-  --violet-dim: rgba(155, 127, 255, 0.09);
-  --violet-border: rgba(155, 127, 255, 0.22);
-  --emerald: #4dd9ac;
-  --emerald-dim: rgba(77, 217, 172, 0.08);
-  --emerald-border: rgba(77, 217, 172, 0.2);
-  --rose: #ff7e9d;
-  --rose-dim: rgba(255, 126, 157, 0.08);
-  --card-bg: #0e0e1a;
-  --card-shadow: 0 2px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
-  --nav-bg: rgba(8, 8, 16, 0.88);
-  --accent: var(--gold);
-  --accent-bg: var(--gold);
-  --accent-text: #080810;
-  --wrong: #ff6b6b;
-  --right: #4dd9ac;
-  --score-a: var(--emerald);
-  --score-b: var(--gold);
-  --score-c: var(--violet);
+  --border3: rgba(255, 255, 255, 0.20);
+
+  /* Brand — Electric Blue only */
+  --blue:        #2563eb;
+  --blue-light:  #60a5fa;
+  --blue-dim:    rgba(37, 99, 235, 0.15);
+  --blue-border: rgba(96, 165, 250, 0.25);
+
+  /* Semantic */
+  --success:        #10b981;
+  --success-dim:    rgba(16, 185, 129, 0.12);
+  --success-border: rgba(16, 185, 129, 0.25);
+  --warn:           #f59e0b;
+  --warn-dim:       rgba(245, 158, 11, 0.12);
+  --warn-border:    rgba(245, 158, 11, 0.25);
+  --error:          #ef4444;
+  --error-dim:      rgba(239, 68, 68, 0.12);
+  --error-border:   rgba(239, 68, 68, 0.20);
+
+  /* Score colours — still distinct but within a professional range */
+  --score-high:   #10b981;   /* emerald — correct/good */
+  --score-mid:    #f59e0b;   /* amber  — average       */
+  --score-low:    #ef4444;   /* red    — needs work     */
+
+  /* Functional aliases used across the app */
+  --card-bg:      #0d1320;
+  --card-shadow:  0 2px 20px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05);
+  --nav-bg:       rgba(8, 12, 20, 0.88);
+  --accent:       var(--blue-light);
+  --accent-bg:    var(--blue);
+  --accent-text:  #ffffff;
+  --accent-dim:   var(--blue-dim);
+  --accent-border:var(--blue-border);
+  --accent-glow:  rgba(37, 99, 235, 0.30);
+  --right:        var(--success);
+  --wrong:        var(--error);
 
   /* App-level aliases */
-  --bg-app: var(--bg);
-  --surface: var(--bg2);
-  --surface-2: var(--bg3);
-  --surface-3: var(--bg4);
-  --text-1: var(--text1);
-  --text-2: var(--text2);
-  --text-3: var(--text3);
-  --accent-dim: var(--gold-dim);
-  --accent-border: var(--gold-border);
-  --accent-glow: rgba(226, 201, 126, 0.3);
-  --success: #10b981;
-  --success-dim: rgba(16, 185, 129, 0.12);
-  --success-border: rgba(16, 185, 129, 0.25);
-  --warn: #f59e0b;
-  --warn-dim: rgba(245, 158, 11, 0.12);
-  --warn-border: rgba(245, 158, 11, 0.25);
-  --error: #ef4444;
-  --error-dim: rgba(239, 68, 68, 0.12);
-  --error-border: rgba(239, 68, 68, 0.2);
-  --purple: var(--violet);
+  --bg-app:   var(--bg);
+  --surface:  var(--bg2);
+  --surface-2:var(--bg3);
+  --surface-3:var(--bg4);
+  --text-1:   var(--text1);
+  --text-2:   var(--text2);
+  --text-3:   var(--text3);
 }
 
 /* ─── LIGHT THEME ─── */
 [data-theme="light"] {
-  --bg: #f8f7ff;
+  /* Backgrounds — clean slate, not purple-tinted */
+  --bg:  #f8fafc;
   --bg2: #ffffff;
-  --bg3: #f0effe;
-  --bg4: #e8e6ff;
-  --text1: #0a0818;
-  --text2: #312d52;
-  --text3: #6b6690;
-  --border: rgba(0, 0, 0, 0.06);
+  --bg3: #f1f5f9;
+  --bg4: #e2e8f0;
+
+  /* Text */
+  --text1: #0f172a;
+  --text2: #475569;
+  --text3: #94a3b8;
+
+  /* Borders */
+  --border:  rgba(0, 0, 0, 0.06);
   --border2: rgba(0, 0, 0, 0.11);
-  --border3: rgba(0, 0, 0, 0.22);
-  --gold: #b8922a;
-  --gold-dim: rgba(184, 146, 42, 0.07);
-  --gold-border: rgba(184, 146, 42, 0.2);
-  --violet: #6d4ff5;
-  --violet-dim: rgba(109, 79, 245, 0.07);
-  --violet-border: rgba(109, 79, 245, 0.2);
-  --emerald: #1a9e72;
-  --emerald-dim: rgba(26, 158, 114, 0.07);
-  --emerald-border: rgba(26, 158, 114, 0.2);
-  --rose: #e0376b;
-  --rose-dim: rgba(224, 55, 107, 0.07);
-  --card-bg: #ffffff;
-  --card-shadow: 0 2px 20px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05);
-  --nav-bg: rgba(248, 247, 255, 0.88);
-  --accent: var(--violet);
-  --accent-bg: #0a0818;
-  --accent-text: #f8f7ff;
-  --wrong: #d63e3e;
-  --right: #1a9e72;
-  --score-a: var(--emerald);
-  --score-b: var(--gold);
-  --score-c: var(--violet);
+  --border3: rgba(0, 0, 0, 0.20);
+
+  /* Brand */
+  --blue:        #2563eb;
+  --blue-light:  #1d4ed8;
+  --blue-dim:    rgba(37, 99, 235, 0.08);
+  --blue-border: rgba(37, 99, 235, 0.22);
+
+  /* Semantic — one stop darker for light-bg contrast */
+  --success:        #059669;
+  --success-dim:    rgba(5, 150, 105, 0.10);
+  --success-border: rgba(5, 150, 105, 0.25);
+  --warn:           #d97706;
+  --warn-dim:       rgba(217, 119, 6, 0.10);
+  --warn-border:    rgba(217, 119, 6, 0.25);
+  --error:          #dc2626;
+  --error-dim:      rgba(220, 38, 38, 0.10);
+  --error-border:   rgba(220, 38, 38, 0.20);
+
+  /* Score colours */
+  --score-high:  #059669;
+  --score-mid:   #d97706;
+  --score-low:   #dc2626;
+
+  /* Functional aliases */
+  --card-bg:      #ffffff;
+  --card-shadow:  0 2px 20px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.05);
+  --nav-bg:       rgba(248, 250, 252, 0.88);
+  --accent:       var(--blue);
+  --accent-bg:    var(--blue);
+  --accent-text:  #ffffff;
+  --accent-dim:   var(--blue-dim);
+  --accent-border:var(--blue-border);
+  --accent-glow:  rgba(37, 99, 235, 0.20);
+  --right:        var(--success);
+  --wrong:        var(--error);
 
   /* App-level aliases */
-  --bg-app: var(--bg);
-  --surface: var(--bg2);
-  --surface-2: var(--bg3);
-  --surface-3: var(--bg4);
-  --text-1: var(--text1);
-  --text-2: var(--text2);
-  --text-3: var(--text3);
-  --accent-dim: var(--violet-dim);
-  --accent-border: var(--violet-border);
-  --accent-glow: rgba(109, 79, 245, 0.3);
-  --success: #1a9e72;
-  --success-dim: rgba(26, 158, 114, 0.12);
-  --success-border: rgba(26, 158, 114, 0.25);
-  --warn: #b8922a;
-  --warn-dim: rgba(184, 146, 42, 0.1);
-  --warn-border: rgba(184, 146, 42, 0.25);
-  --error: #d63e3e;
-  --error-dim: rgba(214, 62, 62, 0.1);
-  --error-border: rgba(214, 62, 62, 0.2);
-  --purple: var(--violet);
+  --bg-app:   var(--bg);
+  --surface:  var(--bg2);
+  --surface-2:var(--bg3);
+  --surface-3:var(--bg4);
+  --text-1:   var(--text1);
+  --text-2:   var(--text2);
+  --text-3:   var(--text3);
 }
 
 /* ── Base styles ────────────────────────────────────────────────── */
@@ -169,20 +179,21 @@ body {
 
 /* ── Typography helpers ─────────────────────────────────────────── */
 .font-display { font-family: var(--serif); }
-.font-mono { font-family: var(--mono); }
+.font-mono    { font-family: var(--mono); }
 
-/* ── App ambient background (mirrors landing's recipe, dialed down) ── */
+/* ── App ambient background ─────────────────────────────────────── */
 @keyframes app-float-a{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
 @keyframes app-float-b{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
 
 .app-ambient{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
 .app-orb{position:absolute;border-radius:50%;filter:blur(130px)}
-.app-orb-violet{width:520px;height:520px;background:var(--violet);opacity:.08;top:-14%;left:-8%;animation:app-float-a 18s ease-in-out infinite}
-.app-orb-gold{width:380px;height:380px;background:var(--gold);opacity:.07;bottom:-12%;right:-6%;animation:app-float-b 22s ease-in-out infinite 3s}
+/* Single-hue orbs — blue only, no rainbow */
+.app-orb-1{width:520px;height:520px;background:#2563eb;opacity:.07;top:-14%;left:-8%;animation:app-float-a 18s ease-in-out infinite}
+.app-orb-2{width:380px;height:380px;background:#1e40af;opacity:.05;bottom:-12%;right:-6%;animation:app-float-b 22s ease-in-out infinite 3s}
 .app-grid{position:absolute;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:72px 72px;-webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,black,transparent 80%);mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,black,transparent 80%);opacity:.6}
 
 @media(prefers-reduced-motion:reduce){
-  .app-orb-violet,.app-orb-gold{animation:none!important}
+  .app-orb-1,.app-orb-2{animation:none!important}
 }
 
 /* ── Shared card glass utility ───────────────────────────────────── */
@@ -195,55 +206,44 @@ body {
 }
 .glass-card:hover{border-color:var(--border2)}
 
-/* ── Gradient text utility ───────────────────────────────────────── */
+/* ── Gradient text utility — single-hue blue ─────────────────────── */
 .grad-text{
-  background:linear-gradient(135deg,var(--violet),var(--gold));
+  background:linear-gradient(135deg, var(--blue) 0%, var(--blue-light) 100%);
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
   background-clip:text;
 }
 
 /* ── Mobile UX improvements ───────────────────────────────────────── */
-
-/* Remove grey tap flash on Android Chrome */
 * { -webkit-tap-highlight-color: transparent; }
 
-/* Smooth momentum scrolling on iOS */
 .overflow-y-auto, .overflow-y-scroll {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Safe area support for iPhone notch / home indicator */
 .safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* Touch targets: all interactive elements minimum 44×44px on mobile */
 @media (max-width: 767px) {
   button, a, [role="button"] {
     min-height: 44px;
     min-width: 44px;
   }
-  /* Override for purely decorative/inline links */
   button.btn-inline, a.link-inline {
     min-height: unset;
     min-width: unset;
   }
 }
 
-/* Chat input area — push up above iOS keyboard when focused */
-/* dvh (dynamic viewport height) already handles most of this on iOS 15.4+
-   but we add this for older devices */
 @supports not (height: 100dvh) {
   .chat-layout { height: calc(100vh - 56px); }
 }
 
-/* Prevent over-scroll bounce from looking broken on the session page */
 .no-overscroll {
   overscroll-behavior: none;
 }
 
-/* Large-enough tap targets for chip/pill buttons on mobile */
 @media (max-width: 767px) {
   .chip-btn {
     padding-top: 10px;

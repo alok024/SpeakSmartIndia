@@ -76,7 +76,7 @@ interface InterviewStore {
   setVoiceReplies:        (v: boolean) => void;
 }
 
-// ── Timer handle — kept outside Zustand state intentionally ───────
+// Timer handle — kept outside Zustand state intentionally
 // setInterval handles are not serialisable and must never live inside
 // a state snapshot: Zustand would try to diff/spread them on every set()
 // call, causing unnecessary re-renders and making it impossible to call
@@ -95,7 +95,7 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
   config:  { ...DEFAULT_CONFIG },
   session: { ...DEFAULT_SESSION },
 
-  // ── Config ──────────────────────────────────────────────────────
+  // Config
   setProfession:    (p) => set((s) => ({ config: { ...s.config, profession: p } })),
   setMode:          (m) => set((s) => ({ config: { ...s.config, mode: m } })),
   setDifficulty:    (d) => set((s) => ({ config: { ...s.config, difficulty: d } })),
@@ -106,7 +106,7 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
   setMaxExchanges:  (n) => set((s) => ({ config: { ...s.config, maxExchanges: n } })),
   setLang:          (l) => set((s) => ({ config: { ...s.config, lang: l } })),
 
-  // ── Session lifecycle ────────────────────────────────────────────
+  // Session lifecycle
 
   startSession: (overrides) => {
     _clearTimer(); // always evict any previous timer before starting fresh
@@ -140,7 +140,7 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
     }));
   },
 
-  // ── Timer lifecycle ──────────────────────────────────────────────
+  // Timer lifecycle
   // Components call startTimer() on mount and stopTimer() on unmount (or
   // when finishSession is called). The store ticks timerRemaining down
   // and fires expireSession() when it hits zero — no component needs to
@@ -171,7 +171,7 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
     _clearTimer();
   },
 
-  // ── Session mutations ────────────────────────────────────────────
+  // Session mutations
 
   setQuestions: (qs) =>
     set((s) => ({ session: { ...s.session, questions: qs } })),

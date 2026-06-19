@@ -119,7 +119,7 @@ export function registerShutdownFlush(): void {
   process.on('SIGINT', handler);
 }
 
-// ── Funnel / reporting queries (used by admin endpoints) ───────────
+// Funnel / reporting queries (used by admin endpoints)
 
 export interface FunnelSummary {
   since:  string;

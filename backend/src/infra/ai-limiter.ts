@@ -24,12 +24,12 @@ import { env }    from '../core/config/env';
 
 const log = logger.child({ module: 'ai-limiter' });
 
-// ── Config ────────────────────────────────────────────────────────
+// Config
 
 const MAX_CONCURRENT = env.MAX_CONCURRENT_AI_CALLS;
 const QUEUE_TIMEOUT  = env.AI_QUEUE_TIMEOUT_MS;
 
-// ── Semaphore state ───────────────────────────────────────────────
+// Semaphore state
 
 let active  = 0;
 const waiters: Array<{ resolve: () => void; reject: (e: Error) => void }> = [];
@@ -75,7 +75,7 @@ function release(): void {
   }
 }
 
-// ── Public API ────────────────────────────────────────────────────
+// Public API
 
 /**
  * Run `fn` once an AI concurrency slot is available.

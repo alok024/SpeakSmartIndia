@@ -7,11 +7,11 @@ import React from 'react';
  *
  * Login page.
  *
- * FIX: redirect param was 'redirect' but Next.js middleware sets ?next=
+ * Fix: redirect param was 'redirect' but Next.js middleware sets ?next=
  * causing the post-login redirect to always go to /dashboard instead of
  * the originally-requested protected page.
  *
- * FIX: removed try/catch(_){} swallowing login errors — React Query's
+ * Fix: removed try/catch(_){} swallowing login errors — React Query's
  * isError state now surfaces them correctly.
  */
 
@@ -53,8 +53,8 @@ function LogoMark({ size = 26 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
       <defs>
         <linearGradient id="ssLG" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="var(--violet)" />
-          <stop offset="1" stopColor="var(--gold)" />
+          <stop offset="0" stopColor="var(--accent)" />
+          <stop offset="1" stopColor="var(--warn)" />
         </linearGradient>
       </defs>
       <path d="M16 2C8.27 2 2 7.85 2 15.1c0 3.62 1.55 6.9 4.1 9.26-.18 1.84-.74 3.4-1.62 4.74-.2.3.05.7.4.64 2.4-.4 4.46-1.4 6.1-2.62 1.55.55 3.25.86 5.02.86 7.73 0 14-5.85 14-13.1S23.73 2 16 2Z" fill="url(#ssLG)" />
@@ -98,8 +98,8 @@ function LoginPageInner() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // FIX: No try/catch — let React Query set isError so the error banner renders.
-    // FIX: Read 'next' param (set by middleware) not 'redirect' (old/wrong name).
+    // Fix: No try/catch — let React Query set isError so the error banner renders.
+    // Fix: Read 'next' param (set by middleware) not 'redirect' (old/wrong name).
     await login.mutateAsync({ email, password });
     router.push(params.get('next') || '/dashboard');
   }
@@ -118,12 +118,12 @@ function LoginPageInner() {
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
         <div className="auth-orb-1" style={{
           position: 'absolute', width: 500, height: 500, borderRadius: '50%',
-          background: 'var(--violet)', opacity: .08, filter: 'blur(120px)',
+          background: 'var(--accent)', opacity: .08, filter: 'blur(120px)',
           top: '-12%', left: '-8%', animation: 'auth-float-a 18s ease-in-out infinite',
         }} />
         <div className="auth-orb-2" style={{
           position: 'absolute', width: 360, height: 360, borderRadius: '50%',
-          background: 'var(--gold)', opacity: .07, filter: 'blur(110px)',
+          background: 'var(--warn)', opacity: .07, filter: 'blur(110px)',
           bottom: '-10%', right: '-6%', animation: 'auth-float-b 22s ease-in-out infinite 3s',
         }} />
         <div style={{
@@ -146,7 +146,7 @@ function LoginPageInner() {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <LogoMark />
           <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>
-            Speak<span style={{ color: 'var(--accent)', fontStyle: 'normal' }}>Smart</span>
+            Vachix
           </span>
         </Link>
         <Link href="/register" style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: 'none' }}>
@@ -159,7 +159,7 @@ function LoginPageInner() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, width: '100%', maxWidth: 960, alignItems: 'start' }}
           className="auth-grid">
 
-          {/* ── Left panel ── */}
+          {/* Left panel */}
           <div
             className="auth-left"
             style={{ opacity: mounted ? 1 : 0, animation: mounted ? 'auth-fade-left .5s ease both' : 'none' }}
@@ -170,7 +170,7 @@ function LoginPageInner() {
               marginBottom: 24, overflow: 'hidden',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 14 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--emerald)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success)', display: 'inline-block', animation: 'pulse 2s infinite' }} />
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '.08em' }}>Live correction · Elara AI</span>
               </div>
               <div style={{ opacity: corrVisible ? 1 : 0, transition: 'opacity .25s', animation: corrVisible ? 'auth-corr-in .3s ease both' : 'none' }}>
@@ -191,7 +191,7 @@ function LoginPageInner() {
                 <span style={{
                   fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em',
                   padding: '2px 8px', borderRadius: 4,
-                  background: 'var(--violet-dim)', color: 'var(--violet)', border: '1px solid var(--violet-border)',
+                  background: 'var(--blue-dim)', color: 'var(--accent)', border: '1px solid var(--blue-border)',
                 }}>
                   {corr.tag}
                 </span>
@@ -201,7 +201,7 @@ function LoginPageInner() {
             <div style={{ marginBottom: 24, display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{
                 fontFamily: 'var(--serif)', fontSize: 44, fontWeight: 700,
-                background: 'linear-gradient(135deg,var(--violet),var(--gold))',
+                background: 'var(--blue)',
                 WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
                 transition: 'opacity .3s',
               }}>{stat.n}</span>
@@ -213,9 +213,9 @@ function LoginPageInner() {
             </p>
 
             {[
-              { label: 'Fluency', pct: 82, color: 'var(--emerald)' },
-              { label: 'Grammar', pct: 71, color: 'var(--gold)' },
-              { label: 'Vocabulary', pct: 67, color: 'var(--violet)' },
+              { label: 'Fluency', pct: 82, color: 'var(--success)' },
+              { label: 'Grammar', pct: 71, color: 'var(--warn)' },
+              { label: 'Vocabulary', pct: 67, color: 'var(--accent)' },
             ].map((b, i) => (
               <div key={b.label} style={{ marginBottom: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -233,7 +233,7 @@ function LoginPageInner() {
             ))}
           </div>
 
-          {/* ── Form card ── */}
+          {/* Form card */}
           <div
             className="auth-right"
             style={{
@@ -305,31 +305,12 @@ function LoginPageInner() {
               </button>
             </form>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0', color: 'var(--text-3)', fontSize: 12 }}>
-              <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
-              or
-              <div style={{ flex: 1, height: 1, background: 'var(--border2)' }} />
-            </div>
+            {/* Social login (Google/GitHub) removed — these buttons had no
+                onClick handler and did nothing when clicked. A button that
+                does nothing is worse than no button; re-add once OAuth is
+                actually wired up to a real provider. */}
 
-            {[
-              { label: 'Continue with Google', icon: '🇬' },
-              { label: 'Continue with GitHub', icon: '⬡' },
-            ].map(o => (
-              <button key={o.label} type="button" style={{
-                width: '100%', height: 40, borderRadius: 10, marginBottom: 10,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                background: 'transparent', border: '1px solid var(--border2)',
-                color: 'var(--text-2)', fontSize: 13, cursor: 'pointer',
-                transition: 'border-color .2s',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--border3)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border2)')}
-              >
-                <span>{o.icon}</span>{o.label}
-              </button>
-            ))}
-
-            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-3)', marginTop: 20 }}>
+            <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-3)', marginTop: 24 }}>
               No account?{' '}
               <Link href="/register" style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'none' }}>
                 Get 7 free sessions →

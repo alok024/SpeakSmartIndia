@@ -6,7 +6,7 @@ import { trackEvent } from '../analytics/events.service';
 import { getOrCreateReferralCode } from '../growth/referral.service';
 import { setAccessCookie } from '../auth/cookies';
 
-// ── POST /api/payment/create-order ────────────────────────────────
+// POST /api/payment/create-order
 
 export async function createOrder(req: Request, res: Response): Promise<void> {
   const { plan } = req.body as { plan: 'pro' | 'elite' };
@@ -18,7 +18,7 @@ export async function createOrder(req: Request, res: Response): Promise<void> {
   ok(res, order);
 }
 
-// ── POST /api/payment/verify ──────────────────────────────────────
+// POST /api/payment/verify
 // Secondary activation path — runs client-side after payment modal closes.
 // Webhook is the primary path. This handles the gap before webhook fires.
 
@@ -50,7 +50,7 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // FIX 2: Verify the order belongs to this user before activating.
+  // Fix (2): Verify the order belongs to this user before activating.
   // Without this check, any authenticated user could supply another user's
   // order_id, pass the HMAC check, and upgrade their own account for free.
   // We fetch the order from Razorpay and compare notes.user_id to req.user.id.
@@ -89,7 +89,7 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
 
   trackEvent({ event: 'upgrade_success', userId: req.user!.id, plan, properties: { source: 'verify' } });
 
-  // ── Post-upgrade referral nudge ──────────────────────────────────
+  // Post-upgrade referral nudge
   // Upgrade success screen is the highest-intent moment in the product.
   // User just committed real money → they believe in the product → ideal time
   // to ask them to share. Fetch referral info and send it with the success
@@ -112,7 +112,7 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
   ok(res, { plan, referral });
 }
 
-// ── POST /api/payment/webhook ─────────────────────────────────────
+// POST /api/payment/webhook
 // PRIMARY activation path. Registered in app.ts with raw body parser
 // BEFORE express.json(). req.body is a raw Buffer here.
 

@@ -11,9 +11,7 @@
 
 import { z } from 'zod';
 
-// ─────────────────────────────────────────────────────────────
 // Shared enums / literals
-// ─────────────────────────────────────────────────────────────
 
 export const PlanSchema       = z.enum(['free', 'pro', 'elite']);
 export const SessionModeSchema = z.enum(['classic', 'chat']);
@@ -21,9 +19,7 @@ export const DifficultySchema  = z.enum(['beginner', 'intermediate', 'expert']);
 export const InterviewTypeSchema = z.enum(['Technical', 'Behavioral', 'Mixed']);
 export const PersonaSchema    = z.enum(['friendly', 'strict', 'encouraging']);
 
-// ─────────────────────────────────────────────────────────────
 // Domain object schemas
-// ─────────────────────────────────────────────────────────────
 
 export const UserSchema = z.object({
   id:                       z.string().uuid(),
@@ -132,9 +128,7 @@ export const ReferralDataSchema = z.object({
   bonus_calls: z.number(),
 });
 
-// ─────────────────────────────────────────────────────────────
 // API Response schemas — what the backend must return
-// ─────────────────────────────────────────────────────────────
 
 export const AuthResponseSchema = z.object({
   token:      z.string(),
@@ -195,10 +189,8 @@ export const ShareTokenResponseSchema = z.object({
   referral_code: z.string().optional(),
 });
 
-// ─────────────────────────────────────────────────────────────
 // Inferred TypeScript types — import these instead of writing
 // manual interface definitions
-// ─────────────────────────────────────────────────────────────
 
 export type Plan            = z.infer<typeof PlanSchema>;
 export type SessionMode     = z.infer<typeof SessionModeSchema>;

@@ -4,7 +4,7 @@ import { jwtVerify } from 'jose';
 /**
  * middleware.ts
  *
- * Server-side auth GATE only — verify ss_at, redirect if missing.
+ * Server-side auth GATE only — verify vachix_at, redirect if missing.
  * Token refresh is NOT done here. It is handled entirely client-side
  * by ProtectedRoute (via apiCall's 401 handler in lib/api.ts).
  *
@@ -17,8 +17,8 @@ import { jwtVerify } from 'jose';
  *   - The client-side refresh path in lib/api.ts already handles this
  *     correctly with deduplication (_refreshPromise) and a cooldown.
  *
- * Flow when ss_at is expired:
- *   1. Middleware sees invalid/missing ss_at → redirects to /login?next=...
+ * Flow when vachix_at is expired:
+ *   1. Middleware sees invalid/missing vachix_at → redirects to /login?next=...
  *      BUT only for full-page navigations. Prefetch/RSC requests get 401.
  *   2. /login page calls POST /api/login or the client's apiCall retries
  *      with a 401 → triggers refreshSession() in lib/api.ts → sets fresh
@@ -28,8 +28,8 @@ import { jwtVerify } from 'jose';
  * the backend's JWT_SECRET — see .env.example.
  */
 
-const ACCESS_COOKIE  = 'ss_at';
-const REFRESH_COOKIE = 'ss_rt';
+const ACCESS_COOKIE  = 'vachix_at';
+const REFRESH_COOKIE = 'vachix_rt';
 
 const PROTECTED_PREFIXES = [
   '/dashboard',
@@ -77,7 +77,7 @@ export async function middleware(req: NextRequest) {
 
   const valid = await isValidAccessToken(accessToken);
 
- // ── /login, /register ─────────────────────────────────────────
+ // /login, /register
   if (isAuthPage) {
     // Only auto-redirect away from /login when already authenticated.
     // /register stays reachable even with a valid session, since this app
@@ -88,10 +88,10 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // ── Protected routes — valid token ────────────────────────────
+  // Protected routes — valid token
   if (valid) return NextResponse.next();
 
-  // ── Protected routes — no valid token ────────────────────────
+  // Protected routes — no valid token
   // If the user has a refresh token cookie, they have a live session —
   // let them through. The client-side apiCall will get a 401 on the
   // first /me call, trigger refreshSession(), get fresh cookies, and
@@ -123,6 +123,7 @@ export const config = {
     '/interview/:path*',
     '/english/:path*',
     '/referral/:path*',
+    '/admin',
     '/admin/:path*',
     '/login',
     '/register',

@@ -5,13 +5,14 @@ import React from 'react';
 /**
  * app/(auth)/register/page.tsx
  *
- * Register page — after successful registration the user is sent to
- * /verify-email-sent (NOT /dashboard) because the account requires
- * email verification before login is permitted.
- *
- * Previous bug: router.push('/dashboard') after register caused an
- * immediate middleware redirect back to /login because the new account
- * has email_verified=false and the backend rejects login with 403.
+ * Register page. The backend conditionally sends a real verification email
+ * (see Fix (H6) in backend/src/modules/auth/auth.service.ts) — when it
+ * does, `email_sent` comes back true and we send the user to
+ * /verify-email-sent instead of straight to login, since the account isn't
+ * verified yet and login will 403 with email_not_verified until they click
+ * the link. When verification isn't configured (local dev, or before a
+ * sending domain is set up), the backend auto-verifies and email_sent is
+ * false — login works immediately.
  */
 
 import { useState, useEffect } from 'react';
@@ -19,6 +20,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRegister } from '@/hooks/queries';
 import { extractErrorMessage } from '@/lib/api';
+import { RegisterFormSchema } from '@/features/auth/schemas';
 import { Eye, EyeOff } from 'lucide-react';
 
 const KEYFRAMES = `
@@ -35,8 +37,8 @@ function LogoMark({ size = 26 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
       <defs>
         <linearGradient id="ssLG" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="var(--violet)" />
-          <stop offset="1" stopColor="var(--gold)" />
+          <stop offset="0" stopColor="var(--accent)" />
+          <stop offset="1" stopColor="var(--warn)" />
         </linearGradient>
       </defs>
       <path d="M16 2C8.27 2 2 7.85 2 15.1c0 3.62 1.55 6.9 4.1 9.26-.18 1.84-.74 3.4-1.62 4.74-.2.3.05.7.4.64 2.4-.4 4.46-1.4 6.1-2.62 1.55.55 3.25.86 5.02.86 7.73 0 14-5.85 14-13.1S23.73 2 16 2Z" fill="url(#ssLG)" />
@@ -53,6 +55,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [showPw,   setShowPw]   = useState(false);
   const [mounted,  setMounted]  = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const router   = useRouter();
   const register = useRegister();
@@ -61,15 +64,35 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // FIX: No try/catch here — let React Query set isError so the error
+    setFieldErrors({});
+
+    // Client-side validation first — catches things like a too-short
+    // password immediately instead of making the user wait on a round
+    // trip to the backend just to get a generic rejection.
+    const parsed = RegisterFormSchema.safeParse({ name, email, password });
+    if (!parsed.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as string;
+        if (!errors[key]) errors[key] = issue.message;
+      }
+      setFieldErrors(errors);
+      return;
+    }
+
+    // Fix: No try/catch here — let React Query set isError so the error
     // banner above the form renders correctly.
-    // FIX: Redirect to /verify-email-sent, NOT /dashboard. The account
-    // requires email verification; going to /dashboard would immediately
-    // bounce back to /login because the backend rejects unverified logins.
-    await register.mutateAsync({ name, email, password });
-    // Email verification disabled — user is auto-verified on the backend.
-    // Send straight to login so they can sign in immediately.
-    router.push('/login');
+    const res = await register.mutateAsync({ name, email, password });
+    // Fix (H6): route based on whether a real verification email went
+    // out. If it did, the account isn't verified yet and login will 403
+    // until the user clicks the link — send them to /verify-email-sent.
+    // Otherwise (verification not configured) the backend auto-verified
+    // them and they can sign in immediately.
+    if (res.ok && res.data.email_sent) {
+      router.push(`/verify-email-sent?email=${encodeURIComponent(email)}`);
+    } else {
+      router.push('/login');
+    }
   }
 
   return (
@@ -78,8 +101,8 @@ export default function RegisterPage() {
 
       {/* Ambient */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', overflow: 'hidden' }}>
-        <div className="reg-orb-1" style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', background: 'var(--violet)', opacity: .07, filter: 'blur(120px)', top: '-10%', right: '-8%', animation: 'reg-float-a 20s ease-in-out infinite' }} />
-        <div className="reg-orb-2" style={{ position: 'absolute', width: 340, height: 340, borderRadius: '50%', background: 'var(--gold)', opacity: .06, filter: 'blur(110px)', bottom: '-8%', left: '-6%', animation: 'reg-float-b 24s ease-in-out infinite 4s' }} />
+        <div className="reg-orb-1" style={{ position: 'absolute', width: 480, height: 480, borderRadius: '50%', background: 'var(--accent)', opacity: .07, filter: 'blur(120px)', top: '-10%', right: '-8%', animation: 'reg-float-a 20s ease-in-out infinite' }} />
+        <div className="reg-orb-2" style={{ position: 'absolute', width: 340, height: 340, borderRadius: '50%', background: 'var(--warn)', opacity: .06, filter: 'blur(110px)', bottom: '-8%', left: '-6%', animation: 'reg-float-b 24s ease-in-out infinite 4s' }} />
         <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px)', backgroundSize: '72px 72px', WebkitMaskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%,black,transparent 80%)', maskImage: 'radial-gradient(ellipse 80% 60% at 50% 0%,black,transparent 80%)', opacity: .5 }} />
       </div>
 
@@ -88,7 +111,7 @@ export default function RegisterPage() {
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none' }}>
           <LogoMark />
           <span style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>
-            Speak<span style={{ color: 'var(--accent)', fontStyle: 'normal' }}>Smart</span>
+            Vachix
           </span>
         </Link>
         <Link href="/login" style={{ fontSize: 13, color: 'var(--text-2)', textDecoration: 'none' }}>
@@ -128,7 +151,7 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Field label="Your name">
+            <Field label="Your name" error={fieldErrors.name}>
               <input
                 type="text" value={name} onChange={e => setName(e.target.value)}
                 placeholder="Priya Sharma" required autoFocus autoComplete="name"
@@ -136,7 +159,7 @@ export default function RegisterPage() {
               />
             </Field>
 
-            <Field label="Email address">
+            <Field label="Email address" error={fieldErrors.email}>
               <input
                 type="email" value={email} onChange={e => setEmail(e.target.value)}
                 placeholder="you@example.com" required autoComplete="email"
@@ -144,12 +167,13 @@ export default function RegisterPage() {
               />
             </Field>
 
-            <Field label="Password">
+            <Field label="Password" error={fieldErrors.password}>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPw ? 'text' : 'password'}
                   value={password} onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••" required autoComplete="new-password"
+                  placeholder="At least 8 characters" required autoComplete="new-password"
+                  minLength={8}
                   style={{ ...inputStyle, paddingRight: 40 }}
                 />
                 <button
@@ -167,7 +191,7 @@ export default function RegisterPage() {
               style={{
                 marginTop: 4, height: 44, borderRadius: 10, border: 'none',
                 cursor: register.isPending ? 'not-allowed' : 'pointer',
-                background: 'linear-gradient(135deg,var(--violet),var(--gold))',
+                background: 'var(--blue)',
                 color: '#fff', fontSize: 14, fontWeight: 700, opacity: register.isPending ? .7 : 1,
                 transition: 'opacity .2s',
               }}
@@ -188,11 +212,14 @@ export default function RegisterPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children?: React.ReactNode }) {
+function Field({ label, error, children }: { label: string; error?: string; children?: React.ReactNode }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
       <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{label}</label>
       {children}
+      {error && (
+        <span style={{ fontSize: 12, color: 'var(--error)' }}>{error}</span>
+      )}
     </div>
   );
 }

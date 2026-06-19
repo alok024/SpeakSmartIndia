@@ -39,8 +39,8 @@ function ResetPasswordPageInner() {
       setError('This reset link is missing its token. Please request a new one.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
     if (password !== confirmPassword) {
@@ -65,7 +65,7 @@ function ResetPasswordPageInner() {
         <div className="text-center mb-8">
           <div className="text-4xl mb-3">🎙️</div>
           <h1 className="text-2xl font-bold text-white">
-            Speak<span className="text-blue-400">Smart</span>
+            Vachix
           </h1>
         </div>
 
@@ -99,9 +99,9 @@ function ResetPasswordPageInner() {
               </p>
               <Input
                 type="password"
-                placeholder="New password (min 6 chars)"
+                placeholder="New password (min 8 chars)"
                 autoComplete="new-password"
-                minLength={6}
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -110,7 +110,7 @@ function ResetPasswordPageInner() {
                 type="password"
                 placeholder="Confirm new password"
                 autoComplete="new-password"
-                minLength={6}
+                minLength={8}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

@@ -47,7 +47,7 @@ export function getProfessionContext(
   return `DOMAIN: ${profession}\nINTERVIEW APPROACH: Ask questions that a senior ${profession} interviewer at a top firm or institution would actually ask. Avoid generic "tell me about yourself" openers. Focus on:\n- Role-specific technical or domain knowledge relevant to ${profession}\n- Real scenarios and problems common in ${profession} work\n- Past experience and decision-making relevant to ${profession}\n- ${t.includes('behav') ? 'Behavioral: STAR-method situations' : t.includes('tech') ? 'Technical depth: How things work, why decisions are made, tradeoffs' : 'Mix of domain knowledge, situational judgment, and motivation'}\nMake every question feel like it was written by a real ${profession} hiring manager, not an AI.`;
 }
 
-// ── Elara English coach system prompts ───────────────────────────
+// Elara English coach system prompts
 
 export type ElaraMode = 'conversation' | 'topics' | 'correction' | 'vocabulary';
 
@@ -94,7 +94,7 @@ export function parseElaraResponse(raw: string): {
   return { reply, analysis };
 }
 
-// ── Live feedback (client-side, no API) ──────────────────────────
+// Live feedback (client-side, no API)
 
 const FILLER_WORDS = ['um', 'uh', 'umm', 'uhh', 'like', 'basically', 'actually', 'literally', 'you know', 'i mean', 'sort of', 'kind of'];
 const GRAMMAR_PATTERNS = [

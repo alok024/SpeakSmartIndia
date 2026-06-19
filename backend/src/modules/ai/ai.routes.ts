@@ -3,7 +3,7 @@
  *   authMiddleware     → JWT validation + blacklist check
  *   requireVerified    → DB-verified email check
  *   requireOnboarded   → onboarding_completed_at gate (DB)
- *   checkUsageLimit    → daily plan quota check  (DB)
+ *   checkUsageLimit    → daily plan quota check  (DB)  [skipped on /free]
  *   validate(...)      → Zod body validation
  *   controller         → handler
  */
@@ -20,7 +20,7 @@ import { AIRequestSchema } from '../../core/utils/schemas';
 
 const router = Router();
 
-// BUG FIX: session.js's non-streaming callAI() posts to POST /api/ai (root),
+// Fix: session.js's non-streaming callAI() posts to POST /api/ai (root),
 // but only /practice, /stream, and /free were registered — every classic-mode
 // AI call 404'd. Alias the root path to the same handler/middleware as /practice.
 router.post(
@@ -55,18 +55,27 @@ router.post(
   AIController.handleAIStream,
 );
 
-// FIX H6: Dedicated endpoint for non-counted helper calls (hints, grammar
-// checks, drills). The isFreeCall flag is derived from this path in the
-// controller — not from the client body — so clients cannot self-grant
-// free calls on the counted /practice or /stream endpoints.
-// checkUsageLimit is still applied so the middleware sets req.callCount,
-// but the controller skips incrementing usage when it sees req.path === '/free'.
+// Fix (C2): /free is for non-counted helper calls (hints, grammar
+// checks, drill tips) that happen within an active session. These must work
+// even when a free user has used all their quota — blocking them mid-session
+// on a hint call is wrong UX and was unintentional.
+//
+// The previous version kept checkUsageLimit here "so req.callCount is set"
+// but that caused free-limit users to get a 403 on hint calls mid-session.
+// The controller comment also claimed it would "skip incrementing when
+// req.path === '/free'" — but that check was never implemented, making the
+// /free endpoint functionally identical to /practice.
+//
+// Fix: remove checkUsageLimit from this route. The route is still fully
+// auth-gated (authMiddleware + requireVerified + requireOnboarded), so
+// unauthenticated callers are rejected. Usage counting is session-level
+// (sessions.service.ts on save) — /free calls never affected that counter
+// anyway, so removing checkUsageLimit here doesn't change accounting.
 router.post(
   '/free',
   authMiddleware,
   requireVerified,
   requireOnboarded,
-  checkUsageLimit,
   validate(AIRequestSchema),
   AIController.handleAI,
 );

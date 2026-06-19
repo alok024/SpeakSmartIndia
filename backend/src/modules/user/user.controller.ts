@@ -62,6 +62,20 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
       email: dbUser.email,
       plan:  dbUser.plan,
       name:  dbUser.name || '',
+      // These four were previously omitted here, even though the frontend's
+      // User type (and ProtectedRoute's onboarding/admin gates) expect them
+      // on the user object. Without onboarding_completed_at and created_at,
+      // EVERY free-plan user — including ones who'd already finished
+      // onboarding — looked permanently un-onboarded and pre-launch-exempt
+      // checks could never pass, so ProtectedRoute redirected to
+      // /profile?onboarding=1 on first load and again on every subsequent
+      // navigation (the useEffect re-runs on each pathname change and the
+      // same stale/missing data was there every time). Without is_admin,
+      // requireAdmin pages always bounced real admins back to /dashboard.
+      email_verified:           dbUser.email_verified ?? false,
+      onboarding_completed_at:  dbUser.onboarding_completed_at ?? null,
+      is_admin:                 dbUser.is_admin ?? false,
+      created_at:               dbUser.created_at,
     },
     onboarding,
     usage: {

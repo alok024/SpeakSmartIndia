@@ -13,7 +13,7 @@
 import { db } from '../../core/database/client';
 import { aiLogger } from '../../infra/logger';
 
-// ── Recompute after every session save ────────────────────────────
+// Recompute after every session save
 
 export async function recomputeWeakAreas(userId: string): Promise<void> {
   try {
@@ -51,7 +51,7 @@ export async function recomputeWeakAreas(userId: string): Promise<void> {
   }
 }
 
-// ── Get weak areas for /api/me response ───────────────────────────
+// Get weak areas for /api/me response
 
 export interface WeakAreaEntry {
   topic:          string;
@@ -83,7 +83,7 @@ export async function getWeakAreasForUser(userId: string): Promise<WeakAreaEntry
   }
 }
 
-// ── Build context string to inject into AI system prompt ──────────
+// Build context string to inject into AI system prompt
 
 export async function getWeakAreaPromptContext(userId: string): Promise<string> {
   try {
@@ -108,7 +108,7 @@ export async function getWeakAreaPromptContext(userId: string): Promise<string> 
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// Helpers
 
 function getSeverity(score: number): 'critical' | 'needs_work' | 'improving' {
   if (score < 4) return 'critical';

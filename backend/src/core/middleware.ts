@@ -10,7 +10,7 @@ import { AppError } from './utils/errors';
 import { trackEvent } from '../modules/analytics/events.service';
 import { ACCESS_COOKIE } from '../modules/auth/cookies';
 
-// ── Token extraction ──────────────────────────────────────────────
+// Token extraction
 // Prefers the httpOnly access-token cookie (set by login/register/refresh).
 // Falls back to the Authorization header for non-browser clients (mobile
 // apps, server-to-server calls, tests) that can't rely on cookies.
@@ -26,14 +26,14 @@ function extractToken(req: Request): string | null {
 
 const log = logger.child({ module: 'middleware' });
 
-// ── JWT payload type ──────────────────────────────────────────────
+// JWT payload type
 
 export interface JWTPayload {
   id:              string;
   email:           string;
   plan:            string;
   name:            string;
-  email_verified?: boolean;   // Fix 2: added to type
+  email_verified?: boolean;   // Fix (2): added to type
   jti?:            string;
   iat?:            number;
   exp?:            number;
@@ -44,7 +44,7 @@ declare global {
     interface Request {
       user?:      JWTPayload;
       callCount?: number;
-      // FIX H7: resolvedLimit carries the DB-authoritative plan limit (including
+      // Fix (H7): resolvedLimit carries the DB-authoritative plan limit (including
       // referral bonus calls) so controllers don't re-derive it from the JWT plan,
       // which can be stale immediately after an upgrade.
       resolvedLimit?: number;
@@ -57,7 +57,7 @@ declare global {
   }
 }
 
-// ── Auth middleware ───────────────────────────────────────────────
+// Auth middleware
 
 export async function authMiddleware(
   req: Request, res: Response, next: NextFunction
@@ -80,6 +80,36 @@ export async function authMiddleware(
       }
     }
 
+    // Fix (C1): Reject tokens issued before a password reset.
+    // When a user resets their password, tokens_invalidated_at is stamped on
+    // their DB row. Any token with iat < tokens_invalidated_at was issued
+    // before the reset and must be treated as revoked — even if it hasn't
+    // expired yet and isn't individually blacklisted. This closes the window
+    // where a compromised session token remains valid after a password change.
+    //
+    // We only do this DB lookup when the JWT carries an iat claim (always true
+    // for tokens we issue). The check is a fast indexed column read on the
+    // users table — same table already read by checkUsageLimit downstream,
+    // so it doesn't add a new DB round-trip for protected routes that already
+    // run checkUsageLimit. For auth-only routes (logout, refresh) it's one
+    // extra read, which is acceptable for the security guarantee.
+    if (payload.iat) {
+      try {
+        const dbUser = await db.getUserById(payload.id);
+        if (dbUser?.tokens_invalidated_at) {
+          const invalidatedAt = new Date(dbUser.tokens_invalidated_at).getTime() / 1000;
+          if (payload.iat < invalidatedAt) {
+            unauthorized(res, 'Session invalidated. Please log in again.', 'session_invalidated');
+            return;
+          }
+        }
+      } catch {
+        // Non-fatal: if the DB check fails, let the request through rather
+        // than blocking all authenticated users during a DB hiccup.
+        log.warn('tokens_invalidated_at check failed (non-fatal)', { userId: payload.id });
+      }
+    }
+
     req.user = payload;
     next();
   } catch {
@@ -87,7 +117,7 @@ export async function authMiddleware(
   }
 }
 
-// ── Usage limit check ─────────────────────────────────────────────
+// Usage limit check
 
 export async function checkUsageLimit(
   req: Request, res: Response, next: NextFunction
@@ -108,7 +138,7 @@ export async function checkUsageLimit(
 
     req.callCount = callCount;
 
-    // FIX H6: Remove the req.body.free bypass from the limit gate.
+    // Fix (H6): Remove the req.body.free bypass from the limit gate.
     // Clients could previously send { free: true } to skip the hard wall entirely.
     // The /api/ai/free route now handles non-counted calls — path is set by the
     // server's routing, not the client body. The middleware always enforces the
@@ -121,7 +151,7 @@ export async function checkUsageLimit(
       return;
     }
 
-    // FIX H7: Expose the DB-authoritative limit on the request so controllers
+    // Fix (H7): Expose the DB-authoritative limit on the request so controllers
     // don't fall back to PLAN_LIMITS[user.plan] (the JWT plan), which is stale
     // immediately after an upgrade until the user re-authenticates.
     req.resolvedLimit = actualLimit;
@@ -149,7 +179,7 @@ export async function checkUsageLimit(
   }
 }
 
-// ── Zod validation middleware ─────────────────────────────────────
+// Zod validation middleware
 
 export function validate(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction): void => {
@@ -163,7 +193,7 @@ export function validate(schema: ZodSchema) {
   };
 }
 
-// ── Optional auth middleware ───────────────────────────────────────
+// Optional auth middleware
 // Attaches req.user if a valid token is present, but never rejects the
 // request — used for endpoints that work for both logged-in and
 // anonymous users (e.g. event tracking).
@@ -193,7 +223,7 @@ export async function optionalAuth(
   next();
 }
 
-// ── Async wrapper ─────────────────────────────────────────────────
+// Async wrapper
 
 export function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<void>
@@ -203,8 +233,8 @@ export function asyncHandler(
   };
 }
 
-// ── Email-verified guard ──────────────────────────────────────────
-// Fix 2: Always checks DB — never trusts potentially-stale JWT claim.
+// Email-verified guard
+// Fix (2): Always checks DB — never trusts potentially-stale JWT claim.
 // Place after authMiddleware on any route that requires a verified email.
 
 export async function requireVerified(
@@ -224,7 +254,7 @@ export async function requireVerified(
   }
 }
 
-// ── Onboarding guard ──────────────────────────────────────────────
+// Onboarding guard
 // Place after authMiddleware (and optionally after requireVerified).
 // Blocks AI + session routes until the user has completed onboarding.
 // Returns a structured 403 that the frontend can detect and redirect.
@@ -256,7 +286,7 @@ export async function requireOnboarded(
   }
 }
 
-// ── Admin guard ────────────────────────────────────────────────────
+// Admin guard
 // Place after authMiddleware. Checks the DB is_admin flag — never trusts
 // the JWT, since admin status can be revoked without re-issuing tokens.
 
@@ -277,7 +307,7 @@ export async function requireAdmin(
   }
 }
 
-// ── Pro-plan guard ────────────────────────────────────────────────
+// Pro-plan guard
 // Place after authMiddleware. Blocks endpoints that are Pro/Elite only
 // (e.g. ElevenLabs TTS). Always checks DB so downgrades are instant.
 
@@ -299,7 +329,7 @@ export async function requirePro(
       });
       forbidden(
         res,
-        'HD voice is a Pro feature. Upgrade to unlock Aria\'s voice.',
+        'HD voice is a Pro feature. Upgrade to hear Aria and Elara speak their feedback.',
         'pro_required',
       );
       return;
@@ -311,7 +341,7 @@ export async function requirePro(
   }
 }
 
-// ── Global error handler ──────────────────────────────────────────
+// Global error handler
 
 export function errorHandler(
   err: Error & { statusCode?: number; code?: string },

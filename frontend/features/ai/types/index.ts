@@ -2,7 +2,7 @@
  * features/ai/types/index.ts
  *
  * Types for the AI chat proxy. Shared across features that talk to the
- * AI endpoints — currently the interview chat mode and the English
+ * AI endpoints — currently the interview chat mode (Aria) and the English
  * practice coach (Elara).
  */
 

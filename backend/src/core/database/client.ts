@@ -3,13 +3,47 @@
  *
  * A typed wrapper around the Supabase REST API.
  * Every db.* method used anywhere in the codebase is implemented here.
- * Uses the service role key → bypasses RLS.
+ *
+ * M9: Why this client always uses the service role key
+ * Earlier comments here implied a migration to SUPABASE_ANON_KEY + RLS
+ * was in progress (a few methods even sent a half-wired `apikey: anon`
+ * header). That migration was never actually viable for this client and
+ * has been abandoned — not forgotten. Documenting why, explicitly:
+ *
+ *   1. Auth is custom (auth.service.ts issues our own JWTs), not Supabase
+ *      Auth. Postgres RLS policies built on `auth.uid()` only work when
+ *      the bearer token is a Supabase-Auth-issued JWT the GoTrue/PostgREST
+ *      stack can decode into a session. Our JWTs aren't that, so
+ *      `SUPABASE_ANON_KEY` + a per-user policy can't actually scope a
+ *      query to "the current user" without minting Supabase-compatible
+ *      tokens for every request — a second auth system to keep in sync,
+ *      for no isolation benefit over what's already enforced below.
+ *   2. Plenty of methods in this file are intentionally cross-user by
+ *      design (admin dashboards, referral-code lookup at signup, public
+ *      report tokens, B2B lead intake) and would never be expressible as
+ *      a single RLS policy anyway — they need the elevated key.
+ *
+ * What actually enforces isolation: every user-scoped method below
+ * filters explicitly by `user_id` (or session ownership) as part of the
+ * query — see getUserSessions, getSessionById, getStats, etc. That
+ * filter is the access-control boundary; treat it with the same care
+ * as a missing auth check would get, and never add a method that lets
+ * a caller pass an arbitrary user_id without verifying it against the
+ * authenticated request first.
+ *
+ * As a defense-in-depth backstop in case SUPABASE_ANON_KEY (or any
+ * client-exposed key) is ever accidentally used against these tables,
+ * RLS is enabled with zero policies on every table this client touches
+ * — see migrations/008_rls_default_deny.sql. That makes anon/authenticated
+ * access deny-by-default; only the service_role key (used exclusively by
+ * this file) can read or write. Enabling RLS does not change anything
+ * about how this client itself behaves.
  */
 
 import { AppError } from '../utils/errors';
 import { env } from '../config/env';
 
-// ── DB Row types ──────────────────────────────────────────────────
+// DB Row types
 
 export interface UserRow {
   id:             string;
@@ -25,6 +59,9 @@ export interface UserRow {
   onboarding_goal?:         string | null;
   onboarding_completed_at?: string | null;
   is_admin?:      boolean;
+  // Set on password reset — authMiddleware rejects any token issued before this timestamp.
+  // This invalidates all existing sessions without requiring individual token blacklisting.
+  tokens_invalidated_at?: string | null;
   created_at?:    string;
   updated_at?:    string;
 }
@@ -187,7 +224,7 @@ export interface B2BLeadRow {
   created_at: string;
 }
 
-// ── Raw Supabase REST helper ──────────────────────────────────────
+// Raw Supabase REST helper
 
 async function sb<T = unknown>(
   path: string,
@@ -211,11 +248,11 @@ async function sb<T = unknown>(
   return { ok: res.ok, status: res.status, data };
 }
 
-// ── Database client ───────────────────────────────────────────────
+// Database client
 
 export const db = {
 
-  // ── Users ───────────────────────────────────────────────────────
+  // Users
 
   async getUserByEmail(email: string): Promise<UserRow | null> {
     const { data } = await sb<UserRow[]>(`/users?email=eq.${encodeURIComponent(email)}&select=*`);
@@ -251,7 +288,16 @@ export const db = {
     await sb(`/users?id=eq.${userId}`, 'PATCH', { referred_by: code });
   },
 
-  async addBonusCalls(userId: string, amount: number): Promise<void> {
+  /**
+   * Fix (H5): `maxTotal` is the hard ceiling on accumulated referral_bonus
+   * (env.MAX_REFERRAL_BONUS_CALLS). Passed through to the RPC so the cap is
+   * enforced with LEAST() inside the same atomic UPDATE that does the
+   * increment — a JS-side "check current value, then increment" would have
+   * the same read-then-write race the RPC was built to avoid in the first
+   * place (two concurrent rewards could each pass a pre-cap check and
+   * together blow past the limit).
+   */
+  async addBonusCalls(userId: string, amount: number, maxTotal: number): Promise<void> {
     // Use RPC for atomic increment — avoids the read-then-write race condition
     // where two concurrent referral rewards both read 0 and both write 10 instead of 20.
     await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_referral_bonus`, {
@@ -261,11 +307,11 @@ export const db = {
         'apikey':        env.SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       },
-      body: JSON.stringify({ p_user_id: userId, p_amount: amount }),
+      body: JSON.stringify({ p_user_id: userId, p_amount: amount, p_max: maxTotal }),
     });
   },
 
-  // ── Usage ───────────────────────────────────────────────────────
+  // Usage
 
   async getUsage(userId: string): Promise<UsageRow | null> {
     const { data } = await sb<UsageRow[]>(`/usage?user_id=eq.${userId}&select=*`);
@@ -306,7 +352,7 @@ export const db = {
     });
   },
 
-  // ── Stats ───────────────────────────────────────────────────────
+  // Stats
 
   async getStats(userId: string): Promise<StatsRow | null> {
     const { data } = await sb<StatsRow[]>(`/stats?user_id=eq.${userId}&select=*`);
@@ -323,9 +369,15 @@ export const db = {
    * applies it with a row-level lock held for the duration of the upsert.
    *
    * Streak logic lives in SQL too: if last_session was today → keep current
-   * streak; if yesterday → +1; otherwise → reset to 1.
+   * streak; if yesterday → +1; otherwise → reset to 1. "Today"/"yesterday"
+   * are computed in IST (Asia/Kolkata), not server UTC — see migrations/
+   * 009_streak_timezone_ist.sql for why (L17 audit fix: UTC-day comparison
+   * could reset a streak for a late-night IST session that was still the
+   * same calendar day for the user).
    *
-   * Requires this function in Supabase SQL (see MIGRATION.sql):
+   * Requires this function in Supabase SQL (see MIGRATION.sql, as amended
+   * by migrations/009_streak_timezone_ist.sql — that file is the current
+   * source of truth for this function's body):
    *   CREATE OR REPLACE FUNCTION increment_user_stats(
    *     p_user_id        uuid,
    *     p_score          numeric,
@@ -333,7 +385,7 @@ export const db = {
    *     p_total_score    numeric
    *   ) RETURNS jsonb LANGUAGE plpgsql AS $$
    *   DECLARE
-   *     v_today     date := now()::date;
+   *     v_today     date := (now() AT TIME ZONE 'Asia/Kolkata')::date;
    *     v_yesterday date := v_today - 1;
    *     v_last      date;
    *     v_streak    int;
@@ -348,7 +400,7 @@ export const db = {
    *
    *     SELECT * INTO v_row FROM stats WHERE user_id = p_user_id FOR UPDATE;
    *
-   *     v_last   := v_row.last_session::date;
+   *     v_last   := (v_row.last_session AT TIME ZONE 'Asia/Kolkata')::date;
    *     v_streak := CASE
    *       WHEN v_last = v_today     THEN v_row.streak
    *       WHEN v_last = v_yesterday THEN v_row.streak + 1
@@ -389,8 +441,15 @@ export const db = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        // M9: previously sent `apikey: anon` here alongside a service-role
+        // bearer token — PostgREST resolves the role from the Authorization
+        // JWT, so that combination still ran as service_role and bypassed
+        // RLS exactly like every other call in this file. Using the same
+        // key in both headers removes the misleading appearance of partial
+        // RLS enforcement; see the file-level comment for why this client
+        // doesn't attempt per-user RLS at all.
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       },
       body: JSON.stringify({
         p_user_id:     userId,
@@ -412,7 +471,7 @@ export const db = {
     }
   },
 
-  // ── Sessions ────────────────────────────────────────────────────
+  // Sessions
 
   /**
    * Creates a session row in 'scoring' status.
@@ -428,8 +487,15 @@ export const db = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        // M9: previously sent `apikey: anon` here alongside a service-role
+        // bearer token — PostgREST resolves the role from the Authorization
+        // JWT, so that combination still ran as service_role and bypassed
+        // RLS exactly like every other call in this file. Using the same
+        // key in both headers removes the misleading appearance of partial
+        // RLS enforcement; see the file-level comment for why this client
+        // doesn't attempt per-user RLS at all.
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
         Prefer: 'resolution=ignore-duplicates,return=representation',
       },
       body: JSON.stringify({ ...input, status: 'scoring' }),
@@ -501,7 +567,7 @@ export const db = {
     return (data ?? []) as Array<Pick<SessionRow, 'score' | 'interview_type' | 'profession' | 'created_at'>>;
   },
 
-  // ── Feedback ────────────────────────────────────────────────────
+  // Feedback
 
   /**
    * Insert a feedback row, ignoring duplicates keyed by (session_id, question_index).
@@ -517,8 +583,15 @@ export const db = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: env.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        // M9: previously sent `apikey: anon` here alongside a service-role
+        // bearer token — PostgREST resolves the role from the Authorization
+        // JWT, so that combination still ran as service_role and bypassed
+        // RLS exactly like every other call in this file. Using the same
+        // key in both headers removes the misleading appearance of partial
+        // RLS enforcement; see the file-level comment for why this client
+        // doesn't attempt per-user RLS at all.
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
         Prefer: 'resolution=ignore-duplicates',
       },
       body: JSON.stringify(input),
@@ -532,7 +605,7 @@ export const db = {
     return data ?? [];
   },
 
-  // ── Subscriptions ───────────────────────────────────────────────
+  // Subscriptions
 
   async createSubscription(input: Omit<SubscriptionRow, 'id' | 'created_at'>): Promise<void> {
     await sb('/subscriptions', 'POST', input);
@@ -564,7 +637,7 @@ export const db = {
     return data ?? [];
   },
 
-  // ── Token blacklist ─────────────────────────────────────────────
+  // Token blacklist
 
   async isTokenBlacklisted(jti: string): Promise<boolean> {
     const { data } = await sb<TokenBlacklistRow[]>(
@@ -577,7 +650,7 @@ export const db = {
     await sb('/token_blacklist', 'POST', input);
   },
 
-  // ── Prune expired blacklist tokens (run nightly) ──────────────
+  // Prune expired blacklist tokens (run nightly)
   // Without this, the table grows forever and isTokenBlacklisted()
   // gets slower with every logout/refresh.
   async cleanupExpiredBlacklistTokens(): Promise<void> {
@@ -585,7 +658,7 @@ export const db = {
     await sb(`/token_blacklist?expires_at=lt.${now}`, 'DELETE');
   },
 
-  // ── Password resets ─────────────────────────────────────────────
+  // Password resets
 
   async createPasswordReset(input: Omit<PasswordResetRow, 'id' | 'used'>): Promise<void> {
     await sb('/password_resets', 'POST', { ...input, used: false });
@@ -608,7 +681,7 @@ export const db = {
     await sb(`/password_resets?user_id=eq.${userId}&used=eq.false`, 'PATCH', { used: true });
   },
 
-  // ── User mistakes (AI memory) ───────────────────────────────────
+  // User mistakes (AI memory)
 
   async getUserMistakes(userId: string, topic: string): Promise<UserMistakeRow[]> {
     const { data } = await sb<UserMistakeRow[]>(
@@ -640,7 +713,7 @@ export const db = {
     });
   },
 
-  // ── Weak areas ──────────────────────────────────────────────────
+  // Weak areas
 
   async getWeakAreas(userId: string): Promise<WeakAreaRow[]> {
     const { data } = await sb<WeakAreaRow[]>(
@@ -676,7 +749,7 @@ export const db = {
     });
   },
 
-  // ── Score history ───────────────────────────────────────────────
+  // Score history
 
   async addScoreHistory(input: Omit<ScoreHistoryRow, 'id' | 'created_at'>): Promise<void> {
     await sb('/score_history', 'POST', input);
@@ -689,7 +762,7 @@ export const db = {
     return data ?? [];
   },
 
-  // ── Referral events ─────────────────────────────────────────────
+  // Referral events
 
   async createReferralEvent(referrerId: string, referredId: string): Promise<void> {
     await sb('/referral_events', 'POST', { referrer_id: referrerId, referred_id: referredId });
@@ -724,7 +797,7 @@ export const db = {
     };
   },
 
-  // ── Email verification tokens ───────────────────────────────────
+  // Email verification tokens
 
   /**
    * Invalidate all currently-unused verification tokens for a user.
@@ -760,7 +833,7 @@ export const db = {
     return ok && !!data?.length;
   },
 
-  // ── Email verification send log (rate limiting) ─────────────────
+  // Email verification send log (rate limiting)
 
   async recordEmailVerificationSend(userId: string): Promise<void> {
     await sb('/email_verification_sends', 'POST', { user_id: userId });
@@ -783,7 +856,7 @@ export const db = {
     return total ? parseInt(total, 10) : 0;
   },
 
-  // ── Onboarding ───────────────────────────────────────────────────
+  // Onboarding
 
   async saveOnboarding(
     userId: string,
@@ -797,7 +870,7 @@ export const db = {
     });
   },
 
-  // ── Admin: users ─────────────────────────────────────────────────
+  // Admin: users
 
   async getUserCount(): Promise<number> {
     const res = await fetch(`${env.SUPABASE_URL}/rest/v1/users?select=id`, {
@@ -877,7 +950,7 @@ export const db = {
     return { total, completed: completedTotal ? parseInt(completedTotal, 10) : 0 };
   },
 
-  // ── Admin: revenue & subscriptions ──────────────────────────────
+  // Admin: revenue & subscriptions
 
   async getActiveSubscriptionCounts(): Promise<Record<string, number>> {
     const plans = ['pro', 'elite'];
@@ -910,7 +983,7 @@ export const db = {
     return data ?? [];
   },
 
-  // ── Admin: sessions ──────────────────────────────────────────────
+  // Admin: sessions
 
   async getSessionCount(): Promise<number> {
     const res = await fetch(`${env.SUPABASE_URL}/rest/v1/sessions?select=id`, {
@@ -960,7 +1033,7 @@ export const db = {
     return total ? parseInt(total, 10) : 0;
   },
 
-  // ── B2B Leads ──────────────────────────────────────────────────
+  // B2B Leads
 
   async createLead(lead: {
     name: string;
@@ -1032,7 +1105,7 @@ export const db = {
     return (data?.length ?? 0) > 0;
   },
 
-  // ── Analytics events ──────────────────────────────────────────
+  // Analytics events
 
   async createAnalyticsEvents(events: AnalyticsEventRow[]): Promise<void> {
     if (!events.length) return;

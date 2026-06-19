@@ -75,9 +75,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `
               (function(){
                 try {
-                  var t = localStorage.getItem('ssi-theme');
-                  if (t === 'light' || t === 'dark') {
-                    document.documentElement.setAttribute('data-theme', t);
+                  // One-time migration: move old ss-* keys to vachix-* keys.
+                  // Safe to run on every load — noop once old keys are gone.
+                  ['ss-ui','ss-auth'].forEach(function(old){
+                    var val = localStorage.getItem(old);
+                    if(val){
+                      var next = old === 'ss-ui' ? 'vachix-ui' : 'vachix-auth';
+                      if(!localStorage.getItem(next)) localStorage.setItem(next, val);
+                      localStorage.removeItem(old);
+                    }
+                  });
+                  // Read theme from the canonical vachix-ui key (no second key needed).
+                  var raw = localStorage.getItem('vachix-ui');
+                  if (raw) {
+                    var parsed = JSON.parse(raw);
+                    var dark = parsed && parsed.state && parsed.state.isDark;
+                    document.documentElement.setAttribute('data-theme', dark === false ? 'light' : 'dark');
                   }
                 } catch(e){}
               })();

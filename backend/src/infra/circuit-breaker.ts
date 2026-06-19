@@ -126,7 +126,7 @@ export class CircuitBreaker {
   }
 }
 
-// ── Singleton breakers — one per provider ─────────────────────────
+// Singleton breakers — one per provider
 
 export const groqBreaker   = new CircuitBreaker('Groq');
 export const openaiBreaker = new CircuitBreaker('OpenAI');

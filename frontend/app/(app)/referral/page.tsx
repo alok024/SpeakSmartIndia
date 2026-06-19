@@ -72,7 +72,7 @@ export default function ReferralPage() {
         {[
           { icon: Users, label: 'Friends joined',  value: isError ? '—' : (referral?.uses ?? 0),        color: 'var(--accent)' },
           { icon: Star,  label: 'Rewarded',         value: isError ? '—' : (referral?.rewarded ?? 0),    color: 'var(--warn)' },
-          { icon: Zap,   label: 'Bonus sessions',   value: isError ? '—' : (referral?.bonus_calls ?? 0), color: 'var(--emerald)' },
+          { icon: Zap,   label: 'Bonus sessions',   value: isError ? '—' : (referral?.bonus_calls ?? 0), color: 'var(--success)' },
         ].map((s) => (
           <div key={s.label}>
           <Card className="p-4 text-center">

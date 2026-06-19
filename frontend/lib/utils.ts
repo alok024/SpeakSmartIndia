@@ -22,7 +22,7 @@ export function parseJsonArray(raw: string): string[] {
     if (start === -1 || end === -1) return [];
     const parsed = JSON.parse(cleaned.slice(start, end + 1));
     if (!Array.isArray(parsed)) return [];
-    // FIX: The old threshold was > 10 chars, which silently dropped short
+    // Fix: The old threshold was > 10 chars, which silently dropped short
     // but valid questions like "Why IT?" (7 chars) or "Tell me about yourself."
     // (short variants). This caused the session to start with fewer questions
     // than config.totalQ — the progress bar would show "Q1/4" when 5 were

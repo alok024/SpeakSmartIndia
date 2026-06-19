@@ -1,14 +1,18 @@
 import { Response, CookieOptions } from 'express';
 import { IS_PROD } from '../../core/config/env';
+import { ACCESS_TOKEN_TTL_MS } from './auth.service';
 
-// ── httpOnly auth cookie names ─────────────────────────────────────
-// These replace the old localStorage-based token storage. JS on the
+// httpOnly auth cookie names
+// These are the httpOnly auth cookies. JS on the
 // frontend never sees these values — XSS can no longer steal sessions.
 
-export const ACCESS_COOKIE  = 'ss_at';
-export const REFRESH_COOKIE = 'ss_rt';
+export const ACCESS_COOKIE  = 'vachix_at';
+export const REFRESH_COOKIE = 'vachix_rt';
 
-const ACCESS_TTL_MS  = 7  * 24 * 60 * 60 * 1000; // matches JWT_SECRET token expiry (7d)
+// Fix (H4): matches ACCESS_TOKEN_EXPIRES_IN ('30m') in auth.service.ts —
+// imported (not redeclared) so the cookie lifetime can never drift out of
+// sync with the JWT's own expiry again.
+const ACCESS_TTL_MS  = ACCESS_TOKEN_TTL_MS;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000; // matches JWT_REFRESH_SECRET token expiry (30d)
 
 // Requests reach the backend via the Next.js rewrite proxy (/api/* ->

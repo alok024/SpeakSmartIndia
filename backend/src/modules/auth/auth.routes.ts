@@ -41,6 +41,24 @@ const resendLimiter = rateLimit({
   message:  { error: 'Too many resend attempts. Please wait.' },
 });
 
+// Defense-in-depth: refresh tokens already require a valid signed httpOnly
+// cookie, so this isn't brute-forceable, but an unlimited endpoint still
+// lets a buggy client (or malicious one) hammer the DB on every request.
+const refreshLimiter = rateLimit({
+  windowMs: 60_000,
+  max:      30,
+  message:  { error: 'Too many refresh attempts. Please wait.' },
+});
+
+// Defense-in-depth: reset tokens are 32 random bytes (256-bit), so this
+// isn't realistically brute-forceable either, but every other token-bearing
+// auth route has a limiter and this one shouldn't be the odd one out.
+const resetConfirmLimiter = rateLimit({
+  windowMs: 15 * 60_000,
+  max:      10,
+  message:  { error: 'Too many attempts. Please wait.' },
+});
+
 // POST /api/register
 router.post('/register',
   registerLimiter,
@@ -63,6 +81,7 @@ router.post('/logout',
 
 // POST /api/refresh-token
 router.post('/refresh-token',
+  refreshLimiter,
   asyncHandler(AuthController.refreshToken)
 );
 
@@ -88,6 +107,7 @@ router.post('/password-reset/request',
 
 // POST /api/password-reset/confirm
 router.post('/password-reset/confirm',
+  resetConfirmLimiter,
   validate(ResetPasswordSchema),
   asyncHandler(AuthController.resetPassword)
 );

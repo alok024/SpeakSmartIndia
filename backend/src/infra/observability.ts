@@ -3,7 +3,7 @@
  *
  * Two concerns in one module:
  *
- * ── A. Sentry error tracking ──────────────────────────────────────
+ * A. Sentry error tracking
  *   Captures unhandled exceptions and explicit error events with
  *   user context (id, plan) so you can filter by user in Sentry.
  *
@@ -14,7 +14,7 @@
  *     captureException(err, { userId, plan, extra })
  *     setUserContext(userId, plan)
  *
- * ── B. In-process metrics ─────────────────────────────────────────
+ * B. In-process metrics
  *   Lightweight counters/gauges that live in memory.  Exposed via
  *   GET /health/metrics (internal — not public-facing).
  *
@@ -42,7 +42,7 @@ import { env }    from '../core/config/env';
 
 const log = logger.child({ module: 'observability' });
 
-// ── A. Sentry ─────────────────────────────────────────────────────
+// A. Sentry
 
 type SentryLike = {
   init:            (opts: Record<string, unknown>) => void;
@@ -109,7 +109,7 @@ export function setSentryUser(userId: string, plan: string): void {
   _sentry?.setUser({ id: userId, plan });
 }
 
-// ── B. Metrics ────────────────────────────────────────────────────
+// B. Metrics
 
 type MetricKey =
   | 'ai.calls.total'

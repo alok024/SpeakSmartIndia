@@ -58,7 +58,7 @@ function VerifyEmailSentInner() {
         {/* Icon */}
         <div style={{
           width: 64, height: 64, borderRadius: '50%',
-          background: 'var(--violet-dim)', border: '1px solid var(--violet-border)',
+          background: 'var(--blue-dim)', border: '1px solid var(--blue-border)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: 28, margin: '0 auto 20px',
         }}>
@@ -127,7 +127,7 @@ function VerifyEmailSentInner() {
           style={{
             display: 'block', height: 44, lineHeight: '44px',
             borderRadius: 10, textDecoration: 'none', textAlign: 'center',
-            background: 'linear-gradient(135deg,var(--violet),var(--gold))',
+            background: 'var(--blue)',
             color: '#fff', fontSize: 14, fontWeight: 700,
           }}
         >

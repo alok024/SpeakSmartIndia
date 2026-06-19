@@ -12,7 +12,7 @@ import { useAuthStore } from '@/store/auth';
 import { useInterviewStore } from '@/store/interview';
 import { QK } from '@/lib/query-keys';
 
-// ── Login ─────────────────────────────────────────────────────────
+// Login
 export function useLogin() {
   const setSession = useAuthStore((s) => s.setSession);
   const qc = useQueryClient();
@@ -35,7 +35,7 @@ export function useLogin() {
   });
 }
 
-// ── Register ──────────────────────────────────────────────────────
+// Register
 export function useRegister() {
   const setSession = useAuthStore((s) => s.setSession);
   const qc = useQueryClient();
@@ -61,7 +61,7 @@ export function useRegister() {
   });
 }
 
-// ── Logout ────────────────────────────────────────────────────────
+// Logout
 export function useLogout() {
   const clearSession = useAuthStore((s) => s.clearSession);
   const resetSession = useInterviewStore((s) => s.resetSession);

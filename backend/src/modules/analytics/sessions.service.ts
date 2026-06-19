@@ -24,7 +24,7 @@ import { incrementAIUsage }   from '../user/user.service';
 
 const log = logger.child({ module: 'sessions' });
 
-// ── Types ─────────────────────────────────────────────────────────
+// Types
 
 export interface SaveSessionInput {
   userId:            string;
@@ -68,7 +68,7 @@ export interface SaveSessionResult {
     relevance: number;
     grammar:   number;
   };
-  // ── Monetization signals ──────────────────────────────────────────
+  // Monetization signals
   // Computed from session outcome + user stats so the frontend can fire
   // the right contextual upsell at exactly the right moment.
   // Only set when a trigger condition is met — absent otherwise.
@@ -81,9 +81,9 @@ export interface SaveSessionResult {
   };
 }
 
-// ── Save session ──────────────────────────────────────────────────
+// Save session
 
-// ── In-flight guard — prevents double-submit on retry / laggy connections ──
+// In-flight guard — prevents double-submit on retry / laggy connections
 // Maps client_session_id → { promise, startedAt }.
 //
 // Safety guarantees:
@@ -95,7 +95,7 @@ export interface SaveSessionResult {
 //      a single crashed save permanently locks that client_session_id for the
 //      lifetime of the process.
 //
-// FIX H5: Previously keyed on userId — meaning two genuinely different sessions
+// Fix (H5): Previously keyed on userId — meaning two genuinely different sessions
 // submitted rapidly by the same user would collide: the second call would return
 // the first session's result entirely. The correct idempotency key is
 // client_session_id, which uniquely identifies one interview session.
@@ -108,6 +108,27 @@ interface InFlightEntry {
 }
 
 const _inFlight = new Map<string, InFlightEntry>();
+
+// Fix (L18): the TTL eviction above only fires when a *new* call arrives with
+// the same client_session_id. If a save's `promise.finally(() => ...)`
+// never runs (e.g. an uncaught rejection edge case bypasses `finally`, or
+// the process is mid-shutdown), that entry stays in the map forever and is
+// never revisited unless the exact same client_session_id happens to retry.
+// On a long-running server processing thousands of distinct sessions, those
+// orphaned entries accumulate indefinitely. This periodic sweep catches
+// anything `finally` missed, independent of whether a new call ever arrives
+// for that key.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of _inFlight) {
+    if (now - entry.startedAt > INFLIGHT_TTL_MS) {
+      log.warn('saveSession: sweeping stale in-flight entry', {
+        client_session_id: key, age_ms: now - entry.startedAt,
+      });
+      _inFlight.delete(key);
+    }
+  }
+}, INFLIGHT_TTL_MS).unref();
 
 export async function saveSession(input: SaveSessionInput): Promise<SaveSessionResult> {
   const key = input.client_session_id;
@@ -237,7 +258,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     topic:           interview_type || profession,
   }).catch(err => log.warn('Score history insert failed (non-fatal)', { error: err }));
 
-  // ── Phase 7: background jobs go through the queue dispatcher ────
+  // Phase 7: background jobs go through the queue dispatcher
   // With Redis    → queued with 3× retry + exponential backoff
   // Without Redis → inline fire-and-forget (dev / degraded mode)
 
@@ -265,7 +286,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
   // WHERE status='scoring' in the SQL means duplicate calls are no-ops.
   await db.completeSession(session.id!);
 
-  // ── Monetization trigger — computed once, passed to controller ────
+  // Monetization trigger — computed once, passed to controller
   // Priority: streak_milestone > high_score > post_session (free fallback).
   // Only one trigger fires per session; the frontend shows one contextual
   // upsell, not a stack of them.
@@ -293,7 +314,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
   };
 }
 
-// ── List sessions (paginated) ─────────────────────────────────────
+// List sessions (paginated)
 
 export async function listSessions(userId: string, page = 1, pageSize = 10) {
   const offset   = (page - 1) * pageSize;
@@ -306,7 +327,7 @@ export async function listSessions(userId: string, page = 1, pageSize = 10) {
   };
 }
 
-// ── Get session detail with parsed feedback ───────────────────────
+// Get session detail with parsed feedback
 
 export async function getSessionDetail(sessionId: string, userId: string) {
   const session = await db.getSessionById(sessionId, userId);
@@ -324,14 +345,14 @@ export async function getSessionDetail(sessionId: string, userId: string) {
   return { session, feedbacks: parsed };
 }
 
-// ── Score history for chart ───────────────────────────────────────
+// Score history for chart
 
 export async function getScoreHistory(userId: string, limit = 30) {
   const history = await db.getScoreHistory(userId, limit);
   return history.reverse(); // oldest first for charting
 }
 
-// ── Session lifecycle enforcement (Issue 7) ───────────────────────
+// Session lifecycle enforcement (Issue 7)
 //
 // saveSession() takes a session from 'scoring' -> 'completed' via
 // db.completeSession(). If the client disconnects or the process
@@ -357,7 +378,7 @@ export async function expireStaleSessions(): Promise<number> {
   return expired.length;
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// Helpers
 
 function safeJsonParse<T>(val: unknown, fallback: T): T {
   try {

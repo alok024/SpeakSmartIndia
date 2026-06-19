@@ -1,11 +1,11 @@
 -- ============================================================
--- SpeakSmartIndia — v2 Bug-fix migrations
+-- Vachix — v2 Bug-fix migrations
 -- Apply in a single transaction.
 -- ============================================================
 
 BEGIN;
 
--- ── 1. Feedback idempotency ───────────────────────────────────────
+-- 1. Feedback idempotency
 -- Stable position column + unique constraint so (session_id, question_index)
 -- is the deduplication key.  ON CONFLICT DO NOTHING via Prefer header.
 
@@ -18,7 +18,7 @@ ALTER TABLE feedback
   ADD CONSTRAINT feedback_session_question_unique
     UNIQUE (session_id, question_index);
 
--- ── 2. Session idempotency + state machine ────────────────────────
+-- 2. Session idempotency + state machine
 -- client_session_id: stable UUID from the frontend, used as idempotency key.
 -- status: DB-enforced state column with a CHECK constraint.
 
@@ -40,7 +40,7 @@ ALTER TABLE sessions
   ADD CONSTRAINT sessions_status_check
     CHECK (status IN ('scoring', 'completed', 'abandoned'));
 
--- ── 3. Fully atomic stats increment (arithmetic in SQL) ───────────
+-- 3. Fully atomic stats increment (arithmetic in SQL)
 -- Eliminates the JS read → compute → write race entirely.
 -- Receives only per-session deltas; Postgres applies them under a row lock.
 
@@ -99,26 +99,26 @@ BEGIN
 END;
 $$;
 
--- ── 4. Drop old upsert RPC (no longer called by app code) ─────────
+-- 4. Drop old upsert RPC (no longer called by app code)
 DROP FUNCTION IF EXISTS upsert_user_stats(uuid,int,int,numeric,numeric,timestamptz,numeric,int);
 
 COMMIT;
 
--- ── 5. Weak areas unique constraint (enables merge-duplicates upsert) ──────
+-- 5. Weak areas unique constraint (enables merge-duplicates upsert)
 ALTER TABLE weak_areas
   DROP CONSTRAINT IF EXISTS weak_areas_user_topic_unique;
 ALTER TABLE weak_areas
   ADD CONSTRAINT weak_areas_user_topic_unique
     UNIQUE (user_id, topic);
 
--- ── 6. Subscriptions unique constraint on razorpay_order_id (idempotent upsert) ──
+-- 6. Subscriptions unique constraint on razorpay_order_id (idempotent upsert)
 ALTER TABLE subscriptions
   DROP CONSTRAINT IF EXISTS subscriptions_razorpay_order_id_unique;
 ALTER TABLE subscriptions
   ADD CONSTRAINT subscriptions_razorpay_order_id_unique
     UNIQUE (razorpay_order_id);
 
--- ── 7. Password reset tokens — already hashed (app change only, no schema change needed) ──
+-- 7. Password reset tokens — already hashed (app change only, no schema change needed)
 -- The token column now stores SHA-256(raw_token) instead of the raw token.
 -- Existing rows are stale (raw tokens in email links are now invalid).
 -- Run this to invalidate them:

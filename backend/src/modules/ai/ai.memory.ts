@@ -14,13 +14,13 @@ import { logger } from '../../infra/logger';
 
 const log = logger.child({ module: 'ai-memory' });
 
-// ── Type guard ────────────────────────────────────────────────────
+// Type guard
 function isCorrectionObject(c: unknown): c is { error: string } {
   return typeof c === 'object' && c !== null && 'error' in c && typeof (c as Record<string, unknown>).error === 'string';
 }
 
 
-// ── Types ─────────────────────────────────────────────────────────
+// Types
 
 export interface MistakeRecord {
   topic:        string;
@@ -38,7 +38,7 @@ export interface FeedbackItem {
   structure?:      Record<string, unknown>;
 }
 
-// ── Extract + persist mistakes from a session's feedback ──────────
+// Extract + persist mistakes from a session's feedback
 
 export async function persistMistakesFromFeedback(
   userId:    string,
@@ -118,7 +118,7 @@ export async function persistMistakesFromFeedback(
   }
 }
 
-// ── Build memory context string for AI prompt ─────────────────────
+// Build memory context string for AI prompt
 
 export async function getUserMemoryContext(
   userId: string,
@@ -146,7 +146,7 @@ export async function getUserMemoryContext(
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────
+// Helpers
 
 function normalizeDescription(raw: string): string {
   return raw

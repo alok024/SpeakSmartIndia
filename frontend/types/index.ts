@@ -1,4 +1,4 @@
-// ── Core domain types — mirror backend exactly ────────────────────
+// Core domain types — mirror backend exactly
 
 export type Plan = 'free' | 'pro' | 'elite';
 export type SessionMode = 'classic' | 'chat';
@@ -120,7 +120,7 @@ export interface ReferralData {
   bonus_calls: number;
 }
 
-// ── API response wrapper ──────────────────────────────────────────
+// API response wrapper
 
 export interface ApiOk<T> {
   ok: true;
@@ -138,7 +138,7 @@ export interface ApiErr {
 
 export type ApiResult<T> = ApiOk<T> | ApiErr;
 
-// ── Interview session state (live, not persisted) ─────────────────
+// Interview session state (live, not persisted)
 
 export interface LiveSessionConfig {
   profession: string;
@@ -167,7 +167,7 @@ export interface LiveSessionState {
   voiceReplies: boolean;
 }
 
-// ── Onboarding ────────────────────────────────────────────────────
+// Onboarding
 
 export interface OnboardingState {
   done: boolean;
@@ -175,7 +175,7 @@ export interface OnboardingState {
   goal?: string;
 }
 
-// ── Upgrade modal ─────────────────────────────────────────────────
+// Upgrade modal
 
 export type UpgradeTrigger =
   | 'limit_hit'

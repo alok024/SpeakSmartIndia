@@ -6,7 +6,7 @@
  * Zustand auth store.
  *
  * Tokens are NOT stored here (or anywhere in JS) — the backend sets
- * them as httpOnly cookies (ss_at / ss_rt) on login/register/refresh,
+ * them as httpOnly cookies (vachix_at / vachix_rt) on login/register/refresh,
  * which JS can never read. This store only caches the `user` object so
  * the UI has something to render immediately on load (avoids a flash
  * of "logged out" while /me is in flight). The actual auth gate lives
@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthState>()(
       },
     }),
     {
-      name: 'ss-auth',
+      name: 'vachix-auth',
       partialize: (state) => ({ user: state.user }),
     }
   )

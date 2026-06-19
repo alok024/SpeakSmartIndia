@@ -26,7 +26,7 @@ function ElaraAvatar({ size = 28 }: { size?: number }) {
   return (
     <div
       className="flex-shrink-0 rounded-full flex items-center justify-center font-bold text-white"
-      style={{ width: size, height: size, fontSize: size * 0.4, background: 'linear-gradient(135deg,var(--violet),var(--gold))' }}
+      style={{ width: size, height: size, fontSize: size * 0.4, background: 'var(--blue)' }}
     >
       E
     </div>
@@ -111,7 +111,7 @@ export default function EnglishPage() {
           style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
         >
           {[
-            { label: 'Grammar',    val: avgGrammar, color: 'var(--emerald)' },
+            { label: 'Grammar',    val: avgGrammar, color: 'var(--success)' },
             { label: 'Fluency',    val: avgFluency, color: 'var(--accent)' },
             { label: 'Vocabulary', val: avgVocab,   color: 'var(--warn)' },
           ].map((s) => (

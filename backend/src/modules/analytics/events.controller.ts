@@ -4,7 +4,7 @@ import { ok, badRequest } from '../../core/utils/response';
 import { trackEvent, getFunnelSummary, getRecentEvents, STANDARD_FUNNEL_EVENTS } from './events.service';
 import { AnalyticsEventBatchDTO, AdminEventQuerySchema } from '../../core/utils/schemas';
 
-// ── POST /api/events ────────────────────────────────────────────────
+// POST /api/events
 // Public ingestion endpoint (auth optional — works for logged-out funnels).
 // Body: { events: [{ event, session_id?, path?, properties? }, ...] }
 export const ingestEvents = asyncHandler(async (req: Request, res: Response) => {
@@ -25,7 +25,7 @@ export const ingestEvents = asyncHandler(async (req: Request, res: Response) => 
   ok(res, { accepted: events.length });
 });
 
-// ── GET /api/admin/analytics/funnel?since=ISO&events=a,b,c ───────────
+// GET /api/admin/analytics/funnel?since=ISO&events=a,b,c
 // Admin-only. Returns event counts in the given window.
 export const getFunnel = asyncHandler(async (req: Request, res: Response) => {
   const sinceParam    = req.query.since as string | undefined;
@@ -42,7 +42,7 @@ export const getFunnel = asyncHandler(async (req: Request, res: Response) => {
   ok(res, funnelSummary);
 });
 
-// ── GET /api/admin/analytics/events?limit=&event=&user_id= ───────────
+// GET /api/admin/analytics/events?limit=&event=&user_id=
 // Admin-only. Raw recent event stream for debugging / drill-down.
 export const getEvents = asyncHandler(async (req: Request, res: Response) => {
   const parsed = AdminEventQuerySchema.safeParse(req.query);

@@ -104,7 +104,7 @@ function InterviewSummaryPageInner() {
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Avg Score',   value: `${avgScore}/10`, color: 'var(--emerald)' },
+          { label: 'Avg Score',   value: `${avgScore}/10`, color: 'var(--success)' },
           { label: 'Errors Found', value: String(totalErrors), color: 'var(--error)' },
           { label: 'Questions',   value: String(totalQ),   color: 'var(--accent)' },
         ].map((s) => (

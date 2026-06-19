@@ -9,23 +9,42 @@
  */
 import type { ApiResult } from '@/types';
 
-export const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL ||
-  'https://vachix-production.up.railway.app';
+// M13: previously fell straight through to the production Railway URL
+// whenever NEXT_PUBLIC_BACKEND_URL was unset, so a developer who forgot
+// to add it to .env.local would have their local frontend silently hit
+// production — corrupting prod analytics events, test sessions, etc.,
+// with no error to indicate why. Fail loudly in development instead;
+// production/preview builds still get the documented fallback so a
+// missing env var there doesn't take the whole app down.
+function resolveBackendUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (configured) return configured;
+
+  if (process.env.NODE_ENV === 'development') {
+    throw new Error(
+      'NEXT_PUBLIC_BACKEND_URL is not set. Add it to .env.local — ' +
+      'without it, local development would silently hit the production backend.'
+    );
+  }
+
+  return 'https://vachix-production.up.railway.app';
+}
+
+export const BACKEND_URL = resolveBackendUrl();
 
 // Free-tier AI call limit is defined server-side in env.ts (PLAN_LIMITS.free.ai_calls)
 // and returned per-user via usage.limit in the /me response.
 // Do not add a hardcoded limit here — use the server value from the auth store.
 
-// ── Auth ───────────────────────────────────────────────────────────
-// Tokens live in httpOnly cookies (ss_at / ss_rt) set by the backend.
+// Auth
+// Tokens live in httpOnly cookies (vachix_at / vachix_rt) set by the backend.
 // JS never reads or writes them — XSS can't exfiltrate a session.
 // All requests go through Next.js's /api/* rewrite (next.config.ts),
 // which proxies to BACKEND_URL. From the browser's point of view this
 // is same-origin, so the cookies set by the backend land on *this*
 // domain and are sent automatically with `credentials: 'include'`.
 
-// ── Core fetch wrapper (with auto-refresh on 401) ─────────────────
+// Core fetch wrapper (with auto-refresh on 401)
 
 let _refreshPromise: Promise<boolean> | null = null;
 let _lastRefreshAt = 0;
@@ -54,7 +73,7 @@ export async function apiCall<T = unknown>(
     let data: unknown;
     try { data = await res.json(); } catch { data = {}; }
 
-    // ── Silent token refresh on 401 ───────────────────────────────
+    // Silent token refresh on 401
     if (res.status === 401 && _retry) {
       const now = Date.now();
       const cooldownActive = now - _lastRefreshAt < REFRESH_COOLDOWN_MS;
@@ -82,9 +101,12 @@ export async function apiCall<T = unknown>(
         return apiCall<T>(endpoint, method, body, false);
       }
 
-      // Refresh failed — redirect to login.
+      // Refresh failed — redirect to login, preserving where the user was
+      // so they land back there after re-authenticating instead of being
+      // dumped at /dashboard.
       if (typeof window !== 'undefined') {
-        window.location.href = '/login';
+        const next = encodeURIComponent(window.location.pathname + window.location.search);
+        window.location.href = `/login?next=${next}`;
       }
       return {
         ok: false,
@@ -115,12 +137,12 @@ export async function apiCall<T = unknown>(
   }
 }
 
-// ── Refresh — exchanges the httpOnly refresh cookie for a new access
-// cookie. The backend reads ss_rt and sets fresh ss_at/ss_rt cookies on
+// Refresh — exchanges the httpOnly refresh cookie for a new access
+// cookie. The backend reads vachix_rt and sets fresh vachix_at/vachix_rt cookies on
 // the response. Goes through the Next.js /api rewrite (same-origin),
 // which means the Set-Cookie headers DO land on the browser correctly —
 // unlike middleware's server-side fetch which goes through the rewrite
-// proxy and has Set-Cookie stripped. ─────────────────────────────────
+// proxy and has Set-Cookie stripped.
 async function refreshSession(): Promise<boolean> {
   try {
     const res = await fetch('/api/refresh-token', {
@@ -133,7 +155,7 @@ async function refreshSession(): Promise<boolean> {
   }
 }
 
-// ── Error message extraction ──────────────────────────────────────
+// Error message extraction
 //
 // L4: error envelopes from the backend may include `request_id` — the
 // same correlation ID logged server-side and sent as the X-Request-Id

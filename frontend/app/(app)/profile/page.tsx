@@ -135,7 +135,7 @@ function ProfilePageInner() {
         <div className="flex items-center gap-4">
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold"
-            style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' }}
+            style={{ background: 'var(--blue)', color: '#fff' }}
           >
             {(user?.name?.[0] ?? user?.email?.[0] ?? '?').toUpperCase()}
           </div>
@@ -156,7 +156,7 @@ function ProfilePageInner() {
               {[
                 { value: stats.streak, sub: 'Day streak 🔥', color: 'var(--warn)' },
                 { value: stats.sessions, sub: 'Sessions', color: 'var(--accent)' },
-                { value: `${stats.best_score ?? '—'}/10`, sub: 'Best score', color: 'var(--emerald)' },
+                { value: `${stats.best_score ?? '—'}/10`, sub: 'Best score', color: 'var(--success)' },
               ].map((s, i) => (
                 <div key={i}>
                   <div className="text-2xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</div>
@@ -192,7 +192,7 @@ function ProfilePageInner() {
 
       {/* Upgrade CTA */}
       {isFree && (
-        <Card className="p-5" style={{ borderColor: 'var(--violet-border)' }}>
+        <Card className="p-5" style={{ borderColor: 'var(--blue-border)' }}>
           <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-1)' }}>🚀 Unlock unlimited practice</div>
           <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
             Pro gives you unlimited AI sessions, full session history, advanced analytics, and HD voice.
@@ -221,7 +221,7 @@ function ProfilePageInner() {
               .concat(user?.plan === 'elite' ? ['Priority AI response speed'] : [])
               .map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <span style={{ color: 'var(--emerald)' }}>✓</span> {f}
+                  <span style={{ color: 'var(--success)' }}>✓</span> {f}
                 </li>
               ))}
           </ul>

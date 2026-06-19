@@ -52,8 +52,8 @@ function LogoMark({ size = 28 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-hidden="true">
       <defs>
         <linearGradient id="ssLogoGrad" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="var(--violet)" />
-          <stop offset="1" stopColor="var(--gold)" />
+          <stop offset="0" stopColor="var(--accent)" />
+          <stop offset="1" stopColor="var(--warn)" />
         </linearGradient>
       </defs>
       <path
@@ -95,7 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen" style={{ background: 'var(--bg-app)' }}>
 
-      {/* ── Desktop Sidebar ──────────────────────────────────── */}
+      {/* Desktop Sidebar */}
       <aside
         className={cn(
           'fixed inset-y-0 left-0 z-50 w-56 flex flex-col',
@@ -105,7 +105,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
       >
-        {/* Logo — FIXED: was "SpeakSmart", now "Vachix" */}
+        {/* Logo */}
         <Link
           href="/dashboard"
           onClick={closeSidebar}
@@ -157,7 +157,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {item.badge && (
                     <span
                       className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                      style={{ background: 'var(--emerald-dim)', color: 'var(--emerald)', border: '1px solid var(--emerald-border)' }}
+                      style={{ background: 'var(--success-dim)', color: 'var(--success)', border: '1px solid var(--success-border)' }}
                     >
                       {item.badge}
                     </span>
@@ -187,7 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg,var(--violet),var(--gold))', color: '#fff' }}
+              style={{ background: 'var(--blue)', color: '#fff' }}
             >
               {avatar}
             </div>
@@ -207,7 +207,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* ── Main ─────────────────────────────────────────────── */}
+      {/* Main */}
       {/* FIXED: pb-16 on mobile so content isn't hidden behind bottom nav */}
       <div className={cn(
         'flex-1 flex flex-col min-h-screen lg:pl-56',
@@ -215,8 +215,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}>
         {/* Ambient background */}
         <div className="app-ambient lg:left-56">
-          <div className="app-orb app-orb-violet" />
-          <div className="app-orb app-orb-gold" />
+          <div className="app-orb app-orb-1" />
+          <div className="app-orb app-orb-2" />
           <div className="app-grid" />
         </div>
 
@@ -242,8 +242,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1">
-            <IconBtn onClick={toggleTheme} title="Toggle theme" aria-label="Toggle theme">
-              {isDark ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            <IconBtn onClick={toggleTheme} title="Toggle theme" aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {isDark
+                ? <Sun className="w-4 h-4 transition-transform duration-300" />
+                : <Moon className="w-4 h-4 transition-transform duration-300" />}
             </IconBtn>
             <IconBtn onClick={handleLogout} title="Sign out" aria-label="Sign out">
               <LogOut className="w-3.5 h-3.5" />
@@ -256,7 +258,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* ── Mobile Bottom Navigation ─────────────────────────── */}
+      {/* Mobile Bottom Navigation */}
       {/* ADDED: replaces the invisible hamburger-only nav for mobile users */}
       {!isSessionPage && (
         <nav
@@ -296,7 +298,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {item.badge && (
                     <span
                       className="absolute top-1.5 right-[calc(50%-18px)] text-[8px] font-bold px-1 rounded"
-                      style={{ background: 'var(--emerald)', color: '#000' }}
+                      style={{ background: 'var(--success)', color: '#000' }}
                     >
                       {item.badge}
                     </span>

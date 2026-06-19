@@ -11,7 +11,7 @@ import { analyticsApi } from '../api';
 import { useAuthStore } from '@/store/auth';
 import { QK } from '@/lib/query-keys';
 
-// ── Sessions list (history page) ───────────────────────────────────
+// Sessions list (history page)
 export function useSessions() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 
@@ -27,7 +27,7 @@ export function useSessions() {
   });
 }
 
-// ── Score history (dashboard chart) ─────────────────────────────────
+// Score history (dashboard chart)
 export function useScoreHistory(limit = 20) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
 

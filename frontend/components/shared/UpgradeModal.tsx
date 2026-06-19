@@ -22,7 +22,7 @@ interface RazorpayOptions {
   theme: { color: string };
   config?: {
     display: {
-      blocks: Record<string, { name: string; instruments: { method: string }[] }>;
+      blocks: Record<string, { name: string; instruments: { method: string; flows?: string[] }[] }>;
       sequence: string[];
       preferences: { show_default_blocks: boolean };
     };
@@ -151,7 +151,7 @@ export function UpgradeModal() {
           {upgradeTrigger && REASON_MSGS[upgradeTrigger] && (
             <p
               className="text-sm rounded-xl px-3 py-2"
-              style={{ color: 'var(--violet)', background: 'var(--violet-dim)', border: '1px solid var(--violet-border)' }}
+              style={{ color: 'var(--accent)', background: 'var(--blue-dim)', border: '1px solid var(--blue-border)' }}
             >
               {REASON_MSGS[upgradeTrigger]}
             </p>
@@ -169,7 +169,7 @@ export function UpgradeModal() {
               className="flex items-center gap-3 text-sm rounded-xl px-3 py-2.5"
               style={{ background: 'var(--surface-2)', color: 'var(--text-2)' }}
             >
-              <f.icon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--emerald)' }} />
+              <f.icon className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--success)' }} />
               {f.label}
             </div>
           ))}

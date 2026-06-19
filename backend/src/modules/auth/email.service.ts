@@ -45,7 +45,7 @@ async function sendEmail(opts: {
   }
 }
 
-// ── Verification email ─────────────────────────────────────────────
+// Verification email
 
 export async function sendVerificationEmail(to: string, rawToken: string): Promise<void> {
   const verifyUrl = `${env.FRONTEND_URL}/verify-email?token=${rawToken}`;
@@ -86,7 +86,7 @@ export async function sendVerificationEmail(to: string, rawToken: string): Promi
   });
 }
 
-// ── B2B Lead emails ────────────────────────────────────────────────
+// B2B Lead emails
 // Two sends per new lead:
 //   1. Internal alert  → LEAD_NOTIFY_EMAIL (team sees it in < 1 min)
 //   2. Confirmation    → lead's own email  (sets expectation, builds trust)
@@ -111,7 +111,7 @@ export async function sendLeadEmails(lead: LeadEmailPayload): Promise<void> {
     .map(s => s.trim())
     .filter(Boolean);
 
-  // ── 1. Internal notification ──────────────────────────────────────
+  // 1. Internal notification
   if (notifyTargets.length > 0) {
     const internalHtml = `
       <h2 style="margin-top:0;font-size:18px;">🔔 New B2B Demo Request</h2>
@@ -151,7 +151,7 @@ export async function sendLeadEmails(lead: LeadEmailPayload): Promise<void> {
     );
   }
 
-  // ── 2. Confirmation to the lead ────────────────────────────────────
+  // 2. Confirmation to the lead
   const confirmHtml = `
     <p>Hi ${escHtml(name)},</p>
     <p>Thanks for your interest in Vachix for <strong>${escHtml(org)}</strong>! We've received your demo request and will be in touch within one business day.</p>
@@ -181,7 +181,7 @@ export async function sendLeadEmails(lead: LeadEmailPayload): Promise<void> {
   );
 }
 
-// ── B2B Lead 24h follow-up ─────────────────────────────────────────
+// B2B Lead 24h follow-up
 // Sent ~24h after the initial confirmation, only if the lead is still
 // in "new" status (i.e. the team hasn't manually followed up yet).
 // Dispatched via BullMQ — see dispatchLeadFollowUp / worker.ts.
@@ -216,12 +216,12 @@ export async function sendLeadFollowUpEmail(lead: LeadEmailPayload): Promise<voi
   });
 }
 
-// ── Tiny HTML-escape helper (internal use only) ──────────────────────
+// Tiny HTML-escape helper (internal use only)
 function escHtml(s: string | undefined): string {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Password reset email ───────────────────────────────────────────
+// Password reset email
 
 export async function sendPasswordResetEmail(to: string, resetLink: string): Promise<void> {
   const html = `

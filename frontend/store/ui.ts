@@ -4,11 +4,8 @@
  * store/ui.ts
  *
  * Zustand UI store — theme, sidebar, upgrade modal, toasts.
- *
- * Moved here from components/ui/index.ts so that `@/store/ui` (already
- * the import path used by AppShell, ProtectedRoute, ToastStack,
- * UpgradeModal, providers.tsx, and every (app) page) resolves correctly
- * and UI state lives alongside the other Zustand stores in `store/`.
+ * Single source of truth for dark/light mode: persisted under 'vachix-ui'.
+ * The DOM data-theme attribute is synced here directly — no second localStorage key.
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -16,8 +13,6 @@ import type { UpgradeTrigger } from '@/types';
 
 interface Toast {
   id: string;
-  // C2: Renamed from `html` to `message` — rendered as a plain React text node,
-  // not via dangerouslySetInnerHTML, so no XSS risk if dynamic values are ever passed.
   message: string;
   className?: string;
   duration?: number;
@@ -27,6 +22,7 @@ interface UIStore {
   // Theme
   isDark: boolean;
   toggleTheme: () => void;
+  setTheme: (dark: boolean) => void;
 
   // Sidebar
   sidebarOpen: boolean;
@@ -45,20 +41,26 @@ interface UIStore {
   removeToast: (id: string) => void;
 }
 
+function applyThemeToDom(dark: boolean) {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  }
+}
+
 export const useUIStore = create<UIStore>()(
   persist(
     (set, get) => ({
       isDark: true,
+
       toggleTheme: () => {
         const next = !get().isDark;
         set({ isDark: next });
-        // Sync with the same key the landing page reads so theme carries over
-        // the moment the user crosses from the marketing site into the app.
-        if (typeof window !== 'undefined') {
-          const theme = next ? 'dark' : 'light';
-          document.documentElement.setAttribute('data-theme', theme);
-          localStorage.setItem('ssi-theme', theme);
-        }
+        applyThemeToDom(next);
+      },
+
+      setTheme: (dark: boolean) => {
+        set({ isDark: dark });
+        applyThemeToDom(dark);
       },
 
       sidebarOpen: false,
@@ -87,8 +89,14 @@ export const useUIStore = create<UIStore>()(
         set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
     }),
     {
-      name: 'ss-ui',
+      name: 'vachix-ui',
       partialize: (state) => ({ isDark: state.isDark }),
+      // Sync DOM the instant Zustand finishes reading from localStorage.
+      // This closes the gap between the blocking script's initial guess
+      // and the actual persisted value (e.g. a first-time visitor on light OS).
+      onRehydrateStorage: () => (state) => {
+        if (state) applyThemeToDom(state.isDark);
+      },
     }
   )
 );

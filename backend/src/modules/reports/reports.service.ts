@@ -2,10 +2,17 @@
  * Reports Service — Shareable session reports
  *
  * /report/:shareToken  → public read-only page (no auth required).
- * The share token is a URL-safe base64 encoding of the session UUID.
- * No extra DB table needed — the session ID IS the identifier.
+ *
+ * H3: the share token is an HMAC-SHA256-signed reference to the session
+ * UUID, not a bare reversible encoding. Format: `<base64url id>.<base64url mac>`
+ * where mac = HMAC-SHA256(REPORT_SECRET, id), truncated to 16 bytes
+ * (128 bits — far beyond brute-force range) and compared in constant time.
+ * This prevents anyone from forging a working share link for a session
+ * they don't already hold a token for, even if they know or guess the
+ * session's UUID (e.g. from logs, sequential IDs, or another leak).
  */
 
+import crypto from 'crypto';
 import { env } from '../../core/config/env';
 import { db } from '../../core/database/client';
 import { getWeakAreasForUser, WeakAreaEntry } from '../analytics/weak_areas.service';
@@ -23,33 +30,60 @@ const log = logger.child({ module: 'reports' });
 const REPORT_CACHE_PREFIX = 'report:cache';
 const REPORT_CACHE_TTL_S  = 300; // 5 min
 
-// ── Token encode/decode ───────────────────────────────────────────
+// Token encode/decode (H3: HMAC-signed)
+
+const MAC_BYTES = 16; // 128-bit truncated HMAC — ample collision resistance
+
+function b64url(buf: Buffer): string {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64urlToBuffer(input: string): Buffer {
+  const padded = input.replace(/-/g, '+').replace(/_/g, '/');
+  const pad    = (4 - (padded.length % 4)) % 4;
+  return Buffer.from(padded + '='.repeat(pad), 'base64');
+}
+
+function signSessionId(sessionId: string): Buffer {
+  return crypto
+    .createHmac('sha256', env.REPORT_SECRET)
+    .update(sessionId, 'utf8')
+    .digest()
+    .subarray(0, MAC_BYTES);
+}
 
 export function encodeShareToken(sessionId: string): string {
-  return Buffer.from(sessionId, 'utf8')
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  const idPart  = b64url(Buffer.from(sessionId, 'utf8'));
+  const macPart = b64url(signSessionId(sessionId));
+  return `${idPart}.${macPart}`;
 }
 
 export function decodeShareToken(token: string): string | null {
   try {
-    const padded = token.replace(/-/g, '+').replace(/_/g, '/');
-    const pad    = (4 - (padded.length % 4)) % 4;
-    const b64    = padded + '='.repeat(pad);
-    const result = Buffer.from(b64, 'base64').toString('utf8');
-    // Validate it looks like a UUID
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(result)) {
+    const dotIndex = token.lastIndexOf('.');
+    if (dotIndex < 0) return null; // old unsigned-format tokens are rejected by design
+
+    const idPart  = token.slice(0, dotIndex);
+    const macPart = token.slice(dotIndex + 1);
+    if (!idPart || !macPart) return null;
+
+    const sessionId = b64urlToBuffer(idPart).toString('utf8');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(sessionId)) {
       return null;
     }
-    return result;
+
+    const expectedMac = signSessionId(sessionId);
+    const givenMac     = b64urlToBuffer(macPart);
+    if (givenMac.length !== expectedMac.length) return null;
+    if (!crypto.timingSafeEqual(givenMac, expectedMac)) return null;
+
+    return sessionId;
   } catch {
     return null;
   }
 }
 
-// ── Public report shape ───────────────────────────────────────────
+// Public report shape
 
 export interface PublicReport {
   share_token: string;
@@ -92,7 +126,7 @@ function safeJson<T>(val: unknown, fallback: T): T {
   }
 }
 
-// ── Fetch session without user_id restriction (public access) ─────
+// Fetch session without user_id restriction (public access)
 
 async function fetchSessionById(sessionId: string) {
   const url = `${env.SUPABASE_URL}/rest/v1/sessions?id=eq.${sessionId}&select=*`;
@@ -113,7 +147,7 @@ async function fetchSessionById(sessionId: string) {
   return rows[0] ?? null;
 }
 
-// ── Main export ───────────────────────────────────────────────────
+// Main export
 
 export async function getPublicReport(shareToken: string): Promise<PublicReport | null> {
   const sessionId = decodeShareToken(shareToken);

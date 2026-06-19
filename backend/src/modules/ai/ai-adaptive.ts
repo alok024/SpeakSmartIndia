@@ -12,7 +12,7 @@
  * This module computes a BehaviorProfile from user stats and returns
  * a prompt injection that personalises Aria's coaching style.
  *
- * ── Adaptation dimensions ─────────────────────────────────────────
+ * Adaptation dimensions
  *
  *  1. DEPTH (based on session count)
  *     < 5 sessions  → Beginner mode: simple language, more encouragement
@@ -32,7 +32,7 @@
  *     streak ≥ 7  → celebrate consistency, add a challenge goal
  *     streak = 0  → gentle re-engagement, "welcome back" energy
  *
- * ── Usage ─────────────────────────────────────────────────────────
+ * Usage
  *   import { getAdaptiveBehaviorContext } from './ai-adaptive';
  *
  *   // In ai.controller.ts, alongside memory + weak-area context:
@@ -47,7 +47,7 @@ import { logger } from '../../infra/logger';
 
 const log = logger.child({ module: 'ai-adaptive' });
 
-// ── Input types ───────────────────────────────────────────────────
+// Input types
 
 export interface UserStats {
   sessions:        number;
@@ -61,7 +61,7 @@ export interface UserStats {
   recent_scores?:  number[];   // last 5, oldest first
 }
 
-// ── Dimension helpers ─────────────────────────────────────────────
+// Dimension helpers
 
 type DepthLevel    = 'beginner' | 'intermediate' | 'advanced';
 type Trajectory    = 'improving' | 'plateauing' | 'declining';
@@ -99,7 +99,7 @@ function computeWeakDimension(stats: UserStats): WeakDimension {
   return score < 6 ? weakest : 'none'; // only flag if genuinely weak
 }
 
-// ── Prompt fragments per dimension ────────────────────────────────
+// Prompt fragments per dimension
 
 const DEPTH_PROMPT: Record<DepthLevel, string> = {
   beginner: `
@@ -152,7 +152,7 @@ function streakPrompt(streak: number): string {
   return '';
 }
 
-// ── Main export ───────────────────────────────────────────────────
+// Main export
 
 export interface BehaviorProfile {
   depth:      DepthLevel;
@@ -169,7 +169,7 @@ export interface BehaviorProfile {
   };
 }
 
-// ── Human-readable label maps (for frontend display) ─────────────
+// Human-readable label maps (for frontend display)
 
 const DEPTH_LABEL: Record<DepthLevel, string> = {
   beginner:     'Beginner coaching',

@@ -40,7 +40,7 @@ export const createSession = asyncHandler(async (req: Request, res: Response) =>
     feedbacks: feedbacks as Parameters<typeof saveSession>[0]['feedbacks'],
   });
 
-  // ── Monetization trigger ────────────────────────────────────────────
+  // Monetization trigger
   // post_session is the free-user fallback: every completed session is a
   // high-intent moment. If a stronger signal (high_score, streak_milestone)
   // already fired from the service, we keep that and don't downgrade it.
@@ -66,7 +66,7 @@ export const createSession = asyncHandler(async (req: Request, res: Response) =>
     });
   }
 
-  // ── Referral invite nudge ────────────────────────────────────────
+  // Referral invite nudge
   // Session 1: user just proved the product works → prime invite moment.
   // Session 3: habit is forming → second best invite moment.
   // Non-fatal: if referral fetch fails, session response still sends.

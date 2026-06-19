@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
         <div className="text-center mb-8">
           <div className="text-4xl mb-3">🎙️</div>
           <h1 className="text-2xl font-bold" style={{ color: 'var(--text-1)' }}>
-            Speak<span style={{ color: 'var(--accent)' }}>Smart</span>
+            Vachix
           </h1>
         </div>
 

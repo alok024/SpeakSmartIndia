@@ -8,7 +8,7 @@
  *   4. Sentry user context set on each request
  *   5. Metrics counter for burst rejections
  *
- * H4 fix: buildPromptContext + BASE_SYSTEM_PROMPT + PromptContext moved to
+ * Fix (H4): buildPromptContext + BASE_SYSTEM_PROMPT + PromptContext moved to
  * ai.prompt-service.ts so this file only handles HTTP concerns.
  */
 
@@ -29,7 +29,7 @@ import { sanitiseTopic }           from '../../core/utils';
 
 // AI errors from ai.service.ts are typed as AIUnavailableError (imported above).
 
-// ── POST /api/ai ──────────────────────────────────────────────────
+// POST /api/ai
 
 export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   // L3: AI responses are user-specific and must never be cached at the
@@ -40,7 +40,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   const user      = req.user!;
   const callCount  = req.callCount ?? 0;
   const plan       = user.plan as PlanType;
-  // FIX H7: Use req.resolvedLimit (set by checkUsageLimit from the DB) instead of
+  // Fix (H7): Use req.resolvedLimit (set by checkUsageLimit from the DB) instead of
   // PLAN_LIMITS[user.plan]. The JWT plan is stale immediately after an upgrade —
   // users who just paid would still see their old free-tier "remaining" count.
   const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
@@ -53,7 +53,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   // Tag this user in Sentry for any subsequent errors
   setSentryUser(user.id, plan);
 
-  // ── 1. System load gate (RPM cap — all users) ─────────────────
+  // 1. System load gate (RPM cap — all users)
   const load = checkSystemLoad();
   if (load.overloaded) {
     res.setHeader('Retry-After', '30');
@@ -65,7 +65,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // ── 2. Per-user burst check ────────────────────────────────────
+  // 2. Per-user burst check
   const burst = await checkBurstLimit(user.id, plan);
   if (!burst.allowed) {
     increment('ai.burst.rejected');
@@ -77,8 +77,8 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // ── 3. Build system prompt ─────────────────────────────────────
-  // FIX I8: pass the resolved response-token budget through so the
+  // 3. Build system prompt
+  // Fix (I8): pass the resolved response-token budget through so the
   // sliding-window trimmer can reserve room for it (default mirrors
   // callAI/streamAI's own default of 1024).
   const maxResponseTokens = req.body.max_tokens ?? 1024;
@@ -91,7 +91,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   );
   const hasPersonalisation = plan !== 'free';
 
-  // ── 4. Call AI ─────────────────────────────────────────────────
+  // 4. Call AI
   let text: string;
   let provider: string;
   let cached: boolean | undefined;
@@ -121,13 +121,15 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // FIX (session-counted, not message-counted): usage is now incremented once
-  // per *completed interview session* (sessions.service.ts, on save), not once
-  // per AI message exchange. A single session fires many AI calls (greeting,
-  // each question, each answer's feedback, follow-ups, etc.) — counting every
-  // one of those against the 7-free-sessions quota was blocking free users
-  // partway through their very first session instead of after their 7th.
-  // isFreeCall/incrementAIUsage are intentionally no longer called here.
+  // Fix (C2): Usage is incremented once per completed session in
+  // sessions.service.ts (on save), not per AI message. Individual AI calls
+  // within a session — including /free helper calls (hints, grammar checks,
+  // drill tips) — do not touch the usage counter here.
+  //
+  // The /free route bypasses checkUsageLimit entirely (see ai.routes.ts) so
+  // users who have reached their session quota can still get in-session hints
+  // without hitting a 403. The /practice and /stream routes still gate on
+  // checkUsageLimit to block new session starts when quota is exhausted.
 
   aiLogger.debug('AI call completed', {
     userId:     user.id,
@@ -156,7 +158,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   });
 });
 
-// ── POST /api/ai/stream — real-time SSE token streaming ──────────
+// POST /api/ai/stream — real-time SSE token streaming
 //
 // Same auth/limit/personalisation pipeline as /api/ai, but the model's
 // response is streamed to the client token-by-token over
@@ -172,7 +174,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
   const user      = req.user!;
   const callCount  = req.callCount ?? 0;
   const plan       = user.plan as PlanType;
-  // FIX H7: Same as handleAI — use DB-authoritative limit, not stale JWT plan.
+  // Fix (H7): Same as handleAI — use DB-authoritative limit, not stale JWT plan.
   const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
 
   const topic = sanitiseTopic(
@@ -182,7 +184,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
 
   setSentryUser(user.id, plan);
 
-  // ── SSE headers — sent immediately so the client connection opens ─
+  // SSE headers — sent immediately so the client connection opens
   res.setHeader('Content-Type', 'text/event-stream');
   // L3: AI responses are user-specific — no-store ensures no
   // CDN/proxy ever caches this stream regardless of method/config.
@@ -198,7 +200,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
     res.flush?.();
   };
 
-  // ── 1. System load gate ────────────────────────────────────────
+  // 1. System load gate
   const load = checkSystemLoad();
   if (load.overloaded) {
     sendEvent('error', {
@@ -209,7 +211,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
     res.end(); return;
   }
 
-  // ── 2. Per-user burst check ────────────────────────────────────
+  // 2. Per-user burst check
   const burst = await checkBurstLimit(user.id, plan);
   if (!burst.allowed) {
     increment('ai.burst.rejected');
@@ -221,8 +223,8 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
     res.end(); return;
   }
 
-  // ── 3. Build system prompt (same personalisation pipeline as /api/ai) ──
-  // FIX I8: see handleAI — reserve room for the response in the token budget.
+  // 3. Build system prompt (same personalisation pipeline as /api/ai)
+  // Fix (I8): see handleAI — reserve room for the response in the token budget.
   const maxResponseTokens = req.body.max_tokens ?? 1024;
   const { messages, adaptiveProfile, cacheable, personalised, personaKey } = await buildPromptContext(
     user.id,
@@ -241,7 +243,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
   req.on('close', () => { clientGone = true; });
 
   try {
-    // ── 4a. Cache hit — replay instantly as a fast simulated stream ──
+    // 4a. Cache hit — replay instantly as a fast simulated stream
     if (cacheable) {
       const cached = await getCachedAIResponse(messages, cacheCtx);
       if (cached) {
@@ -265,7 +267,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
       }
     }
 
-    // ── 4b. Live stream from provider, token-by-token ────────────────
+    // 4b. Live stream from provider, token-by-token
     const { provider, fullText } = await streamAI(
       messages,
       (chunk) => { if (!clientGone) sendEvent('token', { text: chunk }); },

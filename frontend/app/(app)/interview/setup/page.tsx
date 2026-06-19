@@ -219,7 +219,7 @@ function InterviewSetupPageInner() {
               Interview Language{' '}
               <span
                 className="ml-2 text-[9px] rounded px-1.5 py-0.5 normal-case tracking-normal"
-                style={{ background: 'var(--violet-dim)', color: 'var(--violet)', border: '1px solid var(--violet-border)' }}
+                style={{ background: 'var(--blue-dim)', color: 'var(--accent)', border: '1px solid var(--blue-border)' }}
               >
                 UNIQUE IN INDIA
               </span>
