@@ -52,7 +52,7 @@ const PREFIX = 'ai:cache';
 
 // TTL by call type (seconds)
 
-type CacheType = 'interview' | 'feedback' | 'tip' | 'general';
+export type CacheType = 'interview' | 'feedback' | 'tip' | 'general';
 
 const DEFAULT_TTL: Record<CacheType, number> = {
   interview: 600,   // 10 min
@@ -101,8 +101,13 @@ export interface CacheContext {
   userId?: string;
 }
 
-/** Infer call type from the last user message content */
-function inferType(messages: Array<{ role: string; content: string }>): CacheType {
+/**
+ * Infer call type from the last user message content.
+ * Exported (S3) so ai.controller.ts can reuse the same classification to
+ * cap default max_tokens per call type — one heuristic, two consumers,
+ * instead of a second copy that can drift out of sync with this one.
+ */
+export function inferType(messages: Array<{ role: string; content: string }>): CacheType {
   const lastUser = [...messages].reverse().find(m => m.role === 'user');
   if (!lastUser) return 'general';
   const c = lastUser.content.toLowerCase();

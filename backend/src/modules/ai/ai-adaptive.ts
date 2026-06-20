@@ -101,54 +101,36 @@ function computeWeakDimension(stats: UserStats): WeakDimension {
 
 // Prompt fragments per dimension
 
+// Fix (S2): Compacted from prose paragraphs (~38 tok each) to directive lists
+// (~16 tok each). LLMs parse these equally well — the trimmed words did no
+// semantic work.
 const DEPTH_PROMPT: Record<DepthLevel, string> = {
-  beginner: `
-[COACHING STYLE: BEGINNER]
-This user is new (< 5 sessions). Use simple, encouraging language.
-Avoid overwhelming them with too many corrections at once — pick the TOP 1–2 improvements.
-Always end with specific praise for something they did well.`,
-
-  intermediate: `
-[COACHING STYLE: INTERMEDIATE]
-This user has some experience. Balance encouragement with directness.
-Point out 2–3 specific improvements. Introduce industry-relevant vocabulary where natural.`,
-
-  advanced: `
-[COACHING STYLE: ADVANCED]
-This is an experienced user. Be direct and technical — no need for excessive encouragement.
-Push them: note missed opportunities, suggest stronger phrasing, raise the bar.
-Treat them as a professional preparing for senior/competitive roles.`,
+  beginner:     `\n[STYLE: beginner] Simple language. Max 1-2 corrections. End with specific praise.`,
+  intermediate: `\n[STYLE: intermediate] Balance encouragement + directness. Note 2-3 improvements. Add field vocabulary where natural.`,
+  advanced:     `\n[STYLE: advanced] Direct, technical, no fluff. Push for stronger phrasing. Treat as senior candidate.`,
 };
 
+// Fix (S2): Compacted trajectory prompts.
 const TRAJECTORY_PROMPT: Record<Trajectory, string> = {
-  improving: `
-[TRAJECTORY: IMPROVING]
-The user's scores are trending upward. Reinforce what's working.
-Introduce one harder challenge or stretch goal per session.`,
-
-  plateauing: `
-[TRAJECTORY: PLATEAUING]
-The user's scores have levelled off. Identify the specific blocker holding them back.
-Name it explicitly and focus this session on breaking through it.`,
-
-  declining: `
-[TRAJECTORY: DECLINING]
-The user's recent scores have dipped. Do not pile on — rebuild confidence first.
-Simplify your feedback. Find something to genuinely praise before correcting.`,
+  improving:  `\n[TRAJECTORY: improving] Reinforce what's working. Add one stretch goal this session.`,
+  plateauing: `\n[TRAJECTORY: plateauing] Name the specific blocker. Focus the session on breaking through it.`,
+  declining:  `\n[TRAJECTORY: declining] Don't pile on. Praise first, one correction only. Rebuild confidence.`,
 };
 
+// Fix (S2): Compacted focus prompts.
 const FOCUS_PROMPT: Record<WeakDimension, string> = {
-  grammar:   `\n[FOCUS AREA: GRAMMAR] This user struggles with grammar. In EVERY feedback, highlight one grammar fix with the corrected form.`,
-  structure: `\n[FOCUS AREA: STRUCTURE] This user struggles with answer structure (STAR/PREP). In EVERY feedback, explicitly label whether their answer had a clear opening, body, and conclusion.`,
-  relevance: `\n[FOCUS AREA: RELEVANCE] This user's answers often miss the point of the question. In EVERY feedback, judge whether they directly addressed what was asked.`,
-  clarity:   `\n[FOCUS AREA: CLARITY] This user struggles with clarity. In EVERY feedback, note whether their main point was clear within the first two sentences.`,
+  grammar:   `\n[FOCUS: grammar] Every feedback: one grammar fix with corrected form.`,
+  structure: `\n[FOCUS: structure] Every feedback: label whether answer had clear opening/body/conclusion (STAR).`,
+  relevance: `\n[FOCUS: relevance] Every feedback: judge whether they directly answered what was asked.`,
+  clarity:   `\n[FOCUS: clarity] Every feedback: note if main point was clear within first two sentences.`,
   none:      '',
 };
 
+// Fix (S2): Compacted streak prompts.
 function streakPrompt(streak: number): string {
-  if (streak >= 14) return `\n[ENGAGEMENT: ON FIRE 🔥] ${streak}-day streak. Acknowledge this briefly. Set an ambitious challenge this session.`;
-  if (streak >= 7)  return `\n[ENGAGEMENT: CONSISTENT] ${streak}-day streak. Acknowledge briefly and keep momentum going.`;
-  if (streak === 0) return `\n[ENGAGEMENT: RETURNING USER] The user is returning after a break. Be welcoming, not critical. Start easy.`;
+  if (streak >= 14) return `\n[STREAK: ${streak} days 🔥] Acknowledge briefly. Set an ambitious challenge.`;
+  if (streak >= 7)  return `\n[STREAK: ${streak} days] Acknowledge briefly, keep momentum.`;
+  if (streak === 0) return `\n[RETURNING USER] Welcoming, not critical. Start easy.`;
   return '';
 }
 

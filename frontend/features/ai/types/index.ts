@@ -12,6 +12,15 @@ export interface AIPayload {
   max_tokens?: number;
   topic?:      string;
   free?:       boolean;
+  /**
+   * Fix (S1): when set, the backend reuses the assembled system prompt
+   * (memory + weak-area + adaptive + onboarding context) for every call
+   * sharing this id, instead of rebuilding it from 4 DB reads each time.
+   * Pass the same id for every AI call within one interview/practice
+   * session — e.g. the session's `clientSessionId` — and a fresh one
+   * per new session. Omit for one-off calls with no session concept.
+   */
+  session_id?: string;
 }
 
 /** POST /api/ai success body */

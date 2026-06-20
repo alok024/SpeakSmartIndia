@@ -42,6 +42,11 @@ export default function EnglishPage() {
   const [avgGrammar, setAvgGrammar] = useState<number | null>(null);
   const [avgFluency, setAvgFluency] = useState<number | null>(null);
   const [avgVocab,   setAvgVocab]   = useState<number | null>(null);
+  // Fix (S1): stable per-chat id so the backend can memoize the assembled
+  // system prompt across turns instead of rebuilding it every message.
+  // Regenerated whenever the chat resets (mode switch or explicit Reset),
+  // since a fresh chat is a fresh "session" as far as prompt context goes.
+  const [sessionId,  setSessionId]  = useState<string>(() => crypto.randomUUID());
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -65,13 +70,25 @@ export default function EnglishPage() {
     setLoading(true);
 
     const systemPrompt = getElaraSystemPrompt(mode, topic);
+    // Fix: the backend schema only accepts 'user' | 'assistant' roles —
+    // a 'system' message in the array is rejected at validation (every
+    // call from this page was 400ing). Fold the system prompt into a
+    // leading user turn instead, the same [SYSTEM]: convention the
+    // interview session page's chat mode uses, and resend it every turn
+    // (not just the first) so Elara's mode/topic instructions don't fall
+    // out of context as the conversation grows and older turns get
+    // trimmed by the backend's token-budget trimmer.
+    const priorTurns = messages.slice(-8).map((m) => ({ role: m.role, content: m.content }));
+    const conversationMessages = [
+      { role: 'user' as const, content: `[SYSTEM]: ${systemPrompt}` },
+      ...priorTurns,
+      { role: 'user' as const, content: input.trim() },
+    ];
+
     const res = await aiApi.call({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...messages.slice(-8).map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user', content: input.trim() },
-      ],
+      messages: conversationMessages,
       topic: 'English coaching',
+      session_id: sessionId,
     });
 
     if (res.ok) {
@@ -88,6 +105,8 @@ export default function EnglishPage() {
     setAvgGrammar(null);
     setAvgFluency(null);
     setAvgVocab(null);
+    // New chat = new prompt-memoization session.
+    setSessionId(crypto.randomUUID());
   }
 
   const liveChips = getLiveFeedback(input);

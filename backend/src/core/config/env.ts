@@ -103,6 +103,11 @@ const EnvSchema = z.object({
   AI_CONTEXT_TOKEN_BUDGET: z.coerce.number().int().positive().default(8_000),
   // Optional — per-type TTLs apply when absent.
   AI_CACHE_TTL_SECONDS:    z.coerce.number().int().nonnegative().optional(),
+  // Fix (S1): TTL for the per-session assembled system-prompt cache
+  // (memory + weak-areas + adaptive + onboarding), keyed by session_id.
+  // Sessions rarely run longer than ~20-30 min; default gives headroom
+  // without keeping stale personalisation context around indefinitely.
+  AI_PROMPT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(1800),
   CB_FAILURE_THRESHOLD:    z.coerce.number().int().positive().default(5),
   CB_RESET_TIMEOUT_MS:     z.coerce.number().int().positive().default(60_000),
   REFERRAL_BONUS_CALLS:    z.coerce.number().int().nonnegative().default(10),

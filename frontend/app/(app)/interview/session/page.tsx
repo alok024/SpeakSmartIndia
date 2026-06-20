@@ -243,13 +243,14 @@ function InterviewSessionPageInner() {
   // Classic: load questions
   const generateClassicQuestions = useCallback(async () => {
     // Read fresh state at call time — not from mount-time closure
-    const { config } = useInterviewStore.getState();
+    const { config, session } = useInterviewStore.getState();
     const prompt = buildQuestionPrompt(config);
 
     const res = await aiApi.call({
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 1000,
       topic: config.profession,
+      session_id: session.clientSessionId ?? undefined,
     });
 
     if (!res.ok) {
@@ -288,7 +289,7 @@ function InterviewSessionPageInner() {
 
   // Chat: send opening message
   const startChatSession = useCallback(async () => {
-    const { config } = useInterviewStore.getState();
+    const { config, session } = useInterviewStore.getState();
     const systemPrompt = buildChatSystemPrompt(config);
 
     store.addChatMessage('user', '__start__');
@@ -300,6 +301,7 @@ function InterviewSessionPageInner() {
       ],
       max_tokens: 600,
       topic: config.profession,
+      session_id: session.clientSessionId ?? undefined,
     });
 
     setChatLoading(false);
@@ -408,6 +410,7 @@ function InterviewSessionPageInner() {
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 800,
       topic: config.profession,
+      session_id: session.clientSessionId ?? undefined,
     });
 
     const parsed = res.ok ? parseFeedbackJson(res.data.text) : { score: 5 };
@@ -471,7 +474,12 @@ function InterviewSessionPageInner() {
       { role: 'user' as const, content: userMsg },
     ];
 
-    const res = await aiApi.call({ messages, max_tokens: 700, topic: config.profession });
+    const res = await aiApi.call({
+      messages,
+      max_tokens: 700,
+      topic: config.profession,
+      session_id: session.clientSessionId ?? undefined,
+    });
     setChatLoading(false);
 
     if (!res.ok) {

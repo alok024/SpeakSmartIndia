@@ -73,6 +73,14 @@ export const AIRequestSchema = z.object({
   max_tokens: z.number().int().min(1).max(4096).optional(),
   topic:      z.string().max(200).optional(),
   free:       z.boolean().optional(),   // true = helper call (hint/drill/grammar) — does not count against session limit
+  /**
+   * Fix (S1): Optional session identifier for prompt-context memoization.
+   * When provided, buildPromptContext() caches the assembled system prompt
+   * in Redis for the session's lifetime and reuses it on every subsequent
+   * turn — eliminating 4 DB reads and a full prompt rebuild per message.
+   * Generated client-side at session start (or server-side on first call).
+   */
+  session_id: z.string().max(128).optional(),
 });
 
 // AI feedback output schema (C1)

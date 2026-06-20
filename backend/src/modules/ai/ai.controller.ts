@@ -15,8 +15,8 @@
 import { Request, Response }      from 'express';
 import { asyncHandler }            from '../../core/middleware';
 import { callAI, streamAI, AIMessage } from './ai.service';
-import { getCachedAIResponse, setCachedAIResponse } from '../../infra/ai-cache';
-import { buildPromptContext }      from './ai.prompt-service';
+import { getCachedAIResponse, setCachedAIResponse, inferType, CacheType } from '../../infra/ai-cache';
+import { buildPromptContextCached } from './ai.prompt-service';
 import { env, PLAN_LIMITS, PlanType } from '../../core/config/env';
 import { aiLogger }                from '../../infra/logger';
 import { checkBurstLimit }         from '../../infra/burst-limiter';
@@ -28,6 +28,39 @@ import { AIUnavailableError }      from '../../core/utils/errors';
 import { sanitiseTopic }           from '../../core/utils';
 
 // AI errors from ai.service.ts are typed as AIUnavailableError (imported above).
+
+// Fix (S3): per-call-type response caps, replacing the old flat 1024
+// default for every call. A hint/tip is naturally 1-3 sentences; a full
+// structured feedback response (scores + corrections + model answer JSON)
+// genuinely needs more room. Capping by inferred type doesn't change what
+// the model is allowed to say within its natural length — Groq still
+// produces a complete answer for each type — it just stops a hint call
+// from being told it may ramble on for up to 1024 tokens, which costs
+// output tokens (the pricier side of the bill) for zero UX benefit and
+// slows down streaming for no reason.
+//
+// An explicit req.body.max_tokens from the client always wins — this table
+// only governs the *default* when the client doesn't specify one.
+const RESPONSE_TOKEN_CAP: Record<CacheType, number> = {
+  tip:       150,   // "stuck? get a hint" — should be 1-3 sentences
+  feedback:  600,   // structured JSON feedback with scores + corrections
+  interview: 300,   // next question + brief framing
+  general:   500,
+};
+
+/**
+ * Resolve the max_tokens budget for this call: explicit client value if
+ * given, otherwise the type-appropriate cap inferred from the conversation
+ * (reusing the same inferType() heuristic ai-cache.ts uses for cache-key
+ * bucketing, so "what kind of call is this" is computed identically in
+ * both places). Falls back to 1024 if inference can't classify it, same
+ * as the previous flat default.
+ */
+function resolveMaxResponseTokens(explicit: number | undefined, rawMessages: unknown): number {
+  if (typeof explicit === 'number') return explicit;
+  const msgs = Array.isArray(rawMessages) ? (rawMessages as Array<{ role: string; content: string }>) : [];
+  return RESPONSE_TOKEN_CAP[inferType(msgs)] ?? 1024;
+}
 
 // POST /api/ai
 
@@ -81,13 +114,20 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   // Fix (I8): pass the resolved response-token budget through so the
   // sliding-window trimmer can reserve room for it (default mirrors
   // callAI/streamAI's own default of 1024).
-  const maxResponseTokens = req.body.max_tokens ?? 1024;
-  const { messages, adaptiveProfile, cacheable, personalised, personaKey } = await buildPromptContext(
+  // Fix (S3): cap default max_tokens by inferred call type instead of a
+  // flat 1024 for every call — see resolveMaxResponseTokens below.
+  const maxResponseTokens = resolveMaxResponseTokens(req.body.max_tokens, req.body.messages);
+  // Fix (S1): buildPromptContextCached reuses the assembled system prompt
+  // for the rest of this session (req.body.session_id) instead of re-running
+  // 4 DB reads + a full prompt rebuild on every turn. Falls back to the
+  // identical uncached behaviour when no session_id is supplied.
+  const { messages, adaptiveProfile, cacheable, personalised, personaKey } = await buildPromptContextCached(
     user.id,
     plan,
     topic,
     (req.body.messages as AIMessage[]) || [],
     maxResponseTokens,
+    req.body.session_id as string | undefined,
   );
   const hasPersonalisation = plan !== 'free';
 
@@ -99,7 +139,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   try {
     ({ text, provider, cached } = await callAI(
       messages,
-      req.body.max_tokens,
+      maxResponseTokens,
       {
         cacheable,
         // M2: personalised + userId let the cache layer bucket per-user
@@ -225,13 +265,16 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
 
   // 3. Build system prompt (same personalisation pipeline as /api/ai)
   // Fix (I8): see handleAI — reserve room for the response in the token budget.
-  const maxResponseTokens = req.body.max_tokens ?? 1024;
-  const { messages, adaptiveProfile, cacheable, personalised, personaKey } = await buildPromptContext(
+  // Fix (S3): cap default max_tokens by inferred call type.
+  const maxResponseTokens = resolveMaxResponseTokens(req.body.max_tokens, req.body.messages);
+  // Fix (S1): see handleAI — reuse the cached per-session system prompt.
+  const { messages, adaptiveProfile, cacheable, personalised, personaKey } = await buildPromptContextCached(
     user.id,
     plan,
     topic,
     (req.body.messages as AIMessage[]) || [],
     maxResponseTokens,
+    req.body.session_id as string | undefined,
   );
   const hasPersonalisation = plan !== 'free';
   // M2: personalised + userId let the cache layer bucket per-user with a
@@ -271,7 +314,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
     const { provider, fullText } = await streamAI(
       messages,
       (chunk) => { if (!clientGone) sendEvent('token', { text: chunk }); },
-      req.body.max_tokens,
+      maxResponseTokens,
     );
 
     if (clientGone) { res.end(); return; }

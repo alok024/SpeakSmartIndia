@@ -23,6 +23,7 @@ import { getOnboardingPromptContext, getPersonaBucket } from './onboarding-conte
 import { env }                                        from '../../core/config/env';
 import { aiLogger }                                   from '../../infra/logger';
 import { trimMessagesToTokenBudget }                  from '../../core/utils/tokens';
+import { getRedis }                                   from '../../infra/queue/redis';
 
 // Aria base prompt
 // Single source of truth — imported by the controller, never duplicated.
@@ -134,4 +135,144 @@ export async function buildPromptContext(
   const personaKey    = getPersonaBucket(onboardingData);
 
   return { systemPrompt, messages, adaptiveProfile, cacheable, personalised, personaKey, trimmedCount };
+}
+
+// Session-scoped memoization (Fix S1)
+//
+// buildPromptContext() above does 4 DB reads (memory, weak-areas, stats,
+// onboarding) and rebuilds the system-prompt string from scratch on every
+// call. None of that input data changes mid-session — a session is a single
+// mock-interview run, typically a handful of turns over a few minutes — so
+// repeating it on every turn is pure waste: for an 8-turn session, an Elite
+// user's ~400-800 token personalisation block gets fetched and rebuilt 8
+// times instead of once.
+//
+// buildPromptContextCached() wraps buildPromptContext() with a Redis cache
+// keyed by (userId, sessionId). Only the parts that are genuinely session-
+// invariant are cached — the assembled systemPrompt string and the metadata
+// derived from it (adaptiveProfile, personalised, personaKey). The raw
+// conversation turns (rawMessages) and the token-budget trim are NOT
+// cached: trimming depends on maxResponseTokens and on how long the
+// conversation has grown, both of which legitimately vary turn-to-turn.
+//
+// Falls back to a full buildPromptContext() call — silently, no error
+// surfaced to the caller — whenever:
+//   - no session_id was supplied (older clients / non-session calls)
+//   - Redis is unavailable (env.REDIS_URL unset, or a transient error)
+//   - this is the first turn of the session (no cache entry yet)
+// In every fallback case behaviour is identical to calling
+// buildPromptContext() directly — this function can never produce a worse
+// or different prompt, only a faster one on cache hits.
+
+interface CachedPromptShape {
+  systemPrompt:    string;
+  adaptiveProfile: PromptContext['adaptiveProfile'];
+  personalised:    boolean;
+  personaKey:      string;
+}
+
+const PROMPT_CACHE_PREFIX = 'ai:promptctx';
+
+function promptCacheKey(userId: string, sessionId: string): string {
+  // Scoped by both userId and sessionId — a guessed/replayed session_id
+  // from another user can never read this user's cached personalisation
+  // context, mirroring the userId-scoping convention in ai-cache.ts.
+  return `${PROMPT_CACHE_PREFIX}:u${userId}:s${sessionId}`;
+}
+
+export async function buildPromptContextCached(
+  userId:            string,
+  plan:              string,
+  topic:             string,
+  rawMessages:       AIMessage[],
+  maxResponseTokens: number,
+  sessionId:         string | undefined,
+): Promise<PromptContext> {
+  // No session_id supplied — caller gets identical behaviour to before
+  // this fix existed.
+  if (!sessionId) {
+    return buildPromptContext(userId, plan, topic, rawMessages, maxResponseTokens);
+  }
+
+  const redis = getRedis();
+
+  // No Redis configured — same fallback.
+  if (!redis) {
+    return buildPromptContext(userId, plan, topic, rawMessages, maxResponseTokens);
+  }
+
+  const key = promptCacheKey(userId, sessionId);
+  let cachedShape: CachedPromptShape | null = null;
+
+  try {
+    const raw = await redis.get(key);
+    if (raw) cachedShape = JSON.parse(raw) as CachedPromptShape;
+  } catch (err) {
+    // Corrupt cache entry or transient Redis error — log and fall through
+    // to a full rebuild rather than failing the request.
+    aiLogger.warn('Prompt-context cache GET failed — rebuilding', {
+      userId, sessionId, error: (err as Error).message,
+    });
+  }
+
+  let systemPrompt:    string;
+  let adaptiveProfile: PromptContext['adaptiveProfile'];
+  let personalised:    boolean;
+  let personaKey:      string;
+
+  if (cachedShape) {
+    aiLogger.debug('Prompt-context cache hit — skipped 4 DB reads', { userId, sessionId });
+    ({ systemPrompt, adaptiveProfile, personalised, personaKey } = cachedShape);
+  } else {
+    // Cache miss (first turn of the session, or TTL expired) — run the
+    // full pipeline once and persist the session-invariant parts.
+    const full = await buildPromptContext(userId, plan, topic, rawMessages, maxResponseTokens);
+    systemPrompt    = full.systemPrompt;
+    adaptiveProfile = full.adaptiveProfile;
+    personalised    = full.personalised;
+    personaKey      = full.personaKey;
+
+    const toCache: CachedPromptShape = { systemPrompt, adaptiveProfile, personalised, personaKey };
+    try {
+      await redis.set(key, JSON.stringify(toCache), 'EX', env.AI_PROMPT_CACHE_TTL_SECONDS);
+    } catch (err) {
+      // Cache write failure shouldn't fail the request — this turn already
+      // has a correct, fully-built prompt context regardless.
+      aiLogger.warn('Prompt-context cache SET failed — continuing uncached', {
+        userId, sessionId, error: (err as Error).message,
+      });
+    }
+
+    // First-turn path already assembled+trimmed messages — reuse directly
+    // rather than re-trimming a moment later.
+    return full;
+  }
+
+  // Cache-hit path: reuse the cached system prompt, but still build the
+  // message array and apply token-budget trimming fresh — these depend on
+  // the live conversation (rawMessages) and the per-call maxResponseTokens,
+  // neither of which is safe to memoize.
+  const rawAssembled: AIMessage[] = [
+    { role: 'system', content: systemPrompt },
+    ...rawMessages,
+  ];
+  const { messages, trimmedCount } = trimMessagesToTokenBudget(rawAssembled, maxResponseTokens);
+
+  if (trimmedCount > 0) {
+    aiLogger.info('Trimmed conversation history to fit token budget', {
+      userId, sessionId, trimmedCount,
+      totalMessages: rawAssembled.length - 1,
+      budget:        env.AI_CONTEXT_TOKEN_BUDGET,
+    });
+  }
+
+  return {
+    systemPrompt,
+    messages,
+    adaptiveProfile,
+    cacheable: true,
+    personalised,
+    personaKey,
+    trimmedCount,
+  };
 }
