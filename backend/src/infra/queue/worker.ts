@@ -59,6 +59,19 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
+        // Interviewer's Notes — 2-3 sentence narrative summary
+        case 'generate-interviewer-notes': {
+          const { generateInterviewerNotes } =
+            await import('../../modules/analytics/interviewer-notes.service');
+          await generateInterviewerNotes(
+            job.data.sessionId,
+            job.data.profession,
+            job.data.score,
+            job.data.feedbacks
+          );
+          break;
+        }
+
         // Retry-persist a batch of analytics events
         case 'persist-analytics-events': {
           const { db } = await import('../../core/database/client');

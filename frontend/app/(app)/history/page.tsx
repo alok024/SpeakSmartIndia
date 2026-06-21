@@ -27,7 +27,7 @@ export default function HistoryPage() {
             Upgrade to view all past sessions, track your progress over time, and revisit feedback anytime.
           </p>
           <Button variant="upgrade" onClick={() => showUpgradeModal('feature_lock')}>
-            Upgrade to Pro — ₹299/month
+            Upgrade to Pro — ₹699/month
           </Button>
         </Card>
       </div>

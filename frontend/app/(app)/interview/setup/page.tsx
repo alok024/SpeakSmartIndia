@@ -1,13 +1,14 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense } from 'react';
 import { useInterviewStore } from '@/store/interview';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { useMe } from '@/hooks/queries';
 import { Button, Card, ChipGroup, Input } from '@/components/ui';
 import { Difficulty, InterviewType, SessionMode } from '@/types';
+import { voiceApi } from '@/features/voice/api';
 
 const PROFESSIONS = [
   'Software Developer', 'Java Developer', 'Government Job (SSC/UPSC)',
@@ -36,6 +37,15 @@ const TIMERS = [
   { label: 'No Timer', value: '0' }, { label: '2 min', value: '120' },
   { label: '3 min', value: '180' },  { label: '5 min', value: '300' },
 ];
+
+// Voice "warm-up" — Easy build item. One short line per language so the
+// preview button actually demonstrates the language it's previewing,
+// not just a generic English sentence read in an accent.
+const VOICE_PREVIEW_SAMPLES: Record<'en' | 'hi' | 'hinglish', string> = {
+  en:       "Tell me about a time you handled a challenging situation at work.",
+  hi:       "मुझे बताइए कि आपने काम के दौरान किसी मुश्किल स्थिति को कैसे संभाला।",
+  hinglish: "Apna experience batao ek challenging situation ke baare mein jo aapne kaam ke dauran handle ki.",
+};
 
 // Reusable inline selection button
 function SelectBtn({
@@ -76,6 +86,22 @@ function InterviewSetupPageInner() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewMsg, setPreviewMsg] = useState<string | null>(null);
+  const [hasPreviewedToday, setHasPreviewedToday] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Stop any in-flight preview audio and revoke its object URL on unmount
+  // — otherwise a user who navigates away mid-preview leaks the blob URL
+  // and leaves audio playing in the background.
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const profession = params.get('profession');
@@ -84,6 +110,24 @@ function InterviewSetupPageInner() {
     if (mode) store.setMode(mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
+
+  // Fix (#13): session_defaults was computed by the backend on every
+  // /api/me call but never consumed here — pre-fill the form from it so
+  // a user's first session is already personalised, the same way the
+  // backend intended. Only applies when nothing else has already set a
+  // profession (an explicit ?profession= query param, or the user's own
+  // selection, takes priority).
+  useEffect(() => {
+    if (!meData?.session_defaults) return;
+    if (params.get('profession')) return;
+    if (store.config.profession) return;
+
+    const { profession, difficulty, interview_type } = meData.session_defaults;
+    if (profession) store.setProfession(profession);
+    if (difficulty) store.setDifficulty(difficulty as Difficulty);
+    if (interview_type) store.setInterviewType(interview_type as InterviewType);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meData?.session_defaults]);
 
   // Use live /me plan so an upgrade takes effect without a page refresh.
   const livePlan    = meData?.user?.plan ?? user?.plan;
@@ -95,6 +139,70 @@ function InterviewSetupPageInner() {
   function selectProfession(p: string) {
     store.setProfession(p);
     setCustomProfession('');
+  }
+
+  // Voice "warm-up" — Easy build item. Free tier gets the once-per-IST-day
+  // warm-up endpoint; Pro/Elite get the full (unlimited) TTS endpoint
+  // since they already have unlimited HD voice — no reason to burn their
+  // one daily "taste" slot on a feature they already fully own.
+  async function playVoicePreview() {
+    if (previewLoading) return;
+    setPreviewLoading(true);
+    setPreviewMsg(null);
+
+    const sample = VOICE_PREVIEW_SAMPLES[store.config.lang];
+
+    // Already successfully fetched once this visit — replay the cached
+    // audio instead of hitting the once-per-IST-day endpoint again.
+    // (Switching language still needs a fresh fetch since the cached
+    // blob is for the old language; hasPreviewedToday only short-circuits
+    // a repeat tap of the same preview.)
+    if (isFree && hasPreviewedToday && audioRef.current && audioRef.current.dataset.lang === store.config.lang) {
+      setPreviewLoading(false);
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(() => {});
+      return;
+    }
+
+    if (isFree) {
+      const result = await voiceApi.ttsWarmup(sample);
+      setPreviewLoading(false);
+
+      if (!result.ok) {
+        if (result.reason === 'already_used_today') {
+          setPreviewMsg("You've already used today's free preview — upgrade to Pro for unlimited HD voice, or come back tomorrow.");
+        } else if (result.reason === 'not_configured') {
+          setPreviewMsg('Voice preview is temporarily unavailable.');
+        } else {
+          setPreviewMsg('Could not play preview — please try again.');
+        }
+        return;
+      }
+      setHasPreviewedToday(true);
+      playBlob(result.blob, store.config.lang);
+      return;
+    }
+
+    // Pro/Elite — full voice pipeline, language-aware (Sarvam for hi/hinglish).
+    const blob = await voiceApi.tts(sample, store.config.lang);
+    setPreviewLoading(false);
+    if (!blob) {
+      setPreviewMsg('Could not play preview — please try again.');
+      return;
+    }
+    playBlob(blob, store.config.lang);
+  }
+
+  function playBlob(blob: Blob, lang: string) {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      URL.revokeObjectURL(audioRef.current.src);
+    }
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.dataset.lang = lang;
+    audioRef.current = audio;
+    audio.play().catch(() => setPreviewMsg('Could not play preview — please try again.'));
   }
 
   async function handleStart() {
@@ -121,7 +229,7 @@ function InterviewSetupPageInner() {
             Upgrade to Pro for unlimited AI interviews, full history, and advanced analytics.
           </p>
           <Button variant="upgrade" onClick={() => showUpgradeModal('limit_hit')}>
-            Upgrade to Pro — ₹299/month
+            Upgrade to Pro — ₹699/month
           </Button>
         </Card>
       )}
@@ -231,11 +339,34 @@ function InterviewSetupPageInner() {
                 { lang: 'hi',      flag: '🇮🇳', label: 'हिंदी' },
                 { lang: 'hinglish',flag: '🇮🇳', label: 'Hinglish' },
               ].map((l) => (
-                <SelectBtn key={l.lang} active={store.config.lang === l.lang} onClick={() => store.setLang(l.lang as 'en' | 'hi' | 'hinglish')}>
+                <SelectBtn key={l.lang} active={store.config.lang === l.lang} onClick={() => { store.setLang(l.lang as 'en' | 'hi' | 'hinglish'); setPreviewMsg(null); }}>
                   <div className="text-lg text-center">{l.flag}</div>
                   <div className="text-xs text-center mt-1" style={{ color: 'var(--text-1)' }}>{l.label}</div>
                 </SelectBtn>
               ))}
+            </div>
+
+            {/* Voice "warm-up" — Easy build item. ~30s HD voice taste,
+                available on Free tier too (once/day server-side gate). */}
+            <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--border)' }}>
+              <button
+                type="button"
+                onClick={playVoicePreview}
+                disabled={previewLoading}
+                className="text-xs font-semibold px-3 py-2 rounded-lg border transition-colors disabled:opacity-60 flex items-center gap-2"
+                style={{ borderColor: 'var(--blue-border)', background: 'var(--blue-dim)', color: 'var(--accent)' }}
+              >
+                {previewLoading ? (
+                  <>🔊 Loading preview…</>
+                ) : isFree && hasPreviewedToday ? (
+                  <>🔊 Replay preview</>
+                ) : (
+                  <>🔊 Preview HD voice {isFree ? '(free taste)' : ''}</>
+                )}
+              </button>
+              {previewMsg && (
+                <p className="text-xs mt-2" style={{ color: 'var(--text-3)' }}>{previewMsg}</p>
+              )}
             </div>
           </Card>
         </div>

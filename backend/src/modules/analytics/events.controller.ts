@@ -28,10 +28,18 @@ export const ingestEvents = asyncHandler(async (req: Request, res: Response) => 
 // GET /api/admin/analytics/funnel?since=ISO&events=a,b,c
 // Admin-only. Returns event counts in the given window.
 export const getFunnel = asyncHandler(async (req: Request, res: Response) => {
-  const sinceParam    = req.query.since as string | undefined;
-  const sinceIso      = sinceParam
-    ? new Date(sinceParam).toISOString()
-    : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(); // default: last 7 days
+  const sinceParam = req.query.since as string | undefined;
+  let sinceIso: string;
+  if (sinceParam) {
+    const parsedDate = new Date(sinceParam);
+    if (Number.isNaN(parsedDate.getTime())) {
+      badRequest(res, 'Invalid "since" date', 'invalid_date');
+      return;
+    }
+    sinceIso = parsedDate.toISOString();
+  } else {
+    sinceIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(); // default: last 7 days
+  }
 
   const eventsParam   = req.query.events as string | undefined;
   const eventNames    = eventsParam

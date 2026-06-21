@@ -89,7 +89,14 @@ export function ProtectedRoute({ children, requireAdmin = false }: Props) {
   // While /me is in flight (and we have nothing cached yet) or it
   // failed (apiCall will have already redirected to /login on a real
   // 401), show a loading state instead of flashing protected content.
-  if ((isLoading && !cachedUser) || isError || !user) {
+  //
+  // Fix (#11b): for admin-only sections, a stale cached non-admin user
+  // must not be allowed to bypass this guard just because *some* cached
+  // user exists — that let the admin page UI shell render briefly before
+  // the useEffect redirect fired. Admin sections always wait for the
+  // fresh /me response before rendering.
+  const waitingOnFreshAdminCheck = requireAdmin && !meData;
+  if ((isLoading && !cachedUser) || isError || !user || waitingOnFreshAdminCheck) {
     return (
       <div className="flex min-h-screen items-center justify-center ">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/10 border-t-[#4F8EF7]" />

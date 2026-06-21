@@ -179,10 +179,13 @@ export async function activateSubscription(
     throw new AppError(502, 'subscription_write_failed', `Subscription write failed (HTTP ${subRes.status}). Please contact support.`);
   }
 
-  // Update plan + reset usage counter
+  // Update plan + reset usage counter, and supersede any other active
+  // subscription row for this user so a renewal-before-expiry can't leave
+  // a stale active row around for the expiry cron to act on (#14).
   await Promise.all([
     db.updateUser(userId, { plan }),
     db.resetUsage(userId),
+    db.supersedeOtherActiveSubscriptions(userId, orderId),
   ]);
 
   paymentLogger.info('Subscription activated', { userId, plan, orderId, paymentId });

@@ -275,12 +275,15 @@ export function ProgressBar({ value, max = 100, color, className, label, showVal
 // ScoreBadge
 
 export function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
+  // Fix (#24): scores are 0-10 everywhere this component is used, but the
+  // thresholds here were written for a 0-100 scale — every badge rendered
+  // red regardless of actual performance. Match scoreColor's convention.
   const color =
-    score >= 80 ? 'var(--success)' : score >= 60 ? 'var(--warn)' : 'var(--error)';
+    score >= 7 ? 'var(--success)' : score >= 4 ? 'var(--warn)' : 'var(--error)';
   const dim =
-    score >= 80 ? 'var(--success-dim)' : score >= 60 ? 'var(--warn-dim)' : 'var(--error-dim)';
+    score >= 7 ? 'var(--success-dim)' : score >= 4 ? 'var(--warn-dim)' : 'var(--error-dim)';
   const border =
-    score >= 80 ? 'var(--success-border)' : score >= 60 ? 'var(--warn-border)' : 'var(--error-dim)';
+    score >= 7 ? 'var(--success-border)' : score >= 4 ? 'var(--warn-border)' : 'var(--error-dim)';
   const cls = size === 'sm' ? 'text-sm w-9 h-9' : size === 'lg' ? 'text-xl w-14 h-14' : 'text-base w-11 h-11';
 
   return (

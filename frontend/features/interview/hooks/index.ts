@@ -26,6 +26,18 @@ export function useSaveSession() {
 }
 
 // Single session detail (interview summary page)
+//
+// Interviewer's Notes are written by a background job shortly *after*
+// the session row is created, so the very first fetch (typically made
+// seconds after the session ends, on this same summary page) often
+// lands before that job has finished. staleTime: Infinity is still
+// correct for the rest of the session — scores, feedback, etc. never
+// change after creation — but it would otherwise mean a missing note
+// is missing forever for this cached query. refetchInterval below polls
+// briefly, lightly, and only while notes are genuinely pending.
+const INTERVIEWER_NOTES_POLL_MS = 4_000;
+const INTERVIEWER_NOTES_POLL_DEADLINE_MS = 30_000; // give up after ~30s
+
 export function useSession(id: string | null) {
   return useQuery({
     queryKey: QK.session(id ?? ''),
@@ -37,6 +49,17 @@ export function useSession(id: string | null) {
     },
     enabled: !!id,
     staleTime: Infinity, // Sessions don't change after creation
+    refetchInterval: (query) => {
+      const session = query.state.data?.session;
+      if (!session) return false;
+      // Already has notes (or the background job failed and never will
+      // — we can't distinguish "pending" from "permanently null" by
+      // value alone, so cap polling by elapsed time instead).
+      if (session.interviewer_notes) return false;
+      const createdAt = session.created_at ? new Date(session.created_at).getTime() : 0;
+      if (Date.now() - createdAt > INTERVIEWER_NOTES_POLL_DEADLINE_MS) return false;
+      return INTERVIEWER_NOTES_POLL_MS;
+    },
   });
 }
 

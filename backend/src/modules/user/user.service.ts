@@ -51,7 +51,7 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   if (!dbUser) return null;
 
   const plan          = dbUser.plan as PlanType;
-  const baseLimit     = PLAN_LIMITS[plan].ai_calls;
+  const baseLimit     = (PLAN_LIMITS[plan] ?? PLAN_LIMITS.free).ai_calls;
   // Fix: Include referral bonus calls in the limit so /api/me's
   // usage.limit matches what checkUsageLimit middleware enforces.
   // Previously getUserProfile returned the raw PLAN_LIMITS value (7 for

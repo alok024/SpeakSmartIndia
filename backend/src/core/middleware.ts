@@ -193,6 +193,24 @@ export function validate(schema: ZodSchema) {
   };
 }
 
+// H3: defense-in-depth — reject malformed :id-style route params before
+// they're interpolated into a PostgREST filter. The ownership filter
+// (user_id=eq....) still gates access, so this isn't a full IDOR fix on
+// its own, but it stops obviously-malformed/injection-shaped values from
+// ever reaching the query string.
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
+export function validateUUIDParam(paramName: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const value = req.params[paramName];
+    if (!value || !UUID_RE.test(value)) {
+      badRequest(res, `Invalid ${paramName}`, 'invalid_param');
+      return;
+    }
+    next();
+  };
+}
+
 // Optional auth middleware
 // Attaches req.user if a valid token is present, but never rejects the
 // request — used for endpoints that work for both logged-in and

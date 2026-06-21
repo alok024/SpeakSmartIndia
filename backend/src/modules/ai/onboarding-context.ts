@@ -38,6 +38,7 @@
  */
 
 import { logger } from '../../infra/logger';
+import { wrapUntrusted, UNTRUSTED_DATA_INSTRUCTION } from '../../core/utils';
 
 const log = logger.child({ module: 'onboarding-context' });
 
@@ -50,7 +51,11 @@ export interface OnboardingData {
 
 export interface SessionDefaults {
   profession:     string;
-  difficulty:     'beginner' | 'intermediate' | 'advanced';
+  // Fix (#13): the frontend's difficulty selector/schema use 'expert' as
+  // the top tier (see frontend/types, interview/setup/page.tsx,
+  // features/interview/schemas) — this must match exactly, since this
+  // value is consumed directly to pre-fill that selector.
+  difficulty:     'beginner' | 'intermediate' | 'expert';
   interview_type: string;
 }
 
@@ -75,7 +80,7 @@ const DOMAIN_KEYWORDS: Record<Domain, string[]> = {
   software:    ['software', 'developer', 'engineer', 'programmer', 'data', 'devops', 'frontend', 'backend', 'fullstack', 'mobile', 'qa', 'testing', 'machine learning', 'ai', 'cloud', 'cyber', 'it ', 'tech'],
   finance:     ['finance', 'banking', 'accountant', 'ca', 'cfa', 'investment', 'analyst', 'fintech', 'audit', 'tax', 'risk', 'equity', 'credit'],
   sales:       ['sales', 'business development', 'bd ', 'account manager', 'account executive', 'revenue', 'crm'],
-  operations:  ['operations', 'supply chain', 'logistics', 'procurement', 'project manager', 'product manager', 'scrum', 'agile', 'lean'],
+  operations:  ['operations', 'supply chain', 'logistics', 'procurement', 'project manager', 'product manager', 'product management', 'scrum', 'agile', 'lean'],
   hr:          ['hr', 'human resource', 'talent', 'recruiter', 'people', 'l&d', 'payroll'],
   healthcare:  ['doctor', 'nurse', 'medical', 'pharma', 'hospital', 'clinical', 'health', 'dentist', 'therapist'],
   marketing:   ['marketing', 'brand', 'digital', 'seo', 'content', 'social media', 'growth', 'performance marketing', 'pr '],
@@ -100,9 +105,16 @@ const GOAL_ALIASES: Record<string, GoalType> = {
   'get a job':     'get_job',
   'find a job':    'get_job',
   job:             'get_job',
+  // Fix (#20): these are the exact (lowercased) strings the profile page's
+  // onboarding form actually sends — 4 of 5 didn't match any existing
+  // alias and silently fell through to 'unknown', disabling goal-based
+  // coaching for most users who onboard. Add the real frontend strings
+  // rather than changing user-facing copy.
+  'get my first job': 'get_job',
   switch_career:   'switch_career',
   'switch career': 'switch_career',
   career_change:   'switch_career',
+  'switch companies': 'switch_career',
   promotion:       'promotion',
   'get promoted':  'promotion',
   improve_english: 'improve_english',
@@ -110,6 +122,11 @@ const GOAL_ALIASES: Record<string, GoalType> = {
   english:         'improve_english',
   confidence:      'confidence',
   'build confidence': 'confidence',
+  'improve confidence': 'confidence',
+  // "Practice regularly" doesn't map to a dedicated GoalType — closest
+  // existing fit is 'confidence' (general reps / building comfort through
+  // repetition, same prompt strategy as performance-anxiety users).
+  'practice regularly': 'confidence',
   salary_raise:    'salary_raise',
   'salary raise':  'salary_raise',
   'negotiate salary': 'salary_raise',
@@ -237,12 +254,12 @@ This user wants to negotiate a raise or higher starting salary:
 
 // Session defaults per goal + domain
 
-function computeDifficulty(goal: GoalType, sessions: number): 'beginner' | 'intermediate' | 'advanced' {
-  if (goal === 'promotion') return sessions < 5 ? 'intermediate' : 'advanced';
+function computeDifficulty(goal: GoalType, sessions: number): 'beginner' | 'intermediate' | 'expert' {
+  if (goal === 'promotion') return sessions < 5 ? 'intermediate' : 'expert';
   if (goal === 'confidence') return 'beginner';
   if (sessions === 0) return 'beginner';
   if (sessions < 10) return 'intermediate';
-  return 'advanced';
+  return 'expert';
 }
 
 function computeInterviewType(goal: GoalType, domain: Domain): string {
@@ -276,7 +293,7 @@ export function getOnboardingPromptContext(onboarding: OnboardingData): string {
   const goalType   = normaliseGoal(goal);
 
   const professionLine = profession
-    ? `\n[USER PROFILE] Profession: ${profession}. Tailor all questions, vocabulary, and examples to this role.`
+    ? `\n[USER PROFILE] Profession: ${wrapUntrusted(profession)}. Tailor all questions, vocabulary, and examples to this role. ${UNTRUSTED_DATA_INSTRUCTION}`
     : '';
 
   const domainBlock = DOMAIN_PROMPT[domain];

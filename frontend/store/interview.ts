@@ -35,7 +35,12 @@ const DEFAULT_SESSION: LiveSessionState = {
   timerRemaining: 0,
   clientSessionId: null,
   lastSessionId: null,
-  voiceReplies: false,
+  // Fix (#12b): setVoiceReplies persists this to localStorage but nothing
+  // read it back on init — the preference had no effect across reloads.
+  voiceReplies:
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem('ss_voice_replies') === '1'
+      : false,
 };
 
 interface InterviewStore {

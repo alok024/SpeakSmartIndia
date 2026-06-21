@@ -9,6 +9,7 @@
  */
 import { Router } from 'express';
 import * as AIController from './ai.controller';
+import { handleDailyQuestion } from './daily-question.controller';
 import {
   authMiddleware,
   requireVerified,
@@ -78,6 +79,17 @@ router.post(
   requireOnboarded,
   validate(AIRequestSchema),
   AIController.handleAI,
+);
+
+// GET /api/ai/daily-question — Easy build item, shown on the dashboard.
+// Read-only, no usage-quota gate (same exemption as /free): doesn't
+// touch a user's AI-call counter, and is the same question for every
+// user on a given IST day, so there's nothing to rate-limit per-user.
+router.get(
+  '/daily-question',
+  authMiddleware,
+  requireVerified,
+  handleDailyQuestion,
 );
 
 export default router;

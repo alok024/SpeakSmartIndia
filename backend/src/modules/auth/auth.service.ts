@@ -223,7 +223,8 @@ export async function registerUser(
 export async function loginUser(
   dto: LoginDTO
 ): Promise<{ tokens: AuthTokens; user: PublicUser }> {
-  const user = await db.getUserByEmail(dto.email);
+  const normalizedEmail = dto.email.toLowerCase().trim();
+  const user = await db.getUserByEmail(normalizedEmail);
   if (!user) {
     throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
   }
@@ -237,7 +238,23 @@ export async function loginUser(
     throw new AppError(403, 'email_not_verified', 'Please verify your email before logging in.');
   }
 
-  const usage = await db.getUsage(user.id);
+  // BUG FIX: db.getUsage was called unguarded — if it throws (transient
+  // Supabase network blip, malformed response body, etc.) a user with
+  // fully valid credentials and a verified email got a 500 instead of a
+  // successful login, because the throw propagated straight out of this
+  // function with nothing here to catch it. Usage count is informational
+  // (`ai_calls` in the response, used for client-side display only) — it
+  // must never be able to block the actual login outcome. Same non-fatal
+  // treatment as incrementAIUsage/maybeRewardReferrer elsewhere in this
+  // codebase: log and degrade to 0 rather than fail the request.
+  let usage: Awaited<ReturnType<typeof db.getUsage>> = null;
+  try {
+    usage = await db.getUsage(user.id);
+  } catch (err) {
+    authLogger.warn('getUsage failed during login (non-fatal, defaulting ai_calls to 0)', {
+      userId: user.id, error: (err as Error).message,
+    });
+  }
 
   authLogger.info('User logged in', { userId: user.id });
 
@@ -348,7 +365,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthToke
 // Forgot password
 
 export async function requestPasswordReset(email: string): Promise<string | null> {
-  const user = await db.getUserByEmail(email);
+  const user = await db.getUserByEmail(email.toLowerCase().trim());
   if (!user) return null; // silent — never reveal whether email exists
 
   // Invalidate any existing unused reset tokens before issuing a new one

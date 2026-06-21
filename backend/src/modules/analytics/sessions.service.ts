@@ -17,6 +17,7 @@ import { computeScoreBreakdown, FeedbackForScoring } from '../ai/scoring';
 import {
   dispatchPersistMistakes,
   dispatchRecomputeWeakAreas,
+  dispatchGenerateInterviewerNotes,
 } from '../../infra/queue/dispatcher';
 import type { FeedbackItem } from '../ai/ai.memory';
 import { maybeRewardReferrer } from '../growth/referral.service';
@@ -162,6 +163,29 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     exchanges, duration_secs, hindi_mode, feedbacks,
   } = input;
 
+  // BUG FIX: FeedbackInput (the client-facing shape) accepts feedback notes
+  // under either `tip` or `tips` — older clients send `tip`, newer ones
+  // send `tips`. That aliasing used to only be resolved at the DB-write
+  // call site below (`f.tip || f.tips`); the raw, un-normalized `feedbacks`
+  // array was then cast straight to `FeedbackItem[]` (which only has a
+  // `tips` field) and handed to the background dispatchers. Every
+  // `tip`-only submission silently produced empty interviewer notes and
+  // never tripped the confidence-mistake heuristic in AI memory — no
+  // error, just quietly missing output.
+  //
+  // normalizedFeedbacks is the single source of truth for every consumer
+  // typed as FeedbackItem[] (AI memory, interviewer notes) — built once,
+  // here, instead of trusting an unsafe cast at each dispatch call site.
+  const normalizedFeedbacks: FeedbackItem[] = (feedbacks || []).map(f => ({
+    q:              f.q,
+    question:       f.question,
+    score:          f.score,
+    english_errors: f.english_errors,
+    corrections:    f.corrections,
+    tips:           f.tip || f.tips || '',
+    structure:      f.structure,
+  }));
+
   // 1. Compute score breakdown
   const feedbacksForScoring: FeedbackForScoring[] = (feedbacks || []).map(f => ({
     score:          f.score,
@@ -204,7 +228,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
   //    The DB constraint is:  UNIQUE (session_id, question_index)
   //    and the insert uses ON CONFLICT DO NOTHING via the prefer header.
   if (feedbacks && feedbacks.length > 0) {
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       feedbacks.map((f, idx) =>
         db.createFeedback({
           session_id:     session.id!,
@@ -219,6 +243,18 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
         })
       )
     );
+    // Individual feedback rows staying non-fatal is intentional (one bad
+    // row shouldn't fail the whole session save) — but now that
+    // db.createFeedback() actually surfaces write failures instead of
+    // swallowing them, log any rejections so a recurring DB problem is
+    // visible instead of permanently invisible.
+    results.forEach((r, idx) => {
+      if (r.status === 'rejected') {
+        log.error('Feedback row save failed (non-fatal)', {
+          sessionId: session.id, questionIndex: idx, error: (r.reason as Error)?.message,
+        });
+      }
+    });
   }
 
   // 4. Atomically increment stats — ALL arithmetic lives in Postgres.
@@ -263,17 +299,29 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
   // Without Redis → inline fire-and-forget (dev / degraded mode)
 
   // 8. AI memory — persist recurring mistakes from this session
-  if (feedbacks && feedbacks.length > 0) {
+  if (normalizedFeedbacks.length > 0) {
     dispatchPersistMistakes(
       userId,
       interview_type || profession,
-      feedbacks as FeedbackItem[]
+      normalizedFeedbacks
     ).catch(() => {/* dispatcher logs internally */});
   }
 
   // 9. Weak areas — recompute topic scores for the dashboard
   dispatchRecomputeWeakAreas(userId)
     .catch(() => {/* dispatcher logs internally */});
+
+  // 10. Interviewer's Notes — 2-3 sentence narrative summary, reusing the
+  //     same feedbacks already captured above. Same non-fatal, fire-and-
+  //     forget treatment as the other post-save background jobs.
+  if (normalizedFeedbacks.length > 0) {
+    dispatchGenerateInterviewerNotes(
+      session.id!,
+      profession || 'General',
+      score || 0,
+      normalizedFeedbacks
+    ).catch(() => {/* dispatcher logs internally */});
+  }
 
   log.info('Session saved', {
     userId,

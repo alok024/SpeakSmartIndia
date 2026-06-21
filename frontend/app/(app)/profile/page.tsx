@@ -200,11 +200,11 @@ function ProfilePageInner() {
           <div className="space-y-2">
             <Button variant="upgrade" className="w-full" onClick={() => showUpgradeModal('strip')}>
               <Crown className="w-4 h-4" />
-              Pro — ₹299/month
+              Pro — ₹699/month
             </Button>
             <Button variant="upgrade" className="w-full" onClick={() => showUpgradeModal('strip')}>
               <Diamond className="w-4 h-4" />
-              Elite — ₹599/month
+              Elite — ₹1,299/month
             </Button>
           </div>
         </Card>

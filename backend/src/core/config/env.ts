@@ -50,6 +50,16 @@ const EnvSchema = z.object({
   ELEVENLABS_API_KEY:  z.string().default(''),
   ELEVENLABS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'),
 
+  // Voice — Hindi/Hinglish (Multi-language interview mode). ElevenLabs
+  // above remains the English voice; Sarvam's Bulbul v3 model handles
+  // Hindi/Hinglish (code-mixed text) natively, which ElevenLabs does not.
+  // Optional — if unset, hi/hinglish TTS requests fall back to the
+  // ElevenLabs voice (English-accented, but not a hard failure) and the
+  // controller logs a warning so it's visible the Sarvam key is missing.
+  SARVAM_API_KEY:      z.string().default(''),
+  SARVAM_TTS_SPEAKER:  z.string().default('shubh'),  // valid bulbul:v3 speaker name
+  SARVAM_TTS_MODEL:    z.string().default('bulbul:v3'),
+
   // Razorpay — live keys (required)
   RAZORPAY_KEY_ID:         z.string().min(1),
   RAZORPAY_KEY_SECRET:     z.string().min(1),
@@ -181,17 +191,31 @@ export type Env = typeof env;
 
 export const IS_PROD = env.NODE_ENV === 'production';
 
-export type PlanType = 'free' | 'pro' | 'elite';
+// 2026-06: 'starter' added as a config-layer-only tier (₹299/mo, 30
+// sessions). Not yet exposed in any frontend plan selector — see
+// vachix_b2c_build_plan(1).md §2 "Starter tier (full integration)",
+// which remains unbuilt. Until that UI/billing-flow work lands, the
+// only way to end up on this plan is a direct API call, but every
+// PLAN_LIMITS/PLAN_PRICES consumer below already resolves dynamically
+// by key, so adding it here doesn't change behaviour for any existing
+// free/pro/elite user.
+export type PlanType = 'free' | 'starter' | 'pro' | 'elite';
 
 /** -1 = unlimited */
 export const PLAN_LIMITS: Record<PlanType, { ai_calls: number }> = {
-  free:  { ai_calls: 7 },   // returned to the client via usage.limit in /me
-  pro:   { ai_calls: -1 },
-  elite: { ai_calls: -1 },
+  free:    { ai_calls: 7 },    // returned to the client via usage.limit in /me
+  starter: { ai_calls: 30 },
+  pro:     { ai_calls: -1 },
+  elite:   { ai_calls: -1 },
 };
 
-/** In paise (INR × 100) */
-export const PLAN_PRICES: Record<'pro' | 'elite', number> = {
-  pro:   29900,  // ₹299
-  elite: 59900,  // ₹599
+/**
+ * In paise (INR × 100).
+ * 2026-06 locked pricing (vachix_b2c_build_plan(1).md §1):
+ *   Starter ₹299 · Pro ₹299→₹699 · Elite ₹599→₹1,299
+ */
+export const PLAN_PRICES: Record<'starter' | 'pro' | 'elite', number> = {
+  starter: 29900,   // ₹299
+  pro:     69900,   // ₹699  (was ₹299)
+  elite:   129900,  // ₹1,299 (was ₹599)
 };

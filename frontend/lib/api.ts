@@ -104,7 +104,18 @@ export async function apiCall<T = unknown>(
         // Cooldown active — a refresh just completed. The 401 is a
         // stale in-flight request; just retry with the fresh cookies
         // that are already in the browser without calling refresh again.
-        return apiCall<T>(endpoint, method, body, false);
+        //
+        // Fix (#10): if that retry ALSO 401s (e.g. the refresh that
+        // happened during the cooldown window actually failed, or the
+        // session was revoked again since), don't return its generic
+        // error straight away — fall through to the same session-clear
+        // + redirect-to-login cleanup below instead of leaving the user
+        // silently "stuck logged in" with every call failing.
+        const retryResult = await apiCall<T>(endpoint, method, body, false);
+        if (retryResult.ok || retryResult.status !== 401) {
+          return retryResult;
+        }
+        // else: fall through to cleanup below
       }
 
       // Refresh is dead — real cookie's gone, nothing left to retry.

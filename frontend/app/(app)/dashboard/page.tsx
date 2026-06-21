@@ -8,11 +8,12 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/features/user/hooks';
 import { useScoreHistory } from '@/features/analytics/hooks';
+import { useDailyQuestion } from '@/features/daily-question/hooks';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { ProgressBar, Spinner, ScoreRing } from '@/components/ui';
 import { formatDate, scoreColor } from '@/lib/utils';
-import { Target, Zap, TrendingUp } from 'lucide-react';
+import { Target, Zap, TrendingUp, Lightbulb } from 'lucide-react';
 import type { Session, WeakArea } from '@/types';
 
 const QUICK_STARTS = [
@@ -39,11 +40,13 @@ export default function DashboardPage() {
   const router              = useRouter();
   const { data: meData, isLoading } = useMe();
   const { data: history }   = useScoreHistory(10);
+  const { data: dailyQ }    = useDailyQuestion();
 
   const stats        = meData?.stats;
   const usage        = meData?.usage;
   const jobReadiness = meData?.job_readiness;
   const weakAreas    = meData?.weak_areas ?? [];
+  const recommendations = meData?.recommendations ?? [];
   // Derive plan from the live /me response so an upgrade takes effect
   // immediately without requiring a page refresh. Fall back to the Zustand
   // store only while meData is still loading (avoids a free→paid flash).
@@ -78,6 +81,28 @@ export default function DashboardPage() {
         </h1>
         <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>Here's where you stand today.</p>
       </div>
+
+      {/* Daily Question Drop — Easy build item. Renders nothing while
+          loading or if generation failed server-side (no fake fallback). */}
+      {dailyQ?.question && (
+        <div
+          className="rounded-2xl p-4 border flex items-start gap-3"
+          style={{ background: 'var(--blue-dim)', borderColor: 'var(--blue-border)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--surface)' }}
+          >
+            <Lightbulb className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-wide mb-1" style={{ color: 'var(--accent)' }}>
+              Today's Question
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-1)' }}>{dailyQ.question}</p>
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {!hasData && (
@@ -260,6 +285,35 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Recommendations */}
+      {recommendations.length > 0 && (
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+            <Lightbulb className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+            <span className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Recommended for you</span>
+          </div>
+          <div className="px-4 py-4 space-y-3">
+            {recommendations.map((rec, i) => (
+              <div key={i} className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{rec.title}</div>
+                  <p className="text-xs leading-relaxed max-w-md" style={{ color: 'var(--text-2)' }}>{rec.reason}</p>
+                </div>
+                {rec.action && (
+                  <button
+                    onClick={() => router.push('/interview/setup')}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-lg shrink-0"
+                    style={{ background: 'var(--accent)', color: 'var(--surface)' }}
+                  >
+                    {rec.action}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Weak Areas */}
       {weakAreas.length > 0 && (
         <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -301,7 +355,7 @@ export default function DashboardPage() {
             className="text-xs font-bold text-white px-4 py-2 rounded-lg whitespace-nowrap"
             style={{ background: 'var(--blue)' }}
           >
-            Upgrade → ₹299/mo
+            Upgrade → ₹699/mo
           </button>
         </div>
       )}

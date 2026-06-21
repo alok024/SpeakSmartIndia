@@ -15,12 +15,24 @@ export default function ReferralPage() {
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://vachix.in'}/register?ref=${referral.code}`
     : null;
 
+  // Fix (#23): use the backend's dynamic copy (accurate to the real
+  // reward mechanic) instead of a hardcoded "+1 free session for each
+  // person who joins" line — the real mechanic only rewards the referrer
+  // after the friend completes their first session.
+  const rewardLine = referral?.share_context?.reward_line
+    ?? 'Invite friends and earn bonus AI sessions once they complete their first session.';
+
   function copyLink() {
-    if (!referralUrl) return;
-    navigator.clipboard.writeText(referralUrl).then(() => showToast('🔗 Referral link copied!'));
+    const copyText = referral?.share_context?.copy_text ?? referralUrl;
+    if (!copyText) return;
+    navigator.clipboard.writeText(copyText).then(() => showToast('🔗 Referral link copied!'));
   }
 
   function shareWhatsApp() {
+    if (referral?.share_context?.whatsapp_url) {
+      window.open(referral.share_context.whatsapp_url, '_blank');
+      return;
+    }
     if (!referralUrl) return;
     window.open(`https://wa.me/?text=${encodeURIComponent(`Practice English & interviews with AI — free for Indian students & job seekers! Use my link: ${referralUrl}`)}`, '_blank');
   }
@@ -41,7 +53,7 @@ export default function ReferralPage() {
           <Gift className="w-6 h-6" style={{ color: 'var(--accent)' }} /> Refer & Earn
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>
-          Invite friends and get +1 free AI session for each person who joins.
+          {rewardLine}
         </p>
       </div>
 

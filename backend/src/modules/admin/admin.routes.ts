@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authMiddleware, requireAdmin, validate } from '../../core/middleware';
+import { authMiddleware, requireAdmin, validate, validateUUIDParam } from '../../core/middleware';
 import { getOverview, getUsers, getSubscriptions, getLeads, updateLeadStatus } from './admin.controller';
 import { getFunnel, getEvents } from '../analytics/events.controller';
 import { UpdateLeadStatusSchema } from '../../core/utils/schemas';
@@ -14,7 +14,7 @@ router.get('/subscriptions', getSubscriptions);
 
 // B2B leads
 router.get('/leads',       getLeads);
-router.patch('/leads/:id', validate(UpdateLeadStatusSchema), updateLeadStatus);
+router.patch('/leads/:id', validateUUIDParam('id'), validate(UpdateLeadStatusSchema), updateLeadStatus);
 
 // Event tracking / funnel analytics
 router.get('/analytics/funnel', getFunnel);

@@ -2,10 +2,11 @@
  * Queue Definitions
  *
  * Single `vachix:background` queue handles:
- *   - persist-mistakes         (AI memory after each session)
- *   - recompute-weak-areas     (topic scoring after each session)
- *   - expire-subscriptions     (recurring hourly — replaces setInterval)
- *   - expire-stale-sessions    (recurring every 15 min — session lifecycle sweep)
+ *   - persist-mistakes              (AI memory after each session)
+ *   - recompute-weak-areas          (topic scoring after each session)
+ *   - generate-interviewer-notes    (Aria's narrative summary after each session)
+ *   - expire-subscriptions          (recurring hourly — replaces setInterval)
+ *   - expire-stale-sessions         (recurring every 15 min — session lifecycle sweep)
  *
  * defaultJobOptions:
  *   attempts 3 + exponential backoff = retries at 2s, 4s, 8s.

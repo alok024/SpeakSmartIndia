@@ -15,6 +15,12 @@ const MODE_OPTIONS: { label: string; value: ElaraMode }[] = [
 
 const TOPICS = ['Daily life', 'Work & career', 'Technology', 'Current affairs', 'Travel', 'Health & fitness', 'Family', 'Education'];
 
+// Fix (#16): no client-side cap previously, unlike the interview session
+// page's MAX_ANSWER_LENGTH — long messages silently failed against the
+// backend's 2000-char cap with a misleading generic error. Same value,
+// same pattern.
+const MAX_ANSWER_LENGTH = 2_000;
+
 interface ChatMsg {
   role: 'user' | 'assistant';
   content: string;
@@ -293,7 +299,8 @@ export default function EnglishPage() {
               }}
               placeholder="Type in English…"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => setInput(e.target.value.slice(0, MAX_ANSWER_LENGTH))}
+              maxLength={MAX_ANSWER_LENGTH}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
               onFocus={e  => (e.currentTarget.style.borderColor = 'var(--accent-border)')}
               onBlur={e   => (e.currentTarget.style.borderColor = 'var(--border)')}

@@ -12,6 +12,7 @@
 
 import { db } from '../../core/database/client';
 import { aiLogger } from '../../infra/logger';
+import { wrapUntrusted, UNTRUSTED_DATA_INSTRUCTION } from '../../core/utils';
 
 // Recompute after every session save
 
@@ -96,12 +97,13 @@ export async function getWeakAreaPromptContext(userId: string): Promise<string> 
     const list = weak
       .sort((a, b) => a.avg_score - b.avg_score)
       .slice(0, 3)
-      .map(r => `${r.topic} (avg ${r.avg_score}/10)`)
+      .map(r => `${wrapUntrusted(r.topic)} (avg ${r.avg_score}/10)`)
       .join(', ');
 
     return (
       `\n\n⚠️ WEAK AREAS: This user consistently underperforms in: ${list}. ` +
-      `Ask questions from these areas and give more detailed feedback for them.`
+      `Ask questions from these areas and give more detailed feedback for them. ` +
+      UNTRUSTED_DATA_INSTRUCTION
     );
   } catch {
     return '';

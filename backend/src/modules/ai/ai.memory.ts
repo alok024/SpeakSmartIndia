@@ -11,6 +11,7 @@
 
 import { db } from '../../core/database/client';
 import { logger } from '../../infra/logger';
+import { wrapUntrusted, UNTRUSTED_DATA_INSTRUCTION } from '../../core/utils';
 
 const log = logger.child({ module: 'ai-memory' });
 
@@ -133,12 +134,13 @@ export async function getUserMemoryContext(
       .slice(0, 5);
 
     const lines = top.map(m =>
-      `- [${m.mistake_type.toUpperCase()}] ${m.description} (seen ${m.occurrences}x)`
+      `- [${m.mistake_type.toUpperCase()}] ${wrapUntrusted(m.description)} (seen ${m.occurrences}x)`
     );
 
     return (
       `\n\n📋 MEMORY — This user's recurring mistakes:\n${lines.join('\n')}\n` +
-      `Address these patterns subtly in your feedback. If they repeat a known mistake, point it out explicitly.`
+      `Address these patterns subtly in your feedback. If they repeat a known mistake, point it out explicitly. ` +
+      UNTRUSTED_DATA_INSTRUCTION
     );
   } catch (err) {
     log.warn('Failed to fetch memory context (non-fatal)', { userId, error: err });

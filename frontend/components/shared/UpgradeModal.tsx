@@ -84,7 +84,7 @@ export function UpgradeModal() {
       const rzp = new window.Razorpay({
         key, amount, currency, order_id,
         name: 'Vachix',
-        description: `${plan === 'pro' ? 'Pro' : 'Elite'} Plan — ₹${plan === 'pro' ? '299' : '599'}/month`,
+        description: `${plan === 'pro' ? 'Pro' : 'Elite'} Plan — ₹${plan === 'pro' ? '699' : '1,299'}/month`,
         prefill: { email: user?.email ?? '', name: user?.name ?? '' },
         // Accent from the brand, not hardcoded blue
         theme: { color: '#9b7fff' },
@@ -101,7 +101,8 @@ export function UpgradeModal() {
         handler: async (response) => {
           const vRes = await verifyPayment.mutateAsync({ ...response, plan });
           if (vRes.ok) {
-            showToast('🎉 Welcome to Pro! Your account has been upgraded.', { duration: 8000 });
+            const planLabel = plan === 'pro' ? 'Pro' : 'Elite';
+            showToast(`🎉 Welcome to ${planLabel}! Your account has been upgraded.`, { duration: 8000 });
             closeUpgradeModal();
           } else {
             setError('Payment succeeded but verification failed. Contact support.');
@@ -188,11 +189,11 @@ export function UpgradeModal() {
         <div className="space-y-3">
           <Button variant="upgrade" size="lg" className="w-full" loading={loading === 'pro'} disabled={!!loading} onClick={() => handleUpgrade('pro')}>
             <Crown className="w-4 h-4" />
-            Pro — ₹299/month · Unlimited + AI Chat
+            Pro — ₹699/month · Unlimited + AI Chat
           </Button>
           <Button variant="upgrade" size="lg" className="w-full" loading={loading === 'elite'} disabled={!!loading} onClick={() => handleUpgrade('elite')}>
             <Diamond className="w-4 h-4" />
-            Elite — ₹599/month · Everything + Priority AI
+            Elite — ₹1,299/month · Everything + Priority AI
           </Button>
         </div>
 

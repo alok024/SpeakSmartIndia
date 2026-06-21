@@ -71,6 +71,34 @@ export async function dispatchRecomputeWeakAreas(userId: string): Promise<void> 
   }
 }
 
+// Enqueue: generate Interviewer's Notes narrative for a completed session
+
+export async function dispatchGenerateInterviewerNotes(
+  sessionId:  string,
+  profession: string,
+  score:      number,
+  feedbacks:  FeedbackItem[]
+): Promise<void> {
+  const q = getBackgroundQueue();
+
+  if (!q) {
+    const { generateInterviewerNotes } =
+      await import('../../modules/analytics/interviewer-notes.service');
+    generateInterviewerNotes(sessionId, profession, score, feedbacks).catch(() => {/* logged inside */});
+    return;
+  }
+
+  try {
+    await q.add('generate-interviewer-notes', { sessionId, profession, score, feedbacks });
+    log.debug('Queued generate-interviewer-notes', { sessionId });
+  } catch (err) {
+    log.error('Failed to queue generate-interviewer-notes — running inline', { sessionId, error: err });
+    const { generateInterviewerNotes } =
+      await import('../../modules/analytics/interviewer-notes.service');
+    generateInterviewerNotes(sessionId, profession, score, feedbacks).catch(() => {});
+  }
+}
+
 // Schedule: B2B lead 24h follow-up email
 //
 // With Redis:    enqueues a delayed job (24h) on vachix:background.

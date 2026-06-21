@@ -122,6 +122,10 @@ export interface SessionRow {
   relevance_score?: number;
   grammar_score?:   number;
   job_ready_score?: number;
+  // Easy build item — 2-3 sentence narrative summary in Aria's voice,
+  // generated post-session by a background job. Null until that job
+  // completes (or forever, if it failed — non-fatal by design).
+  interviewer_notes?: string | null;
   created_at?:      string;
 }
 
@@ -224,6 +228,13 @@ export interface B2BLeadRow {
   created_at: string;
 }
 
+export interface DailyQuestionRow {
+  date:       string; // 'YYYY-MM-DD'
+  question:   string;
+  profession: string;
+  created_at: string;
+}
+
 // Raw Supabase REST helper
 
 async function sb<T = unknown>(
@@ -260,7 +271,7 @@ export const db = {
   },
 
   async getUserById(id: string): Promise<UserRow | null> {
-    const { data } = await sb<UserRow[]>(`/users?id=eq.${id}&select=*`);
+    const { data } = await sb<UserRow[]>(`/users?id=eq.${encodeURIComponent(id)}&select=*`);
     return data?.[0] ?? null;
   },
 
@@ -276,16 +287,16 @@ export const db = {
   },
 
   async updateUser(id: string, updates: Partial<UserRow>): Promise<void> {
-    await sb(`/users?id=eq.${id}`, 'PATCH', updates);
+    await sb(`/users?id=eq.${encodeURIComponent(id)}`, 'PATCH', updates);
   },
 
   async setReferralCode(userId: string, code: string): Promise<void> {
-    const { ok } = await sb(`/users?id=eq.${userId}`, 'PATCH', { referral_code: code });
+    const { ok } = await sb(`/users?id=eq.${encodeURIComponent(userId)}`, 'PATCH', { referral_code: code });
     if (!ok) throw new AppError(500, 'db_referral_code_failed', 'Failed to set referral code (may be duplicate)');
   },
 
   async setReferredBy(userId: string, code: string): Promise<void> {
-    await sb(`/users?id=eq.${userId}`, 'PATCH', { referred_by: code });
+    await sb(`/users?id=eq.${encodeURIComponent(userId)}`, 'PATCH', { referred_by: code });
   },
 
   /**
@@ -297,10 +308,10 @@ export const db = {
    * place (two concurrent rewards could each pass a pre-cap check and
    * together blow past the limit).
    */
-  async addBonusCalls(userId: string, amount: number, maxTotal: number): Promise<void> {
+  async addBonusCalls(userId: string, amount: number, maxTotal: number): Promise<boolean> {
     // Use RPC for atomic increment — avoids the read-then-write race condition
     // where two concurrent referral rewards both read 0 and both write 10 instead of 20.
-    await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_referral_bonus`, {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_referral_bonus`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -309,19 +320,29 @@ export const db = {
       },
       body: JSON.stringify({ p_user_id: userId, p_amount: amount, p_max: maxTotal }),
     });
+
+    if (!res.ok) {
+      const raw = await res.text().catch(() => '');
+      throw new AppError(
+        500,
+        'db_bonus_increment_failed',
+        `increment_referral_bonus RPC failed (status ${res.status}): ${raw.slice(0, 500)}`
+      );
+    }
+    return true;
   },
 
   // Usage
 
   async getUsage(userId: string): Promise<UsageRow | null> {
-    const { data } = await sb<UsageRow[]>(`/usage?user_id=eq.${userId}&select=*`);
+    const { data } = await sb<UsageRow[]>(`/usage?user_id=eq.${encodeURIComponent(userId)}&select=*`);
     return data?.[0] ?? null;
   },
 
   async upsertUsage(userId: string, callCount: number): Promise<void> {
     const existing = await db.getUsage(userId);
     if (existing) {
-      await sb(`/usage?user_id=eq.${userId}`, 'PATCH', { call_count: callCount, updated_at: new Date().toISOString() });
+      await sb(`/usage?user_id=eq.${encodeURIComponent(userId)}`, 'PATCH', { call_count: callCount, updated_at: new Date().toISOString() });
     } else {
       await sb('/usage', 'POST', { user_id: userId, call_count: callCount });
     }
@@ -346,7 +367,7 @@ export const db = {
   },
 
   async resetUsage(userId: string): Promise<void> {
-    await sb(`/usage?user_id=eq.${userId}`, 'PATCH', {
+    await sb(`/usage?user_id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
       call_count: 0,
       updated_at: new Date().toISOString(),
     });
@@ -355,7 +376,7 @@ export const db = {
   // Stats
 
   async getStats(userId: string): Promise<StatsRow | null> {
-    const { data } = await sb<StatsRow[]>(`/stats?user_id=eq.${userId}&select=*`);
+    const { data } = await sb<StatsRow[]>(`/stats?user_id=eq.${encodeURIComponent(userId)}&select=*`);
     return data?.[0] ?? null;
   },
 
@@ -437,35 +458,79 @@ export const db = {
     jobReady:   number,
     totalScore: number,
   ): Promise<{ sessions: number; best_score: number; streak: number; avg_job_ready_score: number }> {
-    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_user_stats`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // M9: previously sent `apikey: anon` here alongside a service-role
-        // bearer token — PostgREST resolves the role from the Authorization
-        // JWT, so that combination still ran as service_role and bypassed
-        // RLS exactly like every other call in this file. Using the same
-        // key in both headers removes the misleading appearance of partial
-        // RLS enforcement; see the file-level comment for why this client
-        // doesn't attempt per-user RLS at all.
-        apikey: env.SUPABASE_SERVICE_KEY,
-        Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
-      },
-      body: JSON.stringify({
-        p_user_id:     userId,
-        p_score:       score,
-        p_job_ready:   jobReady,
-        p_total_score: totalScore,
-      }),
-    });
-    return res.json() as Promise<{ sessions: number; best_score: number; streak: number; avg_job_ready_score: number }>;
+    // BUG FIX: this used to call `res.json()` directly on the fetch
+    // response with no `res.ok` check and no try/catch — unlike every
+    // other call in this file, which goes through the `sb()` helper that
+    // reads the body as text first and guards the JSON.parse. If Supabase
+    // is down, rate-limiting, or returns an HTML/plaintext error page
+    // (non-2xx with a non-JSON body), `res.json()` throws, and that throw
+    // was unguarded here, propagating straight out of `_saveSession` in
+    // sessions.service.ts. The session row and feedback rows may have
+    // already been written successfully by that point — the user would
+    // still get a 500 with no usable stats in the response.
+    let res: Response;
+    try {
+      res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_user_stats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // M9: previously sent `apikey: anon` here alongside a service-role
+          // bearer token — PostgREST resolves the role from the Authorization
+          // JWT, so that combination still ran as service_role and bypassed
+          // RLS exactly like every other call in this file. Using the same
+          // key in both headers removes the misleading appearance of partial
+          // RLS enforcement; see the file-level comment for why this client
+          // doesn't attempt per-user RLS at all.
+          apikey: env.SUPABASE_SERVICE_KEY,
+          Authorization: `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        },
+        body: JSON.stringify({
+          p_user_id:     userId,
+          p_score:       score,
+          p_job_ready:   jobReady,
+          p_total_score: totalScore,
+        }),
+      });
+    } catch (err) {
+      throw new AppError(
+        500, 'stats_increment_network_failed',
+        `Failed to reach Supabase for increment_user_stats: ${(err as Error).message}`
+      );
+    }
+
+    const raw = await res.text();
+    if (!res.ok) {
+      throw new AppError(
+        500, 'stats_increment_failed',
+        `increment_user_stats RPC failed (status ${res.status}): ${raw.slice(0, 500)}`
+      );
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      throw new AppError(
+        500, 'stats_increment_invalid_response',
+        `increment_user_stats returned non-JSON body: ${raw.slice(0, 500)}`
+      );
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      throw new AppError(
+        500, 'stats_increment_empty_response',
+        'increment_user_stats returned an empty/invalid result'
+      );
+    }
+
+    return parsed as { sessions: number; best_score: number; streak: number; avg_job_ready_score: number };
   },
 
   /** @deprecated — use incrementStats. Kept for admin/backfill paths only. */
   async upsertStats(userId: string, updates: Partial<StatsRow>): Promise<void> {
     const existing = await db.getStats(userId);
     if (existing) {
-      await sb(`/stats?user_id=eq.${userId}`, 'PATCH', { ...updates, updated_at: new Date().toISOString() });
+      await sb(`/stats?user_id=eq.${encodeURIComponent(userId)}`, 'PATCH', { ...updates, updated_at: new Date().toISOString() });
     } else {
       await sb('/stats', 'POST', { user_id: userId, ...updates });
     }
@@ -502,7 +567,7 @@ export const db = {
     });
     // Always re-fetch by client_session_id so retries return the canonical row
     const { data } = await sb<SessionRow[]>(
-      `/sessions?client_session_id=eq.${input.client_session_id}&select=*`
+      `/sessions?client_session_id=eq.${encodeURIComponent(input.client_session_id)}&select=*`
     );
     if (!data?.[0]) throw new AppError(500, 'db_session_creation_failed', 'Failed to create session record');
     return data[0];
@@ -516,9 +581,24 @@ export const db = {
    */
   async completeSession(sessionId: string): Promise<void> {
     await sb(
-      `/sessions?id=eq.${sessionId}&status=eq.scoring`,
+      `/sessions?id=eq.${encodeURIComponent(sessionId)}&status=eq.scoring`,
       'PATCH',
       { status: 'completed', updated_at: new Date().toISOString() }
+    );
+  },
+
+  /**
+   * Writes the AI-generated Interviewer's Notes narrative onto a session
+   * row. Called from the (queued or inline) generate-interviewer-notes
+   * background job — see infra/queue/worker.ts. Fire-and-forget by
+   * design: a failed write here must never surface to the user, since
+   * the session itself already saved successfully.
+   */
+  async setSessionInterviewerNotes(sessionId: string, notes: string): Promise<void> {
+    await sb(
+      `/sessions?id=eq.${encodeURIComponent(sessionId)}`,
+      'PATCH',
+      { interviewer_notes: notes }
     );
   },
 
@@ -547,14 +627,14 @@ export const db = {
 
   async getUserSessions(userId: string, limit: number, offset: number): Promise<SessionRow[]> {
     const { data } = await sb<SessionRow[]>(
-      `/sessions?user_id=eq.${userId}&order=created_at.desc&limit=${limit}&offset=${offset}&select=*`
+      `/sessions?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}&offset=${offset}&select=*`
     );
     return data ?? [];
   },
 
   async getSessionById(sessionId: string, userId: string): Promise<SessionRow | null> {
     const { data } = await sb<SessionRow[]>(
-      `/sessions?id=eq.${sessionId}&user_id=eq.${userId}&select=*`
+      `/sessions?id=eq.${encodeURIComponent(sessionId)}&user_id=eq.${encodeURIComponent(userId)}&select=*`
     );
     return data?.[0] ?? null;
   },
@@ -562,7 +642,7 @@ export const db = {
   /** Used by weak_areas.service — no user_id restriction, returns score + topic */
   async getUserSessionsForWeakAreas(userId: string): Promise<Array<Pick<SessionRow, 'score' | 'interview_type' | 'profession' | 'created_at'>>> {
     const { data } = await sb<SessionRow[]>(
-      `/sessions?user_id=eq.${userId}&order=created_at.desc&limit=100&select=score,interview_type,profession,created_at`
+      `/sessions?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=100&select=score,interview_type,profession,created_at`
     );
     return (data ?? []) as Array<Pick<SessionRow, 'score' | 'interview_type' | 'profession' | 'created_at'>>;
   },
@@ -579,7 +659,7 @@ export const db = {
    * so client retries of POST /sessions are fully idempotent on feedback rows.
    */
   async createFeedback(input: Omit<FeedbackRow, 'id' | 'created_at'>): Promise<void> {
-    await fetch(`${env.SUPABASE_URL}/rest/v1/feedback`, {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/feedback`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -596,11 +676,25 @@ export const db = {
       },
       body: JSON.stringify(input),
     });
+
+    // Fix: this previously discarded the response with no .ok check and
+    // no read-back verification — a failed insert (transient 5xx, FK
+    // violation, etc.) silently dropped the feedback row forever, with
+    // the caller (and the user) never finding out their per-question
+    // feedback wasn't saved.
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new AppError(
+        502,
+        'db_feedback_write_failed',
+        `Failed to save feedback (HTTP ${res.status}): ${body.slice(0, 500)}`
+      );
+    }
   },
 
   async getSessionFeedback(sessionId: string): Promise<FeedbackRow[]> {
     const { data } = await sb<FeedbackRow[]>(
-      `/feedback?session_id=eq.${sessionId}&select=*&order=created_at.asc`
+      `/feedback?session_id=eq.${encodeURIComponent(sessionId)}&select=*&order=created_at.asc`
     );
     return data ?? [];
   },
@@ -613,20 +707,35 @@ export const db = {
 
   async getActiveSubscription(userId: string): Promise<SubscriptionRow | null> {
     const { data } = await sb<SubscriptionRow[]>(
-      `/subscriptions?user_id=eq.${userId}&status=eq.active&order=created_at.desc&limit=1&select=*`
+      `/subscriptions?user_id=eq.${encodeURIComponent(userId)}&status=eq.active&order=created_at.desc&limit=1&select=*`
     );
     return data?.[0] ?? null;
   },
 
   async getSubscriptionByPaymentId(paymentId: string): Promise<SubscriptionRow | null> {
     const { data } = await sb<SubscriptionRow[]>(
-      `/subscriptions?razorpay_payment_id=eq.${paymentId}&select=*`
+      `/subscriptions?razorpay_payment_id=eq.${encodeURIComponent(paymentId)}&select=*`
     );
     return data?.[0] ?? null;
   },
 
   async updateSubscription(id: string, updates: Partial<SubscriptionRow>): Promise<void> {
-    await sb(`/subscriptions?id=eq.${id}`, 'PATCH', updates);
+    await sb(`/subscriptions?id=eq.${encodeURIComponent(id)}`, 'PATCH', updates);
+  },
+
+  /**
+   * Fix (#14): a renewal-before-expiry previously left the OLD active row
+   * in place alongside the new one, so the hourly expiry cron could later
+   * downgrade the user back to free based on the stale row even though a
+   * newer active subscription existed. Mark every other active row for
+   * this user as 'superseded' so at most one 'active' row exists per user.
+   */
+  async supersedeOtherActiveSubscriptions(userId: string, keepOrderId: string): Promise<void> {
+    await sb(
+      `/subscriptions?user_id=eq.${encodeURIComponent(userId)}&status=eq.active&razorpay_order_id=neq.${encodeURIComponent(keepOrderId)}`,
+      'PATCH',
+      { status: 'superseded' }
+    );
   },
 
   async getExpiredActiveSubscriptions(): Promise<SubscriptionRow[]> {
@@ -641,7 +750,7 @@ export const db = {
 
   async isTokenBlacklisted(jti: string): Promise<boolean> {
     const { data } = await sb<TokenBlacklistRow[]>(
-      `/token_blacklist?token_jti=eq.${jti}&select=token_jti`
+      `/token_blacklist?token_jti=eq.${encodeURIComponent(jti)}&select=token_jti`
     );
     return !!(data && data.length > 0);
   },
@@ -666,26 +775,26 @@ export const db = {
 
   async getPasswordReset(token: string): Promise<PasswordResetRow | null> {
     const { data } = await sb<PasswordResetRow[]>(
-      `/password_resets?token=eq.${token}&used=eq.false&select=*`
+      `/password_resets?token=eq.${encodeURIComponent(token)}&used=eq.false&select=*`
     );
     return data?.[0] ?? null;
   },
 
   async markPasswordResetUsed(id: string): Promise<void> {
-    await sb(`/password_resets?id=eq.${id}`, 'PATCH', { used: true });
+    await sb(`/password_resets?id=eq.${encodeURIComponent(id)}`, 'PATCH', { used: true });
   },
 
   async invalidatePasswordResets(userId: string): Promise<void> {
     // Mark all existing unused resets as used before issuing a new one
     // Prevents token accumulation and multiple valid reset links floating around
-    await sb(`/password_resets?user_id=eq.${userId}&used=eq.false`, 'PATCH', { used: true });
+    await sb(`/password_resets?user_id=eq.${encodeURIComponent(userId)}&used=eq.false`, 'PATCH', { used: true });
   },
 
   // User mistakes (AI memory)
 
   async getUserMistakes(userId: string, topic: string): Promise<UserMistakeRow[]> {
     const { data } = await sb<UserMistakeRow[]>(
-      `/user_mistakes?user_id=eq.${userId}&topic=eq.${encodeURIComponent(topic)}&order=occurrences.desc&limit=10&select=*`
+      `/user_mistakes?user_id=eq.${encodeURIComponent(userId)}&topic=eq.${encodeURIComponent(topic)}&order=occurrences.desc&limit=10&select=*`
     );
     return data ?? [];
   },
@@ -702,7 +811,7 @@ export const db = {
     p_description:  string;
   }): Promise<void> {
     // Call the Supabase RPC function we create in migration.sql
-    await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/upsert_user_mistake`, {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/upsert_user_mistake`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -711,13 +820,22 @@ export const db = {
       },
       body: JSON.stringify(params),
     });
+    // Fix: previously discarded — a failed write here just means a weak
+    // area / AI-memory mistake was silently never recorded. The caller
+    // (ai.memory.ts) already wraps this in Promise.allSettled inside a
+    // try/catch, so throwing is safe and lets that non-fatal logging
+    // actually have something to log.
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new AppError(502, 'db_mistake_upsert_failed', `upsert_user_mistake RPC failed (HTTP ${res.status}): ${body.slice(0, 500)}`);
+    }
   },
 
   // Weak areas
 
   async getWeakAreas(userId: string): Promise<WeakAreaRow[]> {
     const { data } = await sb<WeakAreaRow[]>(
-      `/weak_areas?user_id=eq.${userId}&order=avg_score.asc&select=*`
+      `/weak_areas?user_id=eq.${encodeURIComponent(userId)}&order=avg_score.asc&select=*`
     );
     return data ?? [];
   },
@@ -737,7 +855,7 @@ export const db = {
    */
   async upsertWeakAreas(userId: string, entries: WeakAreaRow[]): Promise<void> {
     if (entries.length === 0) return;
-    await fetch(`${env.SUPABASE_URL}/rest/v1/weak_areas?on_conflict=user_id,topic`, {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/weak_areas?on_conflict=user_id,topic`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -747,6 +865,15 @@ export const db = {
       },
       body: JSON.stringify(entries),
     });
+    // Fix: previously discarded — a failed write here silently means the
+    // dashboard's "weak areas" panel (and the AI prompt context derived
+    // from it) goes stale with no error anywhere. recomputeWeakAreas()
+    // already wraps this call in a non-fatal try/catch, so throwing here
+    // is safe and gives that catch something real to log.
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new AppError(502, 'db_weak_areas_write_failed', `weak_areas upsert failed (HTTP ${res.status}): ${body.slice(0, 500)}`);
+    }
   },
 
   // Score history
@@ -757,7 +884,7 @@ export const db = {
 
   async getScoreHistory(userId: string, limit: number): Promise<ScoreHistoryRow[]> {
     const { data } = await sb<ScoreHistoryRow[]>(
-      `/score_history?user_id=eq.${userId}&order=created_at.desc&limit=${limit}&select=*`
+      `/score_history?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}&select=*`
     );
     return data ?? [];
   },
@@ -775,18 +902,18 @@ export const db = {
    */
   async getPendingReferralEvent(referredId: string): Promise<ReferralEventRow | null> {
     const { data } = await sb<ReferralEventRow[]>(
-      `/referral_events?referred_id=eq.${referredId}&rewarded_at=is.null&select=*&limit=1`
+      `/referral_events?referred_id=eq.${encodeURIComponent(referredId)}&rewarded_at=is.null&select=*&limit=1`
     );
     return data?.[0] ?? null;
   },
 
   async markReferralRewarded(eventId: string): Promise<void> {
-    await sb(`/referral_events?id=eq.${eventId}`, 'PATCH', { rewarded_at: new Date().toISOString() });
+    await sb(`/referral_events?id=eq.${encodeURIComponent(eventId)}`, 'PATCH', { rewarded_at: new Date().toISOString() });
   },
 
   async getReferralStats(referrerId: string): Promise<{ uses: number; rewarded: number; bonus_calls: number }> {
     const { data } = await sb<ReferralEventRow[]>(
-      `/referral_events?referrer_id=eq.${referrerId}&select=*`
+      `/referral_events?referrer_id=eq.${encodeURIComponent(referrerId)}&select=*`
     );
     const events = data ?? [];
     const user   = await db.getUserById(referrerId);
@@ -804,7 +931,7 @@ export const db = {
    * Called before issuing a new token so only one link is ever valid.
    */
   async invalidateEmailVerificationTokens(userId: string): Promise<void> {
-    await sb(`/email_verification_tokens?user_id=eq.${userId}&used=eq.false`, 'PATCH', { used: true });
+    await sb(`/email_verification_tokens?user_id=eq.${encodeURIComponent(userId)}&used=eq.false`, 'PATCH', { used: true });
   },
 
   async createEmailVerificationToken(
@@ -828,7 +955,7 @@ export const db = {
    */
   async markEmailVerificationTokenUsed(id: string): Promise<boolean> {
     const { ok, data } = await sb<EmailVerificationTokenRow[]>(
-      `/email_verification_tokens?id=eq.${id}&used=eq.false`, 'PATCH', { used: true }
+      `/email_verification_tokens?id=eq.${encodeURIComponent(id)}&used=eq.false`, 'PATCH', { used: true }
     );
     return ok && !!data?.length;
   },
@@ -841,7 +968,7 @@ export const db = {
 
   async countRecentEmailVerificationSends(userId: string, sinceIso: string): Promise<number> {
     const res = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/email_verification_sends?user_id=eq.${userId}&sent_at=gte.${sinceIso}&select=id`,
+      `${env.SUPABASE_URL}/rest/v1/email_verification_sends?user_id=eq.${encodeURIComponent(userId)}&sent_at=gte.${sinceIso}&select=id`,
       {
         method:  'GET',
         headers: {
@@ -863,7 +990,7 @@ export const db = {
     profession: string,
     goal: string
   ): Promise<void> {
-    await sb(`/users?id=eq.${userId}`, 'PATCH', {
+    await sb(`/users?id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
       onboarding_profession:   profession,
       onboarding_goal:         goal,
       onboarding_completed_at: new Date().toISOString(),
@@ -913,7 +1040,7 @@ export const db = {
   },
 
   async getPlanCounts(): Promise<Record<string, number>> {
-    const plans = ['free', 'pro', 'elite'];
+    const plans = ['free', 'starter', 'pro', 'elite'];
     const counts: Record<string, number> = {};
 
     await Promise.all(plans.map(async (plan) => {
@@ -953,7 +1080,7 @@ export const db = {
   // Admin: revenue & subscriptions
 
   async getActiveSubscriptionCounts(): Promise<Record<string, number>> {
-    const plans = ['pro', 'elite'];
+    const plans = ['starter', 'pro', 'elite'];
     const counts: Record<string, number> = {};
 
     await Promise.all(plans.map(async (plan) => {
@@ -1057,7 +1184,7 @@ export const db = {
   },
 
   async getLeadById(id: string): Promise<B2BLeadRow | null> {
-    const { data } = await sb<B2BLeadRow[]>(`/b2b_leads?id=eq.${id}&select=*`);
+    const { data } = await sb<B2BLeadRow[]>(`/b2b_leads?id=eq.${encodeURIComponent(id)}&select=*`);
     return data?.[0] ?? null;
   },
 
@@ -1099,8 +1226,8 @@ export const db = {
    */
   async updateLeadStatus(id: string, toStatus: string, fromStatus?: string): Promise<boolean> {
     const filter = fromStatus
-      ? `/b2b_leads?id=eq.${id}&status=eq.${fromStatus}`
-      : `/b2b_leads?id=eq.${id}`;
+      ? `/b2b_leads?id=eq.${encodeURIComponent(id)}&status=eq.${encodeURIComponent(fromStatus)}`
+      : `/b2b_leads?id=eq.${encodeURIComponent(id)}`;
     const { data } = await sb<B2BLeadRow[]>(filter, 'PATCH', { status: toStatus });
     return (data?.length ?? 0) > 0;
   },
@@ -1142,5 +1269,33 @@ export const db = {
     if (userId)    query += `&user_id=eq.${encodeURIComponent(userId)}`;
     const { data } = await sb<AnalyticsEventRow[]>(query);
     return data || [];
+  },
+
+  // Daily Question Drop
+
+  /** date must be 'YYYY-MM-DD' (IST calendar day — see daily-question.service.ts) */
+  async getDailyQuestion(date: string): Promise<DailyQuestionRow | null> {
+    const { data } = await sb<DailyQuestionRow[]>(`/daily_questions?date=eq.${date}&select=*`);
+    return data?.[0] ?? null;
+  },
+
+  /**
+   * Race-safe "create if missing": two concurrent first-readers for the
+   * same day can both attempt this insert. The `date` PK rejects the
+   * second one (POST returns ok=false on conflict, no exception thrown
+   * by `sb()`), so the loser just reads back whatever the winner wrote.
+   */
+  async createDailyQuestionIfMissing(date: string, question: string, profession: string): Promise<DailyQuestionRow> {
+    const { ok, data } = await sb<DailyQuestionRow[]>(
+      '/daily_questions',
+      'POST',
+      { date, question, profession },
+    );
+    if (ok && data?.[0]) return data[0];
+
+    // Lost the race (or any other insert failure) — read back whatever's there.
+    const existing = await this.getDailyQuestion(date);
+    if (existing) return existing;
+    throw new AppError(500, 'db_daily_question_failed', 'Failed to create or read daily question');
   },
 };

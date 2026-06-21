@@ -312,7 +312,7 @@ export default function LandingPage() {
       {/* STAT STRIP */}
       <div className="ssi-stat-strip">
         <div className="ssi-ss-inner">
-          {[['11', 'Exam & Role Tracks', 'c-v'], ['7', 'Free AI Sessions to Try', 'c-g'], ['₹299', 'Pro Plan / Month', ''], ['₹0', 'To Start, No Card', '']].map(([n, l, cls]) => (
+          {[['11', 'Exam & Role Tracks', 'c-v'], ['7', 'Free AI Sessions to Try', 'c-g'], ['₹699', 'Pro Plan / Month', ''], ['₹0', 'To Start, No Card', '']].map(([n, l, cls]) => (
             <div key={l as string} className="ssi-ss-item ssi-rv">
               <span className={`ssi-ss-n ${cls}`}>{n}</span>
               <span className="ssi-ss-l">{l}</span>
@@ -485,7 +485,7 @@ export default function LandingPage() {
                 <div className="ssi-plan-top-line" />
                 <span className="ssi-plan-name">Pro</span>
                 <p className="ssi-plan-tag">Everything you need to crack your interview</p>
-                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹299</span><span className="ssi-plan-per">/month</span></div>
+                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹699</span><span className="ssi-plan-per">/month</span></div>
                 <p className="ssi-plan-gst">+ 18% GST · billed monthly</p>
                 <ul className="ssi-plan-feats">
                   {['Unlimited interview sessions', 'All 11 exam tracks (UPSC, Bank PO, SSC…)', 'Elara English correction on every answer', 'Grammar, Fluency & Vocabulary scoring', 'AI memory — tracks your recurring mistakes', 'Weak-area detection & adaptive difficulty', 'AI Chat coach between sessions', 'Session history & Readiness dashboard'].map(f => <li key={f}>{f}</li>)}
@@ -497,7 +497,7 @@ export default function LandingPage() {
                 <span className="ssi-plan-badge">Most popular</span>
                 <span className="ssi-plan-name">Elite</span>
                 <p className="ssi-plan-tag">For serious candidates preparing every day</p>
-                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹599</span><span className="ssi-plan-per">/month</span></div>
+                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹1,299</span><span className="ssi-plan-per">/month</span></div>
                 <p className="ssi-plan-gst">+ 18% GST · billed monthly</p>
                 <ul className="ssi-plan-feats">
                   {['Everything in Pro', 'Priority AI — faster responses', 'Detailed grammar breakdowns with examples', 'Full session history & PDF exports', 'Personalised improvement plan', 'Early access to new features (voice & avatar)'].map(f => <li key={f}>{f}</li>)}
@@ -555,7 +555,7 @@ export default function LandingPage() {
           </div>
           <div className="ssi-rvr d1">
             <div className="ssi-india-stats-grid">
-              {[['11', 'Exam & role tracks'], ['7', 'Free AI sessions to try'], ['₹299', 'Pro plan / month'], ['₹0', 'To start, no card']].map(([n, l]) => (
+              {[['11', 'Exam & role tracks'], ['7', 'Free AI sessions to try'], ['₹699', 'Pro plan / month'], ['₹0', 'To start, no card']].map(([n, l]) => (
                 <div key={l as string} className="ssi-india-stat">
                   <span className="ssi-india-stat-num">{n}</span>
                   <span className="ssi-india-stat-label">{l}</span>
@@ -623,7 +623,7 @@ export default function LandingPage() {
           <p className="ssi-cta-sub">Five minutes from now you could have your first answer scored, your first language slip corrected, and your first readiness number on the board.</p>
           <div className="ssi-cta-acts">
             <Link href="/register" className="ssi-cta-h-cta">Start practicing free →</Link>
-            <Link href="/register?plan=elite" className="ssi-cta-h-ghost">Go Elite — ₹599/mo</Link>
+            <Link href="/register?plan=elite" className="ssi-cta-h-ghost">Go Elite — ₹1,299/mo</Link>
           </div>
           <p className="ssi-cta-fine">UPI, cards & net banking · Cancel any time · Results in under 10 minutes</p>
         </div>
