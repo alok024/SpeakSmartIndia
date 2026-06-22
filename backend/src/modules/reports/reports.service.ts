@@ -22,7 +22,7 @@ import { logger } from '../../infra/logger';
 
 const log = logger.child({ module: 'reports' });
 
-// M6: /api/report/:shareToken is public + unauthenticated. The global rate
+// /api/report/:shareToken is public + unauthenticated. The global rate
 // limiter (app.ts) already covers it, but each request still does up to
 // 4 DB round-trips (session, feedback, user, weak areas). Cache the
 // assembled report for a short TTL so repeated hits on a popular shared
@@ -153,7 +153,7 @@ export async function getPublicReport(shareToken: string): Promise<PublicReport 
   const sessionId = decodeShareToken(shareToken);
   if (!sessionId) return null;
 
-  // M6: serve from cache when available — public, unauthenticated endpoint
+  // serve from cache when available — public, unauthenticated endpoint
   // with no per-viewer variation, so a short shared TTL is safe.
   const redis = getRedis();
   const cacheKey = `${REPORT_CACHE_PREFIX}:${shareToken}`;

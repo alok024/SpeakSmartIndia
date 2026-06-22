@@ -6,7 +6,7 @@ import { createLead } from './leads.controller';
 
 const router = Router();
 
-// H2: dedicated limiter for the public lead-capture form. The app-wide
+// dedicated limiter for the public lead-capture form. The app-wide
 // limiter (200/min, see app.ts) is far too generous for an unauthenticated,
 // unbounded write endpoint — it allows spam submissions and DB/storage
 // abuse well before that ceiling is hit. 5/hour/IP comfortably covers a

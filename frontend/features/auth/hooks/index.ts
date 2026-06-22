@@ -71,7 +71,7 @@ export function useLogout() {
     mutationFn: authApi.logout,
     onSettled: () => {
       clearSession();
-      // M5: drop any in-memory interview session (feedback, scores,
+      // drop any in-memory interview session (feedback, scores,
       // corrections) on logout so a shared device never exposes the
       // previous user's coaching data after sign-out.
       resetSession();

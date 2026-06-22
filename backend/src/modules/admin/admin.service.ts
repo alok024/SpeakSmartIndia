@@ -53,8 +53,9 @@ export async function getAdminOverview(): Promise<AdminOverview> {
   ]);
 
   const mrrPaise =
-    (activeSubs.pro   || 0) * PLAN_PRICES.pro +
-    (activeSubs.elite || 0) * PLAN_PRICES.elite;
+    (activeSubs.starter || 0) * PLAN_PRICES.starter +
+    (activeSubs.pro     || 0) * PLAN_PRICES.pro +
+    (activeSubs.elite   || 0) * PLAN_PRICES.elite;
 
   return {
     users: {

@@ -15,7 +15,7 @@ const MODE_OPTIONS: { label: string; value: ElaraMode }[] = [
 
 const TOPICS = ['Daily life', 'Work & career', 'Technology', 'Current affairs', 'Travel', 'Health & fitness', 'Family', 'Education'];
 
-// Fix (#16): no client-side cap previously, unlike the interview session
+// no client-side cap previously, unlike the interview session
 // page's MAX_ANSWER_LENGTH — long messages silently failed against the
 // backend's 2000-char cap with a misleading generic error. Same value,
 // same pattern.
@@ -48,7 +48,7 @@ export default function EnglishPage() {
   const [avgGrammar, setAvgGrammar] = useState<number | null>(null);
   const [avgFluency, setAvgFluency] = useState<number | null>(null);
   const [avgVocab,   setAvgVocab]   = useState<number | null>(null);
-  // Fix (S1): stable per-chat id so the backend can memoize the assembled
+  // stable per-chat id so the backend can memoize the assembled
   // system prompt across turns instead of rebuilding it every message.
   // Regenerated whenever the chat resets (mode switch or explicit Reset),
   // since a fresh chat is a fresh "session" as far as prompt context goes.
@@ -76,7 +76,7 @@ export default function EnglishPage() {
     setLoading(true);
 
     const systemPrompt = getElaraSystemPrompt(mode, topic);
-    // Fix: the backend schema only accepts 'user' | 'assistant' roles —
+    // the backend schema only accepts 'user' | 'assistant' roles —
     // a 'system' message in the array is rejected at validation (every
     // call from this page was 400ing). Fold the system prompt into a
     // leading user turn instead, the same [SYSTEM]: convention the

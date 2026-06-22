@@ -8,7 +8,7 @@ import { env, IS_PROD }              from './core/config/env';
 import { errorHandler }              from './core/middleware';
 import { unauthorized, notFound }     from './core/utils/response';
 import { logger }                    from './infra/logger';
-import { scheduleSubscriptionExpiry, scheduleSessionExpiry, scheduleBlacklistCleanup } from './infra/queue/dispatcher';
+import { scheduleSubscriptionExpiry, scheduleSessionExpiry, scheduleBlacklistCleanup, scheduleComparisonCleanup } from './infra/queue/dispatcher';
 import { initSentry, captureException, getMetrics } from './infra/observability';
 import { startLoadMonitor, getSystemLoadStats }      from './infra/load-monitor';
 import { getAILimiterStats }                         from './infra/ai-limiter';
@@ -66,7 +66,7 @@ const DEV_ORIGINS = [
   'http://127.0.0.1:5500',
 ];
 
-// Fix (M2): Vercel preview deployments use dynamic subdomain URLs
+// Vercel preview deployments use dynamic subdomain URLs
 // (e.g. vachixindia-git-fix-branch-xyz.vercel.app) that can't be
 // hardcoded here. EXTRA_ALLOWED_ORIGINS (comma-separated) lets you add
 // preview/staging origins via a Railway env var without a code deploy.
@@ -82,7 +82,7 @@ const ALLOWED_ORIGINS = IS_PROD
 
 app.use(cors({
   origin: (origin, cb) => {
-    // Fix (H2): Always validate against the allowlist regardless of environment.
+    // Always validate against the allowlist regardless of environment.
     // Previously `if (!IS_PROD) return cb(null, true)` allowed every origin on
     // staging/preview deployments, making credentialed cross-origin requests
     // possible from any attacker-controlled site. Same-origin and null-origin
@@ -249,7 +249,7 @@ app.listen(PORT, () => {
     }
   }
 
-  // Fix (L2): Warn loudly at boot when METRICS_TOKEN is absent in production.
+  // Warn loudly at boot when METRICS_TOKEN is absent in production.
   // Without a token, the /health/metrics endpoint is publicly accessible —
   // anyone can read AI call counters, system RPM, concurrency stats, and
   // circuit-breaker states. The auth logic in app.get('/health/metrics')
@@ -275,6 +275,7 @@ app.listen(PORT, () => {
   // Nightly cleanup of expired token_blacklist rows to prevent unbounded
   // table growth and keep isTokenBlacklisted() fast under heavy auth load.
   scheduleBlacklistCleanup();
+  scheduleComparisonCleanup();
 });
 
 export default app;

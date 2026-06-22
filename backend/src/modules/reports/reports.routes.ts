@@ -4,7 +4,7 @@ import { getShareToken, getReport } from './reports.controller';
 
 const router = Router();
 
-// H3: defense-in-depth — even with HMAC-signed tokens, rate-limit the
+// defense-in-depth — even with HMAC-signed tokens, rate-limit the
 // public report endpoint to slow down enumeration/brute-force attempts
 // against it (and generic scraping of public report pages).
 const reportLimiter = rateLimit({

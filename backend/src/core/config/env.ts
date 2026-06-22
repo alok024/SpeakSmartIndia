@@ -18,7 +18,7 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),
   PORT:     z.coerce.number().int().positive().default(3000),
 
-  // M1: app/release version, set at build time (e.g. via Docker ARG/ENV or
+  // app/release version, set at build time (e.g. via Docker ARG/ENV or
   // CI `--build-arg VERSION=$(git rev-parse --short HEAD)`). Replaces direct
   // process.env.npm_package_version reads, which bypass Zod validation and
   // are undefined in most Docker builds.
@@ -27,7 +27,7 @@ const EnvSchema = z.object({
   // Supabase
   SUPABASE_URL:         z.string().url('SUPABASE_URL must be a valid URL'),
   SUPABASE_SERVICE_KEY: z.string().min(1),
-  // M3: required in production. Falling back to SUPABASE_SERVICE_KEY
+  // required in production. Falling back to SUPABASE_SERVICE_KEY
   // bypasses Row Level Security on every client-facing query, so this can
   // no longer be silently optional outside of local dev/test. Enforced
   // below via .superRefine() (needs NODE_ENV, which isn't known yet here).
@@ -37,7 +37,7 @@ const EnvSchema = z.object({
   JWT_SECRET:         z.string().min(1),
   JWT_REFRESH_SECRET: z.string().min(1),
 
-  // H3: secret used to HMAC-sign public report share tokens, preventing
+  // secret used to HMAC-sign public report share tokens, preventing
   // anyone from forging a valid token for a session UUID they don't
   // already hold a legitimate token for.
   REPORT_SECRET: z.string().min(1),
@@ -63,10 +63,7 @@ const EnvSchema = z.object({
   // languages (English included), with ElevenLabs as fallback. When 'false'
   // (default for backwards-compat), ElevenLabs remains primary for English
   // and Sarvam only handles hi/hinglish requests.
-  // Feature: "Voice provider switch (Sarvam primary)" — vachix_b2c_build_plan §2.
-  // 2026-06: Sarvam is now the default primary voice engine for all
-  // languages (English included), per the pricing/voice-stack decision —
-  // lower cost + native Hinglish support. ElevenLabs remains the
+  // Feature: "Voice provider switch (Sarvam primary)" ElevenLabs remains the
   // automatic fallback on Sarvam failure (see synthesizeSpeech() in
   // voice.controller.ts). Set to 'false' to revert to ElevenLabs-primary
   // for English without a code change.
@@ -88,13 +85,13 @@ const EnvSchema = z.object({
   // URLs
   FRONTEND_URL: z.string().url('FRONTEND_URL must be a valid URL').default('https://vachix.in'),
 
-  // Fix (M2): Vercel preview deployments use dynamic subdomain URLs like
+  // Vercel preview deployments use dynamic subdomain URLs like
   // vachixindia-git-fix-branch-xyz.vercel.app which can't be hardcoded
   // in PROD_ORIGINS. EXTRA_ALLOWED_ORIGINS is a comma-separated list of
   // additional origins to whitelist at runtime — set it in Railway/env to
   // add preview URLs without a code deploy. Examples:
-  //   EXTRA_ALLOWED_ORIGINS=https://vachixindia-pr-42.vercel.app
-  //   EXTRA_ALLOWED_ORIGINS=https://preview.vachix.in,https://staging.vachix.in
+  // EXTRA_ALLOWED_ORIGINS=https://vachixindia-pr-42.vercel.app
+  // EXTRA_ALLOWED_ORIGINS=https://preview.vachix.in,https://staging.vachix.in
   EXTRA_ALLOWED_ORIGINS: z.string().default(''),
 
   // Email / notifications
@@ -128,7 +125,7 @@ const EnvSchema = z.object({
   AI_CONTEXT_TOKEN_BUDGET: z.coerce.number().int().positive().default(8_000),
   // Optional — per-type TTLs apply when absent.
   AI_CACHE_TTL_SECONDS:    z.coerce.number().int().nonnegative().optional(),
-  // Fix (S1): TTL for the per-session assembled system-prompt cache
+  // TTL for the per-session assembled system-prompt cache
   // (memory + weak-areas + adaptive + onboarding), keyed by session_id.
   // Sessions rarely run longer than ~20-30 min; default gives headroom
   // without keeping stale personalisation context around indefinitely.
@@ -136,7 +133,7 @@ const EnvSchema = z.object({
   CB_FAILURE_THRESHOLD:    z.coerce.number().int().positive().default(5),
   CB_RESET_TIMEOUT_MS:     z.coerce.number().int().positive().default(60_000),
   REFERRAL_BONUS_CALLS:    z.coerce.number().int().nonnegative().default(10),
-  // Fix (H5): hard ceiling on accumulated referral_bonus per user. Without
+  // hard ceiling on accumulated referral_bonus per user. Without
   // this, a coordinated abuse pattern (disposable accounts all referring one
   // account, each completing a single session) grants unlimited free AI
   // calls. Enforced atomically inside the increment_referral_bonus RPC
@@ -164,7 +161,7 @@ const EnvSchema = z.object({
   SARVAM_BREAKER_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(3),
   SARVAM_BREAKER_COOLDOWN_MS:       z.coerce.number().int().positive().default(15_000),
 }).superRefine((data, ctx) => {
-  // M3: SUPABASE_ANON_KEY must be set in production — the silent fallback
+  // SUPABASE_ANON_KEY must be set in production — the silent fallback
   // to SUPABASE_SERVICE_KEY bypasses Row Level Security. Dev/test environments
   // can still omit it for local convenience.
   if (data.NODE_ENV === 'production' && !data.SUPABASE_ANON_KEY) {
@@ -194,7 +191,7 @@ if (!_result.success) {
 const _parsed = _result.data;
 
 // Derived keys
-// M3: production builds can no longer reach this fallback — superRefine
+// production builds can no longer reach this fallback — superRefine
 // above fails fast at startup if SUPABASE_ANON_KEY is missing in prod.
 // In dev/test, it's still convenient to omit it and fall back to the
 // service-role key, with a loud one-time warning so the gap stays visible.
@@ -228,7 +225,7 @@ export const IS_PROD = env.NODE_ENV === 'production';
 
 // 2026-06: 'starter' (₹299/mo, 30 sessions) is a fully integrated tier —
 // exposed in the landing page pricing section, the in-app upgrade modal,
-// and the billing flow (vachix_b2c_build_plan(1).md §2 "Starter tier
+// and the billing flow.md "Starter tier
 // (full integration)"). Every PLAN_LIMITS/PLAN_PRICES consumer below
 // resolves dynamically by key, so this has applied to real Starter
 // subscribers since launch — no per-feature opt-in needed here.
@@ -244,7 +241,7 @@ export const PLAN_LIMITS: Record<PlanType, { ai_calls: number }> = {
 
 /**
  * In paise (INR × 100).
- * 2026-06 locked pricing (vachix_b2c_build_plan(1).md §1):
+ * 2026-06 locked pricing.md):
  *   Starter ₹299 · Pro ₹299→₹699 · Elite ₹599→₹1,299
  */
 export const PLAN_PRICES: Record<'starter' | 'pro' | 'elite', number> = {

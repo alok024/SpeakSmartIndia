@@ -7,8 +7,8 @@
 // catch needed.
 //
 // Usage:
-//   throw new AppError(404, 'not_found', 'User not found');
-//   throw new AppError(503, 'ai_unavailable', 'All AI providers are down');
+// throw new AppError(404, 'not_found', 'User not found');
+// throw new AppError(503, 'ai_unavailable', 'All AI providers are down');
 //
 // RateLimitError is kept here alongside AppError so every module imports
 // from one place instead of from emailVerification.service.

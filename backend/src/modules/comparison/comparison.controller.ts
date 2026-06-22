@@ -30,6 +30,15 @@ export const createComparisonToken = asyncHandler(async (req: Request, res: Resp
     return;
   }
 
+  // L-1: Validate question_index upper bound against actual feedback rows.
+  // Without this, an out-of-range index propagates as an unstructured 500
+  // from comparison.service.ts instead of a clean 404.
+  const feedbacks = await db.getSessionFeedback(sessionId, userId);
+  if (question_index >= feedbacks.length) {
+    notFound(res, `question_index ${question_index} is out of range for this session`);
+    return;
+  }
+
   const result = await createComparison(userId, sessionId, question_index);
 
   trackEvent({

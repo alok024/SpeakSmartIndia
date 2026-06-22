@@ -4,14 +4,8 @@
  * as a top-level entry point while keeping all worker logic colocated
  * with its dependencies under src/infra/queue/.
  *
- * BUG FIX: this file used to only re-export `startBackgroundWorker`
- * without ever calling it. `npm run worker` runs `node dist/worker.js`
- * directly — nothing else imports or invokes this module — so the old
- * version booted, defined nothing, and exited immediately. The worker
- * process never attached to Redis/BullMQ, so every job pushed onto
- * `vachix:background` in production (interviewer notes, AI memory,
- * weak-area recompute, lead follow-ups, subscription/session expiry)
- * just piled up unconsumed, with no error anywhere to surface it.
+ * If Redis is not configured, exits non-zero rather than sitting idle —
+ * a silently-idle worker is harder to debug than one that fails fast.
  */
 import { startBackgroundWorker } from './infra/queue/worker';
 import { logger } from './infra/logger';

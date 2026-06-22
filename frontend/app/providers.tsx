@@ -47,9 +47,9 @@ function PostHogInit() {
 }
 
 // ThemeApplier removed. Theme is now fully managed by:
-//   1. Blocking inline script in layout.tsx (migrates ss-* → vachix-*, reads vachix-ui, prevents FOUC)
-//   2. Zustand persist onRehydrateStorage (syncs DOM on hydration)
-//   3. toggleTheme / setTheme in store/ui.ts (syncs DOM on user action)
+// 1. Blocking inline script in layout.tsx (migrates ss-* → vachix-*, reads vachix-ui, prevents FOUC)
+// 2. Zustand persist onRehydrateStorage (syncs DOM on hydration)
+// 3. toggleTheme / setTheme in store/ui.ts (syncs DOM on user action)
 // No effect needed here — any useEffect touching toggleTheme caused flicker.
 
 // Root providers

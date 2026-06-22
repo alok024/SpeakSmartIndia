@@ -33,7 +33,7 @@ export interface JWTPayload {
   email:           string;
   plan:            string;
   name:            string;
-  email_verified?: boolean;   // Fix (2): added to type
+  email_verified?: boolean;   // added to type
   jti?:            string;
   iat?:            number;
   exp?:            number;
@@ -44,7 +44,7 @@ declare global {
     interface Request {
       user?:      JWTPayload;
       callCount?: number;
-      // Fix (H7): resolvedLimit carries the DB-authoritative plan limit (including
+      // resolvedLimit carries the DB-authoritative plan limit (including
       // referral bonus calls) so controllers don't re-derive it from the JWT plan,
       // which can be stale immediately after an upgrade.
       resolvedLimit?: number;
@@ -80,7 +80,7 @@ export async function authMiddleware(
       }
     }
 
-    // Fix (C1): Reject tokens issued before a password reset.
+    // Reject tokens issued before a password reset.
     // When a user resets their password, tokens_invalidated_at is stamped on
     // their DB row. Any token with iat < tokens_invalidated_at was issued
     // before the reset and must be treated as revoked — even if it hasn't
@@ -138,7 +138,7 @@ export async function checkUsageLimit(
 
     req.callCount = callCount;
 
-    // Fix (H6): Remove the req.body.free bypass from the limit gate.
+    // Remove the req.body.free bypass from the limit gate.
     // Clients could previously send { free: true } to skip the hard wall entirely.
     // The /api/ai/free route now handles non-counted calls — path is set by the
     // server's routing, not the client body. The middleware always enforces the
@@ -151,7 +151,7 @@ export async function checkUsageLimit(
       return;
     }
 
-    // Fix (H7): Expose the DB-authoritative limit on the request so controllers
+    // Expose the DB-authoritative limit on the request so controllers
     // don't fall back to PLAN_LIMITS[user.plan] (the JWT plan), which is stale
     // immediately after an upgrade until the user re-authenticates.
     req.resolvedLimit = actualLimit;
@@ -193,7 +193,7 @@ export function validate(schema: ZodSchema) {
   };
 }
 
-// H3: defense-in-depth — reject malformed :id-style route params before
+// defense-in-depth — reject malformed :id-style route params before
 // they're interpolated into a PostgREST filter. The ownership filter
 // (user_id=eq....) still gates access, so this isn't a full IDOR fix on
 // its own, but it stops obviously-malformed/injection-shaped values from
@@ -234,6 +234,23 @@ export async function optionalAuth(
       }
     }
 
+    // H-4: Mirror authMiddleware's tokens_invalidated_at check.
+    // A token issued before a password reset must be treated as revoked
+    // even on optional-auth routes — once any optionalAuth route starts
+    // exposing user-scoped data, a pre-reset token would otherwise grant
+    // access. Non-fatal: DB failure falls through to anonymous, not error.
+    if (payload.iat) {
+      try {
+        const dbUser = await db.getUserById(payload.id);
+        if (dbUser?.tokens_invalidated_at) {
+          const invalidatedAt = new Date(dbUser.tokens_invalidated_at).getTime() / 1000;
+          if (payload.iat < invalidatedAt) { next(); return; }
+        }
+      } catch {
+        log.warn('tokens_invalidated_at check failed (non-fatal)', { userId: payload.id });
+      }
+    }
+
     req.user = payload;
   } catch {
     // Invalid/expired token on an optional-auth route — proceed anonymously
@@ -252,7 +269,7 @@ export function asyncHandler(
 }
 
 // Email-verified guard
-// Fix (2): Always checks DB — never trusts potentially-stale JWT claim.
+// Always checks DB — never trusts potentially-stale JWT claim.
 // Place after authMiddleware on any route that requires a verified email.
 
 export async function requireVerified(
@@ -464,4 +481,21 @@ export function errorHandler(
 
   if (requestId) res.setHeader('X-Request-Id', requestId);
   fail(res, status, code, message);
+}
+
+// sessions.id is int8 (bigint) in Postgres — not a UUID. Routes that
+// accept a session id in a path param must validate it as a positive
+// integer, not a UUID. validateUUIDParam on those routes was incorrect
+// and caused every real API call (GET /sessions/:id, certificate-token,
+// share-token, compare) to return 400 for valid numeric session IDs.
+export function validateIntParam(paramName: string) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const value = req.params[paramName];
+    const n = Number(value);
+    if (!value || !Number.isInteger(n) || n <= 0) {
+      badRequest(res, `Invalid ${paramName}`, 'invalid_param');
+      return;
+    }
+    next();
+  };
 }

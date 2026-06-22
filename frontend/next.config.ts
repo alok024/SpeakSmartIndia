@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
   },
   // Rewrites: proxy /api/* to Express backend on Railway
   async rewrites() {
-    // M13: this is the rewrite target apiCall() in lib/api.ts actually
+    // this is the rewrite target apiCall() in lib/api.ts actually
     // hits (it fetches the relative `/api/...` path, which Next.js then
     // proxies here) — so this fallback, not the same-looking one in
     // lib/api.ts's BACKEND_URL export, is what previously sent a
@@ -41,12 +41,12 @@ const nextConfig: NextConfig = {
     // M11/M12: X-XSS-Protection is deprecated and ignored (or actively
     // harmful) in modern browsers; replaced with a real Content-Security-
     // Policy. Scoped to what this app actually loads:
-    //   - Razorpay's checkout.js is loaded dynamically (UpgradeModal.tsx)
-    //     and opens its own iframe/popup for the payment form.
-    //   - next/font/google self-hosts fonts at build time under
-    //     /_next/static, so no external font-src is needed.
-    //   - images.unsplash.com is the only external image host configured
-    //     in next.config's images.remotePatterns.
+    // - Razorpay's checkout.js is loaded dynamically (UpgradeModal.tsx)
+    // and opens its own iframe/popup for the payment form.
+    // - next/font/google self-hosts fonts at build time under
+    // /_next/static, so no external font-src is needed.
+    // - images.unsplash.com is the only external image host configured
+    // in next.config's images.remotePatterns.
     // 'unsafe-inline' is kept for script/style because Next.js (App
     // Router, no custom nonce middleware yet) emits inline hydration data
     // and Tailwind/CSS-in-JS emits inline styles; this is still a real

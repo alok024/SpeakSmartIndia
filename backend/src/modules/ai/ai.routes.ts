@@ -21,7 +21,7 @@ import { AIRequestSchema } from '../../core/utils/schemas';
 
 const router = Router();
 
-// Fix: session.js's non-streaming callAI() posts to POST /api/ai (root),
+// session.js's non-streaming callAI() posts to POST /api/ai (root),
 // but only /practice, /stream, and /free were registered — every classic-mode
 // AI call 404'd. Alias the root path to the same handler/middleware as /practice.
 router.post(
@@ -56,7 +56,7 @@ router.post(
   AIController.handleAIStream,
 );
 
-// Fix (C2): /free is for non-counted helper calls (hints, grammar
+// /free is for non-counted helper calls (hints, grammar
 // checks, drill tips) that happen within an active session. These must work
 // even when a free user has used all their quota — blocking them mid-session
 // on a hint call is wrong UX and was unintentional.
@@ -67,7 +67,7 @@ router.post(
 // req.path === '/free'" — but that check was never implemented, making the
 // /free endpoint functionally identical to /practice.
 //
-// Fix: remove checkUsageLimit from this route. The route is still fully
+// remove checkUsageLimit from this route. The route is still fully
 // auth-gated (authMiddleware + requireVerified + requireOnboarded), so
 // unauthenticated callers are rejected. Usage counting is session-level
 // (sessions.service.ts on save) — /free calls never affected that counter

@@ -276,7 +276,7 @@ export function ProgressBar({ value, max = 100, color, className, label, showVal
 // ScoreBadge
 
 export function ScoreBadge({ score, size = 'md' }: { score: number; size?: 'sm' | 'md' | 'lg' }) {
-  // Fix (#24): scores are 0-10 everywhere this component is used, but the
+  // scores are 0-10 everywhere this component is used, but the
   // thresholds here were written for a 0-100 scale — every badge rendered
   // red regardless of actual performance. Match scoreColor's convention.
   const color =

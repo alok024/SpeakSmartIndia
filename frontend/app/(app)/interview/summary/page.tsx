@@ -16,7 +16,14 @@ import { CheckCircle, Share2, Download, MessageSquareQuote, Award, Users } from 
 function InterviewSummaryPageInner() {
   const params    = useSearchParams();
   const router    = useRouter();
-  const sessionId = params.get('session');
+  const sessionIdRaw = params.get('session');
+  // sessions.id is int8 (bigint) in the DB — the URL param is a numeric string
+  // like "4", not a UUID. Guard against obviously invalid values (non-numeric,
+  // zero, negative) so a garbled URL shows a clean not-found state rather than
+  // a zero-filled page with broken share/certificate actions.
+  const sessionId = (sessionIdRaw && /^[1-9][0-9]*$/.test(sessionIdRaw))
+    ? sessionIdRaw
+    : null;
   const { user }  = useAuthStore();
   const { showUpgradeModal, showToast } = useUIStore();
   const { session: liveSession, config } = useInterviewStore();
@@ -104,6 +111,20 @@ function InterviewSummaryPageInner() {
     } else {
       showToast('Could not create challenge link. Try again.');
     }
+  }
+
+  // Invalid/missing session ID with no live session in the store
+  // means there's nothing to show — don't render a zero-filled summary
+  // with broken share/certificate actions.
+  if (!sessionId && feedbacks.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <p className="text-sm" style={{ color: 'var(--text-3)' }}>Session not found.</p>
+        <Button variant="secondary" size="sm" onClick={() => router.push('/dashboard')}>
+          Back to Dashboard
+        </Button>
+      </div>
+    );
   }
 
   if (isLoading && sessionId) {

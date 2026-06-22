@@ -1,9 +1,8 @@
 /**
- * Adaptive AI Behavior — Phase 9
+ * Adaptive AI Behavior
  *
- * "You built intelligence. But not behavior adaptation."
- *
- * Problem: every user gets the same Aria regardless of:
+ * Personalises Aria's coaching style based on a user's session history.
+ * Without this, every user gets the same Aria regardless of:
  *   - How many sessions they've done (beginner vs veteran)
  *   - Their current score trajectory (improving vs plateauing)
  *   - Their biggest weak area (grammar vs structure vs confidence)
@@ -101,7 +100,7 @@ function computeWeakDimension(stats: UserStats): WeakDimension {
 
 // Prompt fragments per dimension
 
-// Fix (S2): Compacted from prose paragraphs (~38 tok each) to directive lists
+// Compacted from prose paragraphs (~38 tok each) to directive lists
 // (~16 tok each). LLMs parse these equally well — the trimmed words did no
 // semantic work.
 const DEPTH_PROMPT: Record<DepthLevel, string> = {
@@ -110,14 +109,14 @@ const DEPTH_PROMPT: Record<DepthLevel, string> = {
   advanced:     `\n[STYLE: advanced] Direct, technical, no fluff. Push for stronger phrasing. Treat as senior candidate.`,
 };
 
-// Fix (S2): Compacted trajectory prompts.
+// Compacted trajectory prompts.
 const TRAJECTORY_PROMPT: Record<Trajectory, string> = {
   improving:  `\n[TRAJECTORY: improving] Reinforce what's working. Add one stretch goal this session.`,
   plateauing: `\n[TRAJECTORY: plateauing] Name the specific blocker. Focus the session on breaking through it.`,
   declining:  `\n[TRAJECTORY: declining] Don't pile on. Praise first, one correction only. Rebuild confidence.`,
 };
 
-// Fix (S2): Compacted focus prompts.
+// Compacted focus prompts.
 const FOCUS_PROMPT: Record<WeakDimension, string> = {
   grammar:   `\n[FOCUS: grammar] Every feedback: one grammar fix with corrected form.`,
   structure: `\n[FOCUS: structure] Every feedback: label whether answer had clear opening/body/conclusion (STAR).`,
@@ -126,7 +125,7 @@ const FOCUS_PROMPT: Record<WeakDimension, string> = {
   none:      '',
 };
 
-// Fix (S2): Compacted streak prompts.
+// Compacted streak prompts.
 function streakPrompt(streak: number): string {
   if (streak >= 14) return `\n[STREAK: ${streak} days 🔥] Acknowledge briefly. Set an ambitious challenge.`;
   if (streak >= 7)  return `\n[STREAK: ${streak} days] Acknowledge briefly, keep momentum.`;

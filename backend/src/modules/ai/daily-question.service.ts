@@ -1,5 +1,5 @@
 /**
- * Daily Question Drop — Easy build item (vachix_b2c_build_plan(1).md §2).
+ * Daily Question Dropmd).
  *
  * One question per IST calendar day, shown on the dashboard. Generated
  * once (lazily, on first read of the day) via the existing Groq

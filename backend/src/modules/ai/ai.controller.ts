@@ -1,15 +1,13 @@
 /**
- * AI Controller — Phase 9
+ * AI Controller
  *
- * Phase 8 → 9 additions:
- *   1. System-level load check (RPM gate) before burst check
- *   2. Adaptive behavior context injected into system prompt (Pro/Elite)
- *   3. Structured cache context (type + topic) passed to callAI
- *   4. Sentry user context set on each request
- *   5. Metrics counter for burst rejections
+ * Handles the /api/ai and /api/ai/stream endpoints. Enforces system-level
+ * load shedding, per-user burst limiting, and usage quota before handing
+ * off to ai.service.ts. Injects adaptive behavior context (Pro/Elite) and
+ * structured cache keys into every AI call.
  *
- * Fix (H4): buildPromptContext + BASE_SYSTEM_PROMPT + PromptContext moved to
- * ai.prompt-service.ts so this file only handles HTTP concerns.
+ * Prompt assembly lives in ai.prompt-service.ts — this file only handles
+ * HTTP concerns.
  */
 
 import { Request, Response }      from 'express';
@@ -29,7 +27,7 @@ import { sanitiseTopic }           from '../../core/utils';
 
 // AI errors from ai.service.ts are typed as AIUnavailableError (imported above).
 
-// Fix (S3): per-call-type response caps, replacing the old flat 1024
+// per-call-type response caps, replacing the old flat 1024
 // default for every call. A hint/tip is naturally 1-3 sentences; a full
 // structured feedback response (scores + corrections + model answer JSON)
 // genuinely needs more room. Capping by inferred type doesn't change what
@@ -65,7 +63,7 @@ function resolveMaxResponseTokens(explicit: number | undefined, rawMessages: unk
 // POST /api/ai
 
 export const handleAI = asyncHandler(async (req: Request, res: Response) => {
-  // L3: AI responses are user-specific and must never be cached at the
+  // AI responses are user-specific and must never be cached at the
   // network layer (CDN/proxy) — set this first so it applies to every
   // response path below, including error/limit responses.
   res.setHeader('Cache-Control', 'no-store');
@@ -73,7 +71,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   const user      = req.user!;
   const callCount  = req.callCount ?? 0;
   const plan       = user.plan as PlanType;
-  // Fix (H7): Use req.resolvedLimit (set by checkUsageLimit from the DB) instead of
+  // Use req.resolvedLimit (set by checkUsageLimit from the DB) instead of
   // PLAN_LIMITS[user.plan]. The JWT plan is stale immediately after an upgrade —
   // users who just paid would still see their old free-tier "remaining" count.
   const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
@@ -111,13 +109,13 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   }
 
   // 3. Build system prompt
-  // Fix (I8): pass the resolved response-token budget through so the
+  // pass the resolved response-token budget through so the
   // sliding-window trimmer can reserve room for it (default mirrors
   // callAI/streamAI's own default of 1024).
-  // Fix (S3): cap default max_tokens by inferred call type instead of a
+  // cap default max_tokens by inferred call type instead of a
   // flat 1024 for every call — see resolveMaxResponseTokens below.
   const maxResponseTokens = resolveMaxResponseTokens(req.body.max_tokens, req.body.messages);
-  // Fix (S1): buildPromptContextCached reuses the assembled system prompt
+  // buildPromptContextCached reuses the assembled system prompt
   // for the rest of this session (req.body.session_id) instead of re-running
   // 4 DB reads + a full prompt rebuild on every turn. Falls back to the
   // identical uncached behaviour when no session_id is supplied.
@@ -142,7 +140,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
       maxResponseTokens,
       {
         cacheable,
-        // M2: personalised + userId let the cache layer bucket per-user
+        // personalised + userId let the cache layer bucket per-user
         // with a short TTL instead of skipping the cache entirely.
         cacheCtx: { topic, personaKey, personalised, userId: user.id },
       }
@@ -161,7 +159,7 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  // Fix (C2): Usage is incremented once per completed session in
+  // Usage is incremented once per completed session in
   // sessions.service.ts (on save), not per AI message. Individual AI calls
   // within a session — including /free helper calls (hints, grammar checks,
   // drill tips) — do not touch the usage counter here.
@@ -206,15 +204,15 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
 // not request → wait → full response.
 //
 // Events sent:
-//   event: token   data: {"text":"..."}      (one per chunk, as it arrives)
-//   event: done    data: {"provider":"...","calls_used":N,"remaining":N|null}
-//   event: error   data: {"error":"...","message":"...","retry_after_s":N}
+// event: token   data: {"text":"..."}      (one per chunk, as it arrives)
+// event: done    data: {"provider":"...","calls_used":N,"remaining":N|null}
+// event: error   data: {"error":"...","message":"...","retry_after_s":N}
 
 export const handleAIStream = asyncHandler(async (req: Request, res: Response) => {
   const user      = req.user!;
   const callCount  = req.callCount ?? 0;
   const plan       = user.plan as PlanType;
-  // Fix (H7): Same as handleAI — use DB-authoritative limit, not stale JWT plan.
+  // Same as handleAI — use DB-authoritative limit, not stale JWT plan.
   const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
 
   const topic = sanitiseTopic(
@@ -226,7 +224,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
 
   // SSE headers — sent immediately so the client connection opens
   res.setHeader('Content-Type', 'text/event-stream');
-  // L3: AI responses are user-specific — no-store ensures no
+  // AI responses are user-specific — no-store ensures no
   // CDN/proxy ever caches this stream regardless of method/config.
   res.setHeader('Cache-Control', 'no-store, no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
@@ -264,10 +262,10 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
   }
 
   // 3. Build system prompt (same personalisation pipeline as /api/ai)
-  // Fix (I8): see handleAI — reserve room for the response in the token budget.
-  // Fix (S3): cap default max_tokens by inferred call type.
+  // see handleAI — reserve room for the response in the token budget.
+  // cap default max_tokens by inferred call type.
   const maxResponseTokens = resolveMaxResponseTokens(req.body.max_tokens, req.body.messages);
-  // Fix (S1): see handleAI — reuse the cached per-session system prompt.
+  // see handleAI — reuse the cached per-session system prompt.
   const { messages, adaptiveProfile, cacheable, personalised, personaKey } = await buildPromptContextCached(
     user.id,
     plan,
@@ -277,7 +275,7 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
     req.body.session_id as string | undefined,
   );
   const hasPersonalisation = plan !== 'free';
-  // M2: personalised + userId let the cache layer bucket per-user with a
+  // personalised + userId let the cache layer bucket per-user with a
   // short TTL instead of skipping the cache entirely.
   const cacheCtx = { topic, personaKey, personalised, userId: user.id };
 

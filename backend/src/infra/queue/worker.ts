@@ -160,7 +160,7 @@ export function startBackgroundWorker(): Worker | null {
     })
   );
 
-  // H5: Distinguish between a transient failure (will be retried) and
+  // Distinguish between a transient failure (will be retried) and
   // exhaustion (all attempts used up — data is silently lost without action).
   // BullMQ defaultJobOptions sets attempts = 3, so job.attemptsMade === 3
   // means this is the final failure. We capture to Sentry so ops is paged

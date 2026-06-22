@@ -132,10 +132,10 @@ export async function dispatchGenerateReadinessReport(
 // Schedule: B2B lead 24h follow-up email
 //
 // With Redis:    enqueues a delayed job (24h) on vachix:background.
-//               jobId is the lead's id — BullMQ dedupes on jobId, so
-//               re-submitting the same lead twice won't double-send.
+// jobId is the lead's id — BullMQ dedupes on jobId, so
+// re-submitting the same lead twice won't double-send.
 // Without Redis: skipped — there's no safe inline equivalent for a
-//               24h delay. Logged so it's visible in ops dashboards.
+// 24h delay. Logged so it's visible in ops dashboards.
 
 export async function dispatchLeadFollowUp(leadId: string): Promise<void> {
   const q = getBackgroundQueue();
@@ -161,8 +161,8 @@ export async function dispatchLeadFollowUp(leadId: string): Promise<void> {
 }
 //
 // With Redis:    registers a BullMQ repeatable job (every 1 hour).
-//               The stable jobId prevents duplicate registrations
-//               across restarts — BullMQ is idempotent on jobId.
+// The stable jobId prevents duplicate registrations
+// across restarts — BullMQ is idempotent on jobId.
 // Without Redis: falls back to plain setInterval (current behaviour).
 
 export async function scheduleSubscriptionExpiry(): Promise<void> {
@@ -200,7 +200,7 @@ export async function scheduleSubscriptionExpiry(): Promise<void> {
   }
 }
 
-// Schedule: expire stale interview sessions (Issue 7)
+// Schedule: expire stale interview sessions
 //
 // sessions.service.ts can leave a row in 'scoring' status forever if
 // the client disconnects before saveSession() reaches
@@ -209,8 +209,8 @@ export async function scheduleSubscriptionExpiry(): Promise<void> {
 // as missing.
 //
 // With Redis:    registers a BullMQ repeatable job (every 15 minutes).
-//               The stable jobId prevents duplicate registrations
-//               across restarts — BullMQ is idempotent on jobId.
+// The stable jobId prevents duplicate registrations
+// across restarts — BullMQ is idempotent on jobId.
 // Without Redis: falls back to plain setInterval.
 
 export async function scheduleSessionExpiry(): Promise<void> {
@@ -267,5 +267,28 @@ export function scheduleBlacklistCleanup(): void {
 
   // Run immediately on startup (catches any backlog), then every 24h
   setTimeout(runCleanup, 60_000); // wait 60s after startup
+  setInterval(runCleanup, TWENTY_FOUR_HOURS);
+}
+
+// Score comparison cleanup (H-3)
+// score_comparisons has a 7-day TTL enforced at read time only — rows
+// are never deleted. comparison_responses are FK-linked with ON DELETE CASCADE,
+// so deleting the parent is sufficient to clean both tables.
+// Runs nightly, staggered 90s after startup to avoid contention with
+// the blacklist cleanup that fires at 60s.
+
+export function scheduleComparisonCleanup(): void {
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+  async function runCleanup() {
+    try {
+      await db.cleanupExpiredComparisons();
+      logger.info('Score comparison cleanup completed');
+    } catch (err) {
+      logger.error('Score comparison cleanup failed', { error: (err as Error).message });
+    }
+  }
+
+  setTimeout(runCleanup, 90_000); // 90s after startup
   setInterval(runCleanup, TWENTY_FOUR_HOURS);
 }

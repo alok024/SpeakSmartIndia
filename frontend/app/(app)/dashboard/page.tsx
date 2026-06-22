@@ -51,7 +51,7 @@ export default function DashboardPage() {
   // immediately without requiring a page refresh. Fall back to the Zustand
   // store only while meData is still loading (avoids a free→paid flash).
   const livePlan = meData?.user?.plan ?? user?.plan;
-  const isFree       = !livePlan || (livePlan !== 'pro' && livePlan !== 'elite');
+  const isFree       = !livePlan || livePlan === 'free';
   const FREE_LIMIT   = usage?.limit ?? user?.ai_calls_limit ?? null;
   const aiUsed       = usage?.ai_calls ?? 0;
   const aiRemaining  = usage?.remaining ?? user?.ai_calls_remaining ?? null;

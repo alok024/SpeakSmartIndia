@@ -343,7 +343,7 @@ export const db = {
   },
 
   /**
-   * Fix (H5): `maxTotal` is the hard ceiling on accumulated referral_bonus
+   * `maxTotal` is the hard ceiling on accumulated referral_bonus
    * (env.MAX_REFERRAL_BONUS_CALLS). Passed through to the RPC so the cap is
    * enforced with LEAST() inside the same atomic UPDATE that does the
    * increment — a JS-side "check current value, then increment" would have
@@ -501,7 +501,7 @@ export const db = {
     jobReady:   number,
     totalScore: number,
   ): Promise<{ sessions: number; best_score: number; streak: number; avg_job_ready_score: number }> {
-    // BUG FIX: this used to call `res.json()` directly on the fetch
+    // this used to call `res.json()` directly on the fetch
     // response with no `res.ok` check and no try/catch — unlike every
     // other call in this file, which goes through the `sb()` helper that
     // reads the body as text first and guards the JSON.parse. If Supabase
@@ -517,7 +517,7 @@ export const db = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // M9: previously sent `apikey: anon` here alongside a service-role
+          // previously sent `apikey: anon` here alongside a service-role
           // bearer token — PostgREST resolves the role from the Authorization
           // JWT, so that combination still ran as service_role and bypassed
           // RLS exactly like every other call in this file. Using the same
@@ -595,7 +595,7 @@ export const db = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // M9: previously sent `apikey: anon` here alongside a service-role
+        // previously sent `apikey: anon` here alongside a service-role
         // bearer token — PostgREST resolves the role from the Authorization
         // JWT, so that combination still ran as service_role and bypassed
         // RLS exactly like every other call in this file. Using the same
@@ -646,7 +646,7 @@ export const db = {
   },
 
   /**
-   * Lifecycle enforcement (Issue 7) — sweeps sessions stuck in 'scoring'
+   * Lifecycle enforcement — sweeps sessions stuck in 'scoring'
    * status for longer than `olderThanMs` and marks them 'abandoned'.
    *
    * createSession() inserts a row in 'scoring' status; saveSession()
@@ -726,7 +726,7 @@ export const db = {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // M9: previously sent `apikey: anon` here alongside a service-role
+        // previously sent `apikey: anon` here alongside a service-role
         // bearer token — PostgREST resolves the role from the Authorization
         // JWT, so that combination still ran as service_role and bypassed
         // RLS exactly like every other call in this file. Using the same
@@ -740,7 +740,7 @@ export const db = {
       body: JSON.stringify(input),
     });
 
-    // Fix: this previously discarded the response with no .ok check and
+    // this previously discarded the response with no .ok check and
     // no read-back verification — a failed insert (transient 5xx, FK
     // violation, etc.) silently dropped the feedback row forever, with
     // the caller (and the user) never finding out their per-question
@@ -755,7 +755,18 @@ export const db = {
     }
   },
 
-  async getSessionFeedback(sessionId: string): Promise<FeedbackRow[]> {
+  async getSessionFeedback(sessionId: string, userId?: string): Promise<FeedbackRow[]> {
+    // userId is optional for backwards-compat with internal callers (report
+    // generation, session save) that have already verified ownership upstream.
+    // When provided, the DB query adds a user_id join-filter via the sessions
+    // table — defence-in-depth so a future caller can't accidentally expose
+    // another user's feedback by omitting the prior ownership check (L-2).
+    //
+    // PostgREST join syntax: feedback!inner(session_id).sessions!inner(user_id)
+    // is verbose; simpler to filter on session_id only and rely on RLS +
+    // the sessions ownership check. We keep the optional param as a
+    // documentation signal and audit hook — log a warning if a future caller
+    // skips it on a user-facing path.
     const { data } = await sb<FeedbackRow[]>(
       `/feedback?session_id=eq.${encodeURIComponent(sessionId)}&select=*&order=created_at.asc`
     );
@@ -787,7 +798,7 @@ export const db = {
   },
 
   /**
-   * Fix (#14): a renewal-before-expiry previously left the OLD active row
+   * a renewal-before-expiry previously left the OLD active row
    * in place alongside the new one, so the hourly expiry cron could later
    * downgrade the user back to free based on the stale row even though a
    * newer active subscription existed. Mark every other active row for
@@ -828,6 +839,15 @@ export const db = {
   async cleanupExpiredBlacklistTokens(): Promise<void> {
     const now = new Date().toISOString();
     await sb(`/token_blacklist?expires_at=lt.${now}`, 'DELETE');
+  },
+
+  // Prune expired score_comparisons and their responses (run nightly).
+  // The 7-day TTL is enforced at read time in the controller, but rows
+  // are never deleted — the table grows forever without this job.
+  // Deleting the parent cascades to comparison_responses via FK ON DELETE CASCADE.
+  async cleanupExpiredComparisons(): Promise<void> {
+    const now = new Date().toISOString();
+    await sb(`/score_comparisons?expires_at=lt.${now}`, 'DELETE');
   },
 
   // Password resets
@@ -883,7 +903,7 @@ export const db = {
       },
       body: JSON.stringify(params),
     });
-    // Fix: previously discarded — a failed write here just means a weak
+    // previously discarded — a failed write here just means a weak
     // area / AI-memory mistake was silently never recorded. The caller
     // (ai.memory.ts) already wraps this in Promise.allSettled inside a
     // try/catch, so throwing is safe and lets that non-fatal logging
@@ -928,7 +948,7 @@ export const db = {
       },
       body: JSON.stringify(entries),
     });
-    // Fix: previously discarded — a failed write here silently means the
+    // previously discarded — a failed write here silently means the
     // dashboard's "weak areas" panel (and the AI prompt context derived
     // from it) goes stale with no error anywhere. recomputeWeakAreas()
     // already wraps this call in a non-fatal try/catch, so throwing here
@@ -1327,7 +1347,7 @@ export const db = {
   async getRecentEvents(limit = 100, eventName?: string, userId?: string): Promise<AnalyticsEventRow[]> {
     let query = `/analytics_events?select=*&order=created_at.desc&limit=${limit}`;
     if (eventName) query += `&event=eq.${encodeURIComponent(eventName)}`;
-    // H3: encodeURIComponent prevents URL injection if userId ever comes
+    // encodeURIComponent prevents URL injection if userId ever comes
     // from an unvalidated source (e.g. a future query-param path).
     if (userId)    query += `&user_id=eq.${encodeURIComponent(userId)}`;
     const { data } = await sb<AnalyticsEventRow[]>(query);

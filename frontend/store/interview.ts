@@ -35,7 +35,7 @@ const DEFAULT_SESSION: LiveSessionState = {
   timerRemaining: 0,
   clientSessionId: null,
   lastSessionId: null,
-  // Fix (#12b): setVoiceReplies persists this to localStorage but nothing
+  // setVoiceReplies persists this to localStorage but nothing
   // read it back on init — the preference had no effect across reloads.
   voiceReplies:
     typeof window !== 'undefined'

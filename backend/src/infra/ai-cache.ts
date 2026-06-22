@@ -1,12 +1,5 @@
 /**
- * AI Response Cache — Phase 9
- *
- * Phase 8 problems:
- *   1. Key = hash(full messages array) — one character change = total miss.
- *      No way to invalidate by topic, type, or role without a full flush.
- *   2. No invalidation API — stale data lives until TTL expires.
- *
- * Phase 9 fixes:
+ * AI Response Cache
  *
  * Structured key: ai:cache:<type>:<topic>:<hash>
  *   type  = 'interview' | 'feedback' | 'tip' | 'general'
@@ -63,7 +56,7 @@ const DEFAULT_TTL: Record<CacheType, number> = {
 
 const GLOBAL_TTL = env.AI_CACHE_TTL_SECONDS ?? null;
 
-// M2: short TTL for personalised (per-user) cache entries — long enough to
+// short TTL for personalised (per-user) cache entries — long enough to
 // dedupe rapid retries/reconnects, short enough that stale memory/weak-area/
 // adaptive context never lingers noticeably.
 const PERSONALISED_TTL = 180; // 3 min
@@ -103,7 +96,7 @@ export interface CacheContext {
 
 /**
  * Infer call type from the last user message content.
- * Exported (S3) so ai.controller.ts can reuse the same classification to
+ * Exported so ai.controller.ts can reuse the same classification to
  * cap default max_tokens per call type — one heuristic, two consumers,
  * instead of a second copy that can drift out of sync with this one.
  */
@@ -134,7 +127,7 @@ function buildKey(
   const topic  = slugify(ctx.topic ?? 'general');
   const persona = ctx.personaKey ? `:${slugify(ctx.personaKey)}` : '';
 
-  // M10: personalised responses are bucketed per-user so cached coaching
+  // personalised responses are bucketed per-user so cached coaching
   // context for one user is never served to another. Every current call
   // site always passes userId alongside personalised:true (see
   // ai.controller.ts), but that's a convention, not something the type

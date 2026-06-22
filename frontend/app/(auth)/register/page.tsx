@@ -6,7 +6,7 @@ import React from 'react';
  * app/(auth)/register/page.tsx
  *
  * Register page. The backend conditionally sends a real verification email
- * (see Fix (H6) in backend/src/modules/auth/auth.service.ts) — when it
+ * (see auth.service.ts -> registerUser) — when it
  * does, `email_sent` comes back true and we send the user to
  * /verify-email-sent instead of straight to login, since the account isn't
  * verified yet and login will 403 with email_not_verified until they click
@@ -80,10 +80,10 @@ export default function RegisterPage() {
       return;
     }
 
-    // Fix: No try/catch here — let React Query set isError so the error
+    // No try/catch here — let React Query set isError so the error
     // banner above the form renders correctly.
     const res = await register.mutateAsync({ name, email, password });
-    // Fix (H6): route based on whether a real verification email went
+    // route based on whether a real verification email went
     // out. If it did, the account isn't verified yet and login will 403
     // until the user clicks the link — send them to /verify-email-sent.
     // Otherwise (verification not configured) the backend auto-verified

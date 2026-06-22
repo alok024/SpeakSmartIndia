@@ -32,7 +32,7 @@ export async function createOrder(
   const amount = PLAN_PRICES[plan];
   const useTest = testMode && !!env.RAZORPAY_TEST_KEY_ID;
 
-  // Fix (3): The Razorpay SDK throws a plain object on failure
+  // The Razorpay SDK throws a plain object on failure
   // ({ statusCode, error: { code, description } }), not a real Error —
   // it has no `.message`, so the global error handler's
   // `err.message` read comes back undefined and the client sees a
@@ -105,7 +105,7 @@ export function verifySignature(
 }
 
 // Fetch order from Razorpay (for ownership verification)
-// Fix (2): Used by the payment verify endpoint to confirm that the supplied
+// Used by the payment verify endpoint to confirm that the supplied
 // razorpay_order_id was actually created for the requesting user.
 // Tries live keys first, then test keys if configured.
 
@@ -167,7 +167,7 @@ export async function activateSubscription(
     }),
   });
 
-  // Fix (1): Always check the response — a silent 4xx/5xx here means the
+  // Always check the response — a silent 4xx/5xx here means the
   // subscriptions row was never written, leaving the user's plan upgraded
   // in the users table but with no subscription record. Throw so the caller
   // (client-verify or webhook) returns an error and can be retried.

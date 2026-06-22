@@ -10,8 +10,8 @@
  * which builds `${FRONTEND_URL}/reset-password?token=...`).
  *
  * Collects a new password and calls `POST /password-reset/confirm`.
- * Fixes Critical Bug #2 — this page previously did not exist, so the
- * emailed reset link 404'd and the reset flow could never be completed.
+ * This page was missing from the original implementation — the emailed
+ * reset link 404'd and the reset flow could never be completed.
  */
 
 import { useState , Suspense } from 'react';

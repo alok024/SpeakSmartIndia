@@ -26,7 +26,12 @@ interface AuthState {
   setUser:         (user: User) => void;
   clearSession:    () => void;
   isAuthenticated: () => boolean;
-  isPro:           () => boolean;
+  // isProOrElite returns true for Pro and Elite plans only.
+  // Starter subscribers are NOT included — Starter has its own feature set
+  // distinct from Pro. Use plan === 'starter' or plan !== 'free' directly
+  // when a feature is Starter+. This helper is intentionally named to make
+  // the exclusion of Starter visible at every call site.
+  isProOrElite:    () => boolean;
   isElite:         () => boolean;
   aiCallsLeft:     () => number;
 }
@@ -47,7 +52,7 @@ export const useAuthStore = create<AuthState>()(
       // to JS. Use this for render decisions, not for security checks.
       isAuthenticated: () => !!get().user,
 
-      isPro: () => {
+      isProOrElite: () => {
         const plan = get().user?.plan;
         return plan === 'pro' || plan === 'elite';
       },
@@ -55,9 +60,9 @@ export const useAuthStore = create<AuthState>()(
       isElite: () => get().user?.plan === 'elite',
 
       aiCallsLeft: () => {
-        const { user, isPro } = get();
+        const { user, isProOrElite } = get();
         if (!user) return 0;
-        if (isPro()) return Infinity;
+        if (isProOrElite()) return Infinity;
         // Use the server-supplied remaining count (from usage.remaining in /me)
         // as the single source of truth. Fall back to the local calculation
         // only if the server value hasn't been fetched yet (cold cache).

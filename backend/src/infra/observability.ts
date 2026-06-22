@@ -1,5 +1,5 @@
 /**
- * Observability — Phase 9
+ * Observability
  *
  * Two concerns in one module:
  *

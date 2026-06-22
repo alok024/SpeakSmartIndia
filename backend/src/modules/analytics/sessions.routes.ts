@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { authMiddleware, requireVerified, requireOnboarded, requirePro, requireStarterTier, validateUUIDParam } from '../../core/middleware';
+import rateLimit from 'express-rate-limit';
+import { authMiddleware, requireVerified, requireOnboarded, requirePro, requireStarterTier, validateIntParam } from '../../core/middleware';
 import {
   createSession,
   getSessions,
@@ -13,9 +14,22 @@ import { createComparisonToken } from '../comparison/comparison.controller';
 
 const router = Router();
 
+// H-2: Per-user rate limit on comparison creation — each POST triggers AI
+// scoring on every public submission, so an unbounded create rate is an
+// uncapped cost multiplier. 5 challenges/min per authenticated user is
+// generous for normal use and tight enough to blunt abuse.
+const compareLimiter = rateLimit({
+  windowMs: 60_000,
+  max:      5,
+  keyGenerator: (req) => (req as any).user?.id ?? req.ip ?? 'anon',
+  standardHeaders: true,
+  legacyHeaders:   false,
+  message: { success: false, error: { code: 'rate_limited', message: 'Too many comparison requests. Please wait a moment.' } },
+});
+
 // requireOnboarded: sessions are meaningless without profession/goal context
 router.post('/',               authMiddleware, requireVerified, requireOnboarded, createSession);
-// Fix (#22): history/page.tsx presents full session history as a
+// history/page.tsx presents full session history as a
 // Pro-only paywalled feature, but GET / had no requirePro check — any
 // free user could bypass the paywall with a direct API call.
 //
@@ -28,7 +42,7 @@ router.get('/',                authMiddleware, requireVerified, requirePro, getS
 router.get('/score-history',   authMiddleware, requireVerified, scoreHistory);
 // Interview Readiness Report — Starter+ (every-5-sessions rollup, builds
 // on the per-session Interviewer's Notes). Must come before /:id so
-// "readiness-report" isn't swallowed as a session UUID param.
+// "readiness-report" isn't swallowed as a session id param.
 router.get('/readiness-report', authMiddleware, requireVerified, requireStarterTier, getReadinessReport);
 // Readiness Certificate — mints a shareable HMAC token for the user's
 // latest readiness-report checkpoint. No separate plan gate: a report
@@ -36,11 +50,11 @@ router.get('/readiness-report', authMiddleware, requireVerified, requireStarterT
 // getReadinessCertificateToken's own comment). Must also come before
 // /:id for the same reason as readiness-report above.
 router.get('/readiness-report/certificate-token', authMiddleware, requireVerified, requireStarterTier, getReadinessCertificateToken);
-router.get('/:id/share-token',       authMiddleware, requireVerified, validateUUIDParam('id'), getShareToken);
-router.get('/:id/certificate-token', authMiddleware, requireVerified, validateUUIDParam('id'), getSessionCertificateToken);
+router.get('/:id/share-token',       authMiddleware, requireVerified, validateIntParam('id'), getShareToken);
+router.get('/:id/certificate-token', authMiddleware, requireVerified, validateIntParam('id'), getSessionCertificateToken);
 // Friend score comparison — create a challenge for a specific question.
 // POST so it creates a new comparison row; body carries question_index.
-router.post('/:id/compare',          authMiddleware, requireVerified, validateUUIDParam('id'), createComparisonToken);
-router.get('/:id',                   authMiddleware, requireVerified, validateUUIDParam('id'), getSession);
+router.post('/:id/compare',          authMiddleware, requireVerified, compareLimiter, validateIntParam('id'), createComparisonToken);
+router.get('/:id',                   authMiddleware, requireVerified, validateIntParam('id'), getSession);
 
 export default router;

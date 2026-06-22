@@ -1,8 +1,8 @@
 /**
- * System Load Monitor — Phase 9
+ * System Load Monitor
  *
- * Per-user controls (Phase 8): burst limiter + concurrency semaphore.
- * What was missing: visibility and control at the SYSTEM level.
+ * Complements the per-user burst limiter and concurrency semaphore
+ * with system-wide visibility and a load-shedding gate.
  *
  * This module tracks:
  *   1. Requests-per-minute across ALL users (rolling 60-second window)

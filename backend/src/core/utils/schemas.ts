@@ -4,7 +4,7 @@ import { z } from 'zod';
 
 export const RegisterSchema = z.object({
   email:    z.string().email('Invalid email format'),
-  // M1: raised from 6 → 8. Login schema intentionally stays at min(1) so
+  // raised from 6 → 8. Login schema intentionally stays at min(1) so
   // existing accounts with shorter passwords aren't locked out retroactively.
   password: z.string().min(8, 'Password must be at least 8 characters'),
   name:     z.string().max(100).optional(),
@@ -63,7 +63,7 @@ const AIMessageSchema = z.object({
   // C1+H1: 'system' role removed — clients must never inject system messages.
   // The backend builds the system prompt server-side only.
   role:    z.enum(['user', 'assistant']),
-  // C3: content capped at 2,000 chars per message to prevent context-window
+  // content capped at 2,000 chars per message to prevent context-window
   // exhaustion and runaway API spend from oversized pastes.
   content: z.string().min(1).max(2_000),
 });
@@ -74,7 +74,7 @@ export const AIRequestSchema = z.object({
   topic:      z.string().max(200).optional(),
   free:       z.boolean().optional(),   // true = helper call (hint/drill/grammar) — does not count against session limit
   /**
-   * Fix (S1): Optional session identifier for prompt-context memoization.
+   * Optional session identifier for prompt-context memoization.
    * When provided, buildPromptContext() caches the assembled system prompt
    * in Redis for the session's lifetime and reuses it on every subsequent
    * turn — eliminating 4 DB reads and a full prompt rebuild per message.
@@ -114,8 +114,6 @@ export const AIFeedbackOutputSchema = z.object({
 export type AIFeedbackOutput = z.infer<typeof AIFeedbackOutputSchema>;
 
 export type AIRequestDTO = z.infer<typeof AIRequestSchema>;
-
-
 
 export type RegisterDTO = z.infer<typeof RegisterSchema>;
 export type LoginDTO    = z.infer<typeof LoginSchema>;
@@ -181,7 +179,6 @@ export const AdminEventQuerySchema = z.object({
 });
 
 export type AdminEventQueryDTO = z.infer<typeof AdminEventQuerySchema>;
-
 
 // Sessions
 // Zod handles coercion, defaults, and range-clamping in one place so

@@ -1,7 +1,8 @@
 /**
- * Referral Service — Phase 9
+ * Referral Service
  *
- * "Growth engine still missing: referral loop."
+ * Implements the invite-a-friend referral loop: code generation, attribution
+ * at signup, and reward crediting on the referred user's first session.
  *
  * Flow:
  *   1. User gets a unique referral code (generated on first request).
@@ -158,7 +159,7 @@ export async function maybeRewardReferrer(userId: string): Promise<void> {
     const event = await db.getPendingReferralEvent(userId);
     if (!event) return; // not referred, or already rewarded
 
-    // Fix (H5): MAX_BONUS_CALLS is enforced atomically inside the RPC
+    // MAX_BONUS_CALLS is enforced atomically inside the RPC
     // (LEAST(referral_bonus + p_amount, p_max)) — see migrations/007.
     // Without a cap, a coordinated abuse pattern (disposable accounts all
     // referring one account, each completing one session) grants unlimited

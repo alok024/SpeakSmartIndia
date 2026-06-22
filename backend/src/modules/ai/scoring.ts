@@ -1,15 +1,20 @@
 /**
  * Job-Ready Score Engine
  *
- * Computes a 0–100 composite score per session from feedback arrays.
+ * Computes a composite 0–100 "job readiness" score from a session's
+ * per-question feedback array. The four dimensions and their weights:
  *
- * Formula:
- *   clarity    × 0.30
- *   structure  × 0.25
- *   relevance  × 0.25
- *   grammar    × 0.20
+ *   Clarity    30% — average AI-assigned quality score (0–10 per question)
+ *   Structure  25% — presence of STAR-method components in the answer
+ *   Relevance  25% — answer length and absence of off-topic tip keywords
+ *   Grammar    20% — deduction per detected language error
  *
- * Each dimension is 0–10, multiplied by 10 to reach 0–100.
+ * Each dimension is computed as a 0–10 value; multiplying the weighted
+ * sum by 10 yields the 0–100 composite.
+ *
+ * Design note: all inputs are optional fields on FeedbackForScoring, so the
+ * engine degrades gracefully when the AI omits a field rather than returning
+ * a corrupt or NaN score.
  */
 
 export interface ScoreBreakdown {
@@ -18,7 +23,7 @@ export interface ScoreBreakdown {
   relevance: number; // 0–10
   grammar:   number; // 0–10
   jobReady:  number; // 0–100 composite
-  rawAvg:    number; // plain avg of per-question scores (legacy compat)
+  rawAvg:    number; // plain mean of per-question scores (legacy compat)
 }
 
 export interface FeedbackForScoring {
@@ -31,16 +36,16 @@ export interface FeedbackForScoring {
 }
 
 // Main export
-
 export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBreakdown {
   if (!feedbacks || feedbacks.length === 0) {
     return { clarity: 0, structure: 0, relevance: 0, grammar: 0, jobReady: 0, rawAvg: 0 };
   }
 
-  // Clarity: average per-question AI score (1–10)
+  // Clarity: straight average of the per-question AI score.
   const clarity = avg(feedbacks.map(f => f.score ?? 5));
 
-  // Structure: how well answers are structured (based on structure object keys)
+  // Structure: inferred from the richness of the AI's `structure` object.
+  // More detected structural components → higher score. Cap at 10.
   const structure = avg(feedbacks.map(f => {
     const s = f.structure;
     if (!s || typeof s !== 'object') return 3;
@@ -48,18 +53,20 @@ export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBre
     return Math.min(10, 3 + keys * 1.5);
   }));
 
-  // Grammar: penalise for each error found
+  // Grammar: start at 10 and deduct 1.5 per detected error. Counts both
+  // `english_errors` (array of strings) and `corrections` (legacy field).
   const grammar = avg(feedbacks.map(f => {
     const errors = (f.english_errors?.length ?? 0)
       + (Array.isArray(f.corrections) ? f.corrections.length : 0);
     return Math.max(0, 10 - errors * 1.5);
   }));
 
-  // Relevance: proxy via answer length + negative tip keywords.
+  // Relevance: word-count proxy, penalised by off-topic tip keywords.
+  //
   // Guard against JS split quirk: ''.split(/\s+/) → [''] (length 1) and
   // '   '.split(/\s+/) → ['', ''] (length 2), both of which would assign a
-  // non-zero base score to a fully skipped answer.  Trim first so genuinely
-  // empty or whitespace-only answers correctly score 0.
+  // non-zero base score to a blank or whitespace-only answer. Trim first so
+  // genuinely empty answers correctly score 0.
   const relevance = avg(feedbacks.map(f => {
     const trimmed = (f.answer || '').trim();
     if (!trimmed) return 0;
@@ -71,7 +78,7 @@ export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBre
     return score;
   }));
 
-  // Composite 0–100
+  // Composite: weighted sum scaled to 0–100.
   const jobReady = clamp(
     (clarity * 0.30 + structure * 0.25 + relevance * 0.25 + grammar * 0.20) * 10,
     0, 100
@@ -89,8 +96,11 @@ export function computeScoreBreakdown(feedbacks: FeedbackForScoring[]): ScoreBre
   };
 }
 
-// Readiness label for UI
-
+// Readiness label (UI)
+/**
+ * Maps a 0–100 job-readiness score to a display label, colour, and
+ * coaching message for the results screen and certificate.
+ */
 export function getReadinessLabel(score: number): {
   label:   string;
   color:   string;
@@ -123,8 +133,7 @@ export function getReadinessLabel(score: number): {
   };
 }
 
-// Helpers
-
+// Private helpers
 function avg(nums: number[]): number {
   if (nums.length === 0) return 0;
   return nums.reduce((a, b) => a + b, 0) / nums.length;

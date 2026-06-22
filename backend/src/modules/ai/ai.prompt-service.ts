@@ -120,7 +120,7 @@ export async function buildPromptContext(
     });
   }
 
-  // M2: previously `cacheable = !memoryContext && !weakAreaContext &&
+  // previously `cacheable = !memoryContext && !weakAreaContext &&
   // !adaptiveContext && !onboardingContext` meant ANY personalisation signal
   // disabled caching entirely — so Pro/Elite users (the ones with memory,
   // weak-area, and adaptive context) NEVER got cache benefits, while
@@ -137,7 +137,7 @@ export async function buildPromptContext(
   return { systemPrompt, messages, adaptiveProfile, cacheable, personalised, personaKey, trimmedCount };
 }
 
-// Session-scoped memoization (Fix S1)
+// Session-scoped memoization
 //
 // buildPromptContext() above does 4 DB reads (memory, weak-areas, stats,
 // onboarding) and rebuilds the system-prompt string from scratch on every
@@ -157,9 +157,9 @@ export async function buildPromptContext(
 //
 // Falls back to a full buildPromptContext() call — silently, no error
 // surfaced to the caller — whenever:
-//   - no session_id was supplied (older clients / non-session calls)
-//   - Redis is unavailable (env.REDIS_URL unset, or a transient error)
-//   - this is the first turn of the session (no cache entry yet)
+// - no session_id was supplied (older clients / non-session calls)
+// - Redis is unavailable (env.REDIS_URL unset, or a transient error)
+// - this is the first turn of the session (no cache entry yet)
 // In every fallback case behaviour is identical to calling
 // buildPromptContext() directly — this function can never produce a worse
 // or different prompt, only a faster one on cache hits.

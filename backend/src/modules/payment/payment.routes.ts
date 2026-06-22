@@ -6,7 +6,7 @@ import { CreateOrderSchema, VerifyPaymentSchema } from '../../core/utils/schemas
 const router = Router();
 
 // POST /api/payment/create-order
-// Fix (3): requireVerified — only verified users can initiate payments
+// requireVerified — only verified users can initiate payments
 router.post('/create-order',
   authMiddleware,
   requireVerified,

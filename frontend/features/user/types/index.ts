@@ -14,7 +14,7 @@ export interface MeResponse {
   onboarding:         OnboardingStatus;
   job_readiness?:     JobReadiness;
   weak_areas?:        WeakArea[];
-  // Fix (#13): these were computed by the backend on every /api/me call
+  // these were computed by the backend on every /api/me call
   // but the frontend type never declared them, so neither the dashboard
   // recommendations panel nor the session-setup pre-fill ever actually
   // consumed them.

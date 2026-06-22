@@ -78,7 +78,7 @@ export async function resendVerification(req: Request, res: Response): Promise<v
   const { email } = req.body as { email: string };
 
   try {
-    // Fix (H1): Import renamed to sendVerificationEmail to avoid shadowing this
+    // Import renamed to sendVerificationEmail to avoid shadowing this
     // exported handler. Previously the alias `resendVerification_` called
     // `resendVerification(email)` which resolved to THIS function — an
     // infinite loop that would stack-overflow at runtime.

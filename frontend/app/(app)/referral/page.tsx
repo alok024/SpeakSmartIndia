@@ -15,7 +15,7 @@ export default function ReferralPage() {
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://vachix.in'}/register?ref=${referral.code}`
     : null;
 
-  // Fix (#23): use the backend's dynamic copy (accurate to the real
+  // use the backend's dynamic copy (accurate to the real
   // reward mechanic) instead of a hardcoded "+1 free session for each
   // person who joins" line — the real mechanic only rewards the referrer
   // after the friend completes their first session.

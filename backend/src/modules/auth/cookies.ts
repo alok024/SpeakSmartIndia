@@ -9,7 +9,7 @@ import { ACCESS_TOKEN_TTL_MS } from './auth.service';
 export const ACCESS_COOKIE  = 'vachix_at';
 export const REFRESH_COOKIE = 'vachix_rt';
 
-// Fix (H4): matches ACCESS_TOKEN_EXPIRES_IN ('30m') in auth.service.ts —
+// matches ACCESS_TOKEN_EXPIRES_IN ('30m') in auth.service.ts —
 // imported (not redeclared) so the cookie lifetime can never drift out of
 // sync with the JWT's own expiry again.
 const ACCESS_TTL_MS  = ACCESS_TOKEN_TTL_MS;

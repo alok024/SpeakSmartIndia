@@ -68,9 +68,9 @@ export function ProtectedRoute({ children, requireAdmin = false }: Props) {
 
     // Onboarding gate — bounce to profile if not completed.
     // Exempt:
-    //  1. /profile itself — handles the onboarding form, avoids redirect loop
-    //  2. Paid users (starter/pro/elite) — they predate onboarding or paid without it
-    //  3. Accounts created before onboarding launched (Jun 16 2026)
+    // 1. /profile itself — handles the onboarding form, avoids redirect loop
+    // 2. Paid users (starter/pro/elite) — they predate onboarding or paid without it
+    // 3. Accounts created before onboarding launched (Jun 16 2026)
     const isProfilePage = pathname === '/profile' || pathname.startsWith('/profile/');
     const isPaidUser    = user.plan === 'starter' || user.plan === 'pro' || user.plan === 'elite';
     const onboardingLaunch = new Date('2026-06-16T00:00:00Z');
@@ -90,7 +90,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: Props) {
   // failed (apiCall will have already redirected to /login on a real
   // 401), show a loading state instead of flashing protected content.
   //
-  // Fix (#11b): for admin-only sections, a stale cached non-admin user
+  // for admin-only sections, a stale cached non-admin user
   // must not be allowed to bypass this guard just because *some* cached
   // user exists — that let the admin page UI shell render briefly before
   // the useEffect redirect fired. Admin sections always wait for the

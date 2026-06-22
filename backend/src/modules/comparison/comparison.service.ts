@@ -125,7 +125,7 @@ export async function createComparison(
 
   await db.createScoreComparison({
     id:             id,
-    session_id:     sessionId,
+    session_id:     Number(sessionId),  // sessions.id is int8; cast string param to number for PostgREST
     user_id:        userId,
     question_index: questionIndex,
     question_text:  fb.question,
@@ -184,6 +184,16 @@ export async function submitChallengeResponse(
 ): Promise<ChallengeSubmitResult | null> {
   const row = await db.getScoreComparisonByToken(token);
   if (!row) return null; // not found or expired
+
+  // Cap total responses per comparison to prevent a viral link from
+  // burning unbounded Groq quota. 50 is generous for any real use case
+  // (friend group, college cohort) while capping worst-case AI spend.
+  const existingResponses = await db.getComparisonResponses(row.id!);
+  const RESPONSE_CAP = 50;
+  if (existingResponses.length >= RESPONSE_CAP) {
+    log.info('Comparison response cap reached', { comparisonId: row.id, cap: RESPONSE_CAP });
+    return null; // controller maps null → 404; caller sees "link has expired"
+  }
 
   // AI scores the challenger's answer against the original question —
   // lightweight single-turn call, same 0–10 scale as the main interview flow.

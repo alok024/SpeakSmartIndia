@@ -88,8 +88,8 @@ export async function sendVerificationEmail(to: string, rawToken: string): Promi
 
 // B2B Lead emails
 // Two sends per new lead:
-//   1. Internal alert  → LEAD_NOTIFY_EMAIL (team sees it in < 1 min)
-//   2. Confirmation    → lead's own email  (sets expectation, builds trust)
+// 1. Internal alert  → LEAD_NOTIFY_EMAIL (team sees it in < 1 min)
+// 2. Confirmation    → lead's own email  (sets expectation, builds trust)
 //
 // Both are fire-and-forget from the controller — a failed email never
 // rolls back the DB insert.

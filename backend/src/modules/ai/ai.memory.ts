@@ -1,12 +1,26 @@
 /**
  * AI Memory Service
  *
- * Stores recurring mistakes per user across sessions.
- * Injected into Aria's system prompt so she remembers past errors.
+ * Tracks recurring mistakes per user across sessions and injects them into
+ * Aria's system prompt so coaching is personalised to each user's history.
  *
  * Flow:
- *   1. After session save → persistMistakesFromFeedback()
- *   2. Before AI call    → getUserMemoryContext() → inject into system prompt
+ *   1. After every session save → persistMistakesFromFeedback()
+ *      Extracts grammar errors, low-score signals, and confidence flags
+ *      from the session's feedback array and upserts them into the
+ *      user_mistakes table (incrementing occurrence counts on conflict).
+ *
+ *   2. Before every AI call → getUserMemoryContext()
+ *      Fetches the top 5 most-frequent mistakes for the current topic,
+ *      formats them as a directive block, and returns it for injection
+ *      into the system prompt. Empty string when no history exists yet.
+ *
+ * Prompt injection safety: mistake descriptions are wrapped with
+ * wrapUntrusted() before they reach the system prompt, so a user
+ * cannot smuggle instructions through their stored mistake text.
+ *
+ * Both functions are non-fatal — failures are logged and swallowed so
+ * a DB hiccup in the memory layer never impacts the main session flow.
  */
 
 import { db } from '../../core/database/client';
@@ -15,14 +29,13 @@ import { wrapUntrusted, UNTRUSTED_DATA_INSTRUCTION } from '../../core/utils';
 
 const log = logger.child({ module: 'ai-memory' });
 
-// Type guard
+// Type guards
+/** Narrows an unknown corrections element to the `{ error: string }` shape. */
 function isCorrectionObject(c: unknown): c is { error: string } {
   return typeof c === 'object' && c !== null && 'error' in c && typeof (c as Record<string, unknown>).error === 'string';
 }
 
-
-// Types
-
+// Public types
 export interface MistakeRecord {
   topic:        string;
   mistake_type: 'grammar' | 'structure' | 'confidence' | 'content' | 'vocabulary' | 'clarity';
@@ -39,8 +52,20 @@ export interface FeedbackItem {
   structure?:      Record<string, unknown>;
 }
 
-// Extract + persist mistakes from a session's feedback
-
+// Persist mistakes from a completed session
+/**
+ * Extracts mistake signals from a session's feedback and upserts them into
+ * the user_mistakes table. Occurrence counts accumulate across sessions so
+ * the memory context reflects the user's most persistent patterns.
+ *
+ * Mistake extraction heuristics:
+ *   - grammar      — entries in english_errors / corrections arrays
+ *   - content      — score < 5 (answer quality too low)
+ *   - structure    — score < 6 (answer not structured; suggest STAR)
+ *   - confidence   — feedback tip mentions hesitation / uncertainty keywords
+ *
+ * Uses Promise.allSettled so a single row failure doesn't abort the rest.
+ */
 export async function persistMistakesFromFeedback(
   userId:    string,
   topic:     string,
@@ -52,7 +77,8 @@ export async function persistMistakesFromFeedback(
     for (const f of feedbacks) {
       const score = f.score ?? 10;
 
-      // Grammar mistakes from error arrays
+      // Grammar: parse both the string-array form (english_errors) and
+      // the legacy object form ({ error: string }) stored in corrections.
       const corrections = Array.isArray(f.english_errors)
         ? f.english_errors
         : Array.isArray(f.corrections)
@@ -71,7 +97,8 @@ export async function persistMistakesFromFeedback(
         }
       }
 
-      // Low score → content weakness
+      // Content weakness: any score under 5 indicates the answer itself
+      // (not just its form) was insufficient.
       if (score < 5) {
         mistakes.push({
           topic,
@@ -80,7 +107,7 @@ export async function persistMistakesFromFeedback(
         });
       }
 
-      // Low score → structure weakness
+      // Structure weakness: scores under 6 suggest unorganised delivery.
       if (score < 6) {
         mistakes.push({
           topic,
@@ -89,7 +116,7 @@ export async function persistMistakesFromFeedback(
         });
       }
 
-      // Tip-based confidence flag
+      // Confidence weakness: AI tip mentions hesitation or uncertainty.
       if (f.tips && /confiden|hesitat|uncertain|nervous/i.test(f.tips)) {
         mistakes.push({
           topic,
@@ -101,7 +128,8 @@ export async function persistMistakesFromFeedback(
 
     if (mistakes.length === 0) return;
 
-    // Upsert each mistake (increment occurrences if already exists)
+    // Upsert each mistake; occurrence counts increment on conflict so
+    // we naturally surface the user's most persistent patterns at the top.
     await Promise.allSettled(
       mistakes.map(m =>
         db.rpc_upsert_mistake({
@@ -119,8 +147,15 @@ export async function persistMistakesFromFeedback(
   }
 }
 
-// Build memory context string for AI prompt
-
+// Build memory context for AI system prompt
+/**
+ * Returns a formatted prompt fragment listing the user's top 5 recurring
+ * mistakes for the given topic, sorted by occurrence count (most frequent
+ * first). Returns an empty string if no history exists or the DB is down.
+ *
+ * Topic names are wrapped in <<<...>>> delimiters to prevent prompt injection
+ * from user-controlled data stored in the mistakes table.
+ */
 export async function getUserMemoryContext(
   userId: string,
   topic:  string
@@ -149,7 +184,11 @@ export async function getUserMemoryContext(
 }
 
 // Helpers
-
+/**
+ * Normalises a raw error string for consistent storage and deduplication.
+ * Lowercases, strips quotes, and trims to 120 characters so near-identical
+ * errors accumulate on the same row rather than creating separate entries.
+ */
 function normalizeDescription(raw: string): string {
   return raw
     .trim()

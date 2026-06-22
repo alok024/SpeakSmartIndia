@@ -134,14 +134,14 @@ async function streamSarvamSpeech(res: Response, text: string, langCode: string)
 //
 // SARVAM_PRIMARY defaults to true as of 2026-06 (Sarvam is now the
 // primary voice engine for all languages, English included):
-//   All languages try Sarvam first. English uses lang_code=en-IN (Indian-English
-//   accent on Bulbul v3). ElevenLabs is the fallback if Sarvam fails or is
-//   down. The circuit breaker short-circuits the Sarvam attempt during an
-//   outage so users don't pay Sarvam's failure latency on every call.
+// All languages try Sarvam first. English uses lang_code=en-IN (Indian-English
+// accent on Bulbul v3). ElevenLabs is the fallback if Sarvam fails or is
+// down. The circuit breaker short-circuits the Sarvam attempt during an
+// outage so users don't pay Sarvam's failure latency on every call.
 //
 // When SARVAM_PRIMARY=false (legacy, opt-out):
-//   English always uses ElevenLabs. Hindi/Hinglish try Sarvam first, falling
-//   back to ElevenLabs. No circuit breaker on this path (non-primary).
+// English always uses ElevenLabs. Hindi/Hinglish try Sarvam first, falling
+// back to ElevenLabs. No circuit breaker on this path (non-primary).
 async function synthesizeSpeech(res: Response, text: string, lang: VoiceLang): Promise<boolean> {
   if (env.SARVAM_PRIMARY) {
     // Consult the breaker before making the Sarvam call
@@ -231,18 +231,18 @@ export const textToSpeech = asyncHandler(async (req: Request, res: Response) => 
   }
 });
 
-// Voice "warm-up" — Easy build item (vachix_b2c_build_plan(1).md §2).
+// Voice "warm-up"md).
 // Lets a Free-tier user hear ~30s of Aria/Elara's HD voice once a day,
 // as a taste of the paid voice feature, without requiring requireVoiceTier.
 //
 // Safeguards (reusing existing infra only — no new schema/table):
-//   - Hard character cap (~450 chars ≈ 30s of speech at natural pace)
-//     regardless of what the client sends.
-//   - Once-per-IST-calendar-day per user, tracked as a single Redis key
-//     with a TTL — same pattern as the prompt-context cache in
-//     ai.prompt-service.ts. Redis unavailable → fails open (allows the
-//     request) rather than blocking a legitimate free-tier user; this
-//     mirrors the burst-limiter's fail-open behaviour.
+// - Hard character cap (~450 chars ≈ 30s of speech at natural pace)
+// regardless of what the client sends.
+// - Once-per-IST-calendar-day per user, tracked as a single Redis key
+// with a TTL — same pattern as the prompt-context cache in
+// ai.prompt-service.ts. Redis unavailable → fails open (allows the
+// request) rather than blocking a legitimate free-tier user; this
+// mirrors the burst-limiter's fail-open behaviour.
 const WARMUP_CHAR_CAP = 450;
 const WARMUP_KEY = (userId: string) => {
   const istDate = new Date(Date.now() + 5.5 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -264,30 +264,37 @@ export const textToSpeechWarmup = asyncHandler(async (req: Request, res: Respons
 
   const redis = getRedis();
   let warmupKeySet: string | null = null;
-  if (redis) {
-    try {
-      const key = WARMUP_KEY(userId);
-      const alreadyUsed = await redis.get(key);
-      if (alreadyUsed) {
-        fail(res, 429, 'warmup_already_used', "You've already heard today's free voice preview — upgrade to Pro for unlimited HD voice.");
-        return;
-      }
-      // Set the flag before streaming so a slow/aborted response can't be
-      // retried into multiple free plays — set first, stream second.
-      await redis.set(key, '1', 'EX', 26 * 60 * 60); // a little over 24h, covers IST/UTC date-boundary skew
-      warmupKeySet = key;
-    } catch (err) {
-      log.warn('Voice warm-up: Redis check failed — allowing request (fail-open)', {
-        userId, error: (err as Error).message,
-      });
+  if (!redis) {
+    // Redis is required to enforce the once-per-day free cap.
+    // Allowing through when Redis is down lets free users get unlimited
+    // warmup calls during any outage. Fail closed instead.
+    fail(res, 503, 'voice_warmup_unavailable', 'Voice preview is temporarily unavailable. Please try again shortly.');
+    return;
+  }
+  try {
+    const key = WARMUP_KEY(userId);
+    const alreadyUsed = await redis.get(key);
+    if (alreadyUsed) {
+      fail(res, 429, 'warmup_already_used', "You've already heard today's free voice preview — upgrade to Pro for unlimited HD voice.");
+      return;
     }
+    // Set the flag before streaming so a slow/aborted response can't be
+    // retried into multiple free plays — set first, stream second.
+    await redis.set(key, '1', 'EX', 26 * 60 * 60); // a little over 24h, covers IST/UTC date-boundary skew
+    warmupKeySet = key;
+  } catch (err) {
+    log.warn('Voice warm-up: Redis check failed — blocking request (fail-closed)', {
+      userId, error: (err as Error).message,
+    });
+    fail(res, 503, 'voice_warmup_unavailable', 'Voice preview is temporarily unavailable. Please try again shortly.');
+    return;
   }
 
   const clipped = text.slice(0, WARMUP_CHAR_CAP);
   try {
     await streamElevenLabsSpeech(res, clipped);
   } catch (err) {
-    // Fix (#7): a failed TTS call must not permanently burn the user's one
+    // a failed TTS call must not permanently burn the user's one
     // daily free preview — roll back the warm-up flag so they can retry.
     if (warmupKeySet && redis) {
       try {

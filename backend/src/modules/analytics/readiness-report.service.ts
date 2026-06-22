@@ -1,5 +1,5 @@
 /**
- * Interview Readiness Report (full) — vachix_b2c_build_plan(1).md §2.
+ * Interview Readiness Report (full)
  *
  * Builds on the per-session Interviewer's Notes (interviewer-notes.service.ts):
  * every 5th completed session, this rolls the last 5 sessions' notes +

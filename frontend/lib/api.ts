@@ -10,7 +10,7 @@
 import type { ApiResult } from '@/types';
 import { useAuthStore } from '@/store/auth';
 
-// M13: previously fell straight through to the production Railway URL
+// previously fell straight through to the production Railway URL
 // whenever NEXT_PUBLIC_BACKEND_URL was unset, so a developer who forgot
 // to add it to .env.local would have their local frontend silently hit
 // production — corrupting prod analytics events, test sessions, etc.,
@@ -105,7 +105,7 @@ export async function apiCall<T = unknown>(
         // stale in-flight request; just retry with the fresh cookies
         // that are already in the browser without calling refresh again.
         //
-        // Fix (#10): if that retry ALSO 401s (e.g. the refresh that
+        // if that retry ALSO 401s (e.g. the refresh that
         // happened during the cooldown window actually failed, or the
         // session was revoked again since), don't return its generic
         // error straight away — fall through to the same session-clear
@@ -187,7 +187,7 @@ async function refreshSession(): Promise<boolean> {
 
 // Error message extraction
 //
-// L4: error envelopes from the backend may include `request_id` — the
+// error envelopes from the backend may include `request_id` — the
 // same correlation ID logged server-side and sent as the X-Request-Id
 // header (see core/utils/response.ts). When present, append it as a
 // "(Error ref: ...)" suffix so a user reporting "AI error — please try

@@ -123,7 +123,7 @@ export interface ReferralData {
   uses: number;
   rewarded: number;
   bonus_calls: number;
-  // Fix (#23): backend computes ready-to-use share copy (accurate to the
+  // backend computes ready-to-use share copy (accurate to the
   // actual reward mechanic — bonus calls only land after the referred
   // friend completes their first session, not on registration) so the
   // frontend doesn't need to duplicate that logic in a hardcoded string.
@@ -145,7 +145,7 @@ export interface ApiOk<T> {
 export interface ApiErr {
   ok: false;
   status: number;
-  // L4: request_id correlates this error with backend logs/Sentry — see
+  // request_id correlates this error with backend logs/Sentry — see
   // lib/api.ts's extractErrorMessage / withErrorRef, which surface it to
   // the user as a support reference ("Error ref: abc123").
   error: { code: string; message: string; request_id?: string } | string;

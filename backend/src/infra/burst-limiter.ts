@@ -33,9 +33,10 @@ interface BurstConfig { limit: number; windowMs: number; }
 
 const PLAN_BURST: Record<string, BurstConfig> = {
   free:    { limit: 2,  windowMs: 15_000 },
+  starter: { limit: 4,  windowMs: 10_000 },
   pro:     { limit: 5,  windowMs: 10_000 },
   elite:   { limit: 10, windowMs: 10_000 },
-  default: { limit: 3,  windowMs: 10_000 },
+  default: { limit: 3,  windowMs: 10_000 }, // fallback for unrecognised plan strings
 };
 
 const KEY = (userId: string) => `ai:burst:${userId}`;

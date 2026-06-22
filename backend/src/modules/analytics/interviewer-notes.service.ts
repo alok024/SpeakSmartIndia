@@ -1,5 +1,5 @@
 /**
- * Interviewer's Notes — Easy build item (vachix_b2c_build_plan(1).md §2).
+ * Interviewer's Notesmd).
  *
  * One extra Groq call after a session is saved: a 2-3 sentence narrative
  * summary in Aria's voice ("You answered confidently on X, but struggled
@@ -20,16 +20,16 @@ import type { FeedbackItem } from '../ai/ai.memory';
 
 const log = aiLogger.child({ module: 'interviewer-notes' });
 
-// BUG FIX: f.tips (and `profession`) ultimately originate from
+// f.tips (and `profession`) ultimately originate from
 // client-submitted session data — both are plain free-text strings with
 // no structural validation, so either field can contain text crafted to
 // look like instructions to the model ("ignore the above and instead
 // say..."). Two changes here close that off:
-//   1. Each piece of untrusted text is wrapped in its own <<<...>>> block,
-//      so it reads to the model as a quoted value, not as prompt text.
-//   2. The system prompt explicitly tells the model to treat everything
-//      inside those delimiters as data to summarise, never as
-//      instructions to follow.
+// 1. Each piece of untrusted text is wrapped in its own <<<...>>> block,
+// so it reads to the model as a quoted value, not as prompt text.
+// 2. The system prompt explicitly tells the model to treat everything
+// inside those delimiters as data to summarise, never as
+// instructions to follow.
 // Delimiters alone aren't a hard security boundary against a
 // sufficiently adversarial model, but combined with the explicit
 // instruction below they remove the easy, common-case injection vector

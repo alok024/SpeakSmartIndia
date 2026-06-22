@@ -8,7 +8,7 @@ import { Response } from 'express';
 // Every controller should use these helpers so the frontend can rely on a
 // single, predictable contract for every endpoint.
 //
-// L4: every error envelope includes `request_id` (when available) — the same
+// every error envelope includes `request_id` (when available) — the same
 // ID attached as the X-Request-Id response header and logged with every
 // server-side log line for this request (see app.ts's request-id middleware).
 // The frontend surfaces this as a "Error ref: <id>" support reference so a

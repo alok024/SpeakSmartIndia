@@ -13,7 +13,9 @@ export default function HistoryPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { showUpgradeModal } = useUIStore();
-  const isFree = !user || (user.plan !== 'pro' && user.plan !== 'elite');
+  // History is available to all paying plans (Starter, Pro, Elite).
+  // Only free users are locked out — isFree must not classify Starter as free.
+  const isFree = !user || user.plan === 'free';
   const { data: sessions, isLoading } = useSessions();
 
   if (isFree) {
@@ -22,12 +24,12 @@ export default function HistoryPage() {
         <h1 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-1)' }}>Past Sessions</h1>
         <Card className="p-8 text-center">
           <Lock className="w-10 h-10 mx-auto mb-4" style={{ color: 'var(--text-3)' }} />
-          <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text-1)' }}>Session history is a Pro feature</h2>
+          <h2 className="text-lg font-bold mb-2" style={{ color: 'var(--text-1)' }}>Session history is a paid feature</h2>
           <p className="text-sm mb-5 max-w-xs mx-auto" style={{ color: 'var(--text-3)' }}>
             Upgrade to view all past sessions, track your progress over time, and revisit feedback anytime.
           </p>
           <Button variant="upgrade" onClick={() => showUpgradeModal('feature_lock')}>
-            Upgrade to Pro — ₹699/month
+            Upgrade from ₹299/month
           </Button>
         </Card>
       </div>

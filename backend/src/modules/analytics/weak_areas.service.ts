@@ -1,27 +1,54 @@
 /**
  * Weak Area Detection Service
  *
- * Recomputes the user's weak areas after every session.
- * A "weak area" is a topic where avg_score < 6/10.
+ * Tracks per-user topic-level score averages across all sessions and
+ * surfaces them in three ways:
  *
- * Powers:
- *   - Dashboard "Your weak areas" panel  (/api/me → weak_areas)
- *   - AI prompt injection                (getWeakAreaPromptContext)
- *   - Drill recommendations              (drill_prompt field)
+ *   1. Dashboard panel  — /api/me → weak_areas  (UI display)
+ *   2. AI prompt        — getWeakAreaPromptContext()  (Aria focuses on weak topics)
+ *   3. Drill prompts    — drill_prompt field on each WeakAreaEntry
+ *
+ * A topic is "weak" when avg_score < 6 / 10 across all sessions in that
+ * category. The threshold was chosen to distinguish genuine skill gaps from
+ * ordinary variance on a first or second attempt.
+ *
+ * Triggered after every session save via the queue dispatcher.
  */
 
 import { db } from '../../core/database/client';
 import { aiLogger } from '../../infra/logger';
 import { wrapUntrusted, UNTRUSTED_DATA_INSTRUCTION } from '../../core/utils';
 
-// Recompute after every session save
+// Public types
+export interface WeakAreaEntry {
+  topic:          string;
+  avg_score:      number;
+  session_count:  number;
+  last_practiced: string | null;
+  /** UI-facing severity bucket based on avg_score thresholds. */
+  severity:       'critical' | 'needs_work' | 'improving';
+  /** Pre-built coaching prompt for the dashboard's "drill this" CTA. */
+  drill_prompt:   string;
+}
 
+// Recompute after every session
+/**
+ * Aggregates all of a user's sessions into per-topic score averages and
+ * upserts the result into the weak_areas table.
+ *
+ * Safe to call on every session save — the upsert is idempotent and
+ * overwrites the previous aggregate. Non-fatal: any DB failure is logged
+ * and swallowed so a weak-area write error never bubbles up to the session
+ * save response.
+ */
 export async function recomputeWeakAreas(userId: string): Promise<void> {
   try {
     const sessions = await db.getUserSessionsForWeakAreas(userId);
     if (!sessions || sessions.length === 0) return;
 
-    // Group by normalised topic
+    // Group sessions by normalised topic name (interview_type takes priority
+    // over profession, since a "Software Developer" doing a "DSA" session
+    // should file under "DSA", not "Software Developer").
     const topicMap: Record<string, { total: number; count: number; last: string }> = {};
 
     for (const s of sessions) {
@@ -52,17 +79,11 @@ export async function recomputeWeakAreas(userId: string): Promise<void> {
   }
 }
 
-// Get weak areas for /api/me response
-
-export interface WeakAreaEntry {
-  topic:          string;
-  avg_score:      number;
-  session_count:  number;
-  last_practiced: string | null;
-  severity:       'critical' | 'needs_work' | 'improving';
-  drill_prompt:   string;
-}
-
+// Dashboard query
+/**
+ * Returns the user's weak areas sorted worst-first (lowest avg_score first),
+ * decorated with severity and drill prompts for the dashboard UI.
+ */
 export async function getWeakAreasForUser(userId: string): Promise<WeakAreaEntry[]> {
   try {
     const rows = await db.getWeakAreas(userId);
@@ -77,15 +98,23 @@ export async function getWeakAreasForUser(userId: string): Promise<WeakAreaEntry
         severity:       getSeverity(row.avg_score),
         drill_prompt:   getDrillPrompt(row.topic, row.avg_score),
       }))
-      .sort((a, b) => a.avg_score - b.avg_score); // worst first
+      .sort((a, b) => a.avg_score - b.avg_score);
   } catch (err) {
     aiLogger.warn('getWeakAreasForUser failed', { userId, error: err });
     return [];
   }
 }
 
-// Build context string to inject into AI system prompt
-
+// AI prompt injection
+/**
+ * Builds a prompt fragment that directs Aria to focus on the user's weak
+ * topics and give more detailed feedback when those topics appear.
+ *
+ * Topic names are wrapped with wrapUntrusted() to prevent prompt injection
+ * from user-controlled data stored in the weak_areas table.
+ *
+ * Returns an empty string when Redis / DB is unavailable (non-fatal).
+ */
 export async function getWeakAreaPromptContext(userId: string): Promise<string> {
   try {
     const rows = await db.getWeakAreas(userId);
@@ -111,7 +140,6 @@ export async function getWeakAreaPromptContext(userId: string): Promise<string> 
 }
 
 // Helpers
-
 function getSeverity(score: number): 'critical' | 'needs_work' | 'improving' {
   if (score < 4) return 'critical';
   if (score < 6) return 'needs_work';
@@ -125,6 +153,13 @@ function getDrillPrompt(topic: string, score: number): string {
   return `${base} — you're improving, keep going`;
 }
 
+/**
+ * Normalises raw session metadata strings to canonical display names.
+ *
+ * interview_type values come from the client and may vary in casing; we
+ * unify them here so "technical" and "Technical" don't create two separate
+ * weak-area rows for the same topic.
+ */
 function normalizeTopicName(raw: string): string {
   const map: Record<string, string> = {
     'technical':     'Technical',

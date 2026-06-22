@@ -53,12 +53,12 @@ function parseScoreFromAI(text: string): number {
   return 5; // neutral fallback — never hardcodes 7
 }
 
-// C3: Max chars a user can type in either answer textarea.
+// Max chars a user can type in either answer textarea.
 // Matches the backend AIMessageSchema content cap (2,000).
 const MAX_ANSWER_LENGTH = 2_000;
 
 // Feedback JSON parsing
-// C1: Parse and validate AI feedback output with Zod so malformed
+// Parse and validate AI feedback output with Zod so malformed
 // responses degrade safely instead of silently corrupting session data.
 import { z } from 'zod';
 
@@ -98,7 +98,7 @@ function parseFeedbackJson(text: string): Partial<Feedback> {
 
     const raw = JSON.parse(text.slice(startIdx, endIdx + 1));
 
-    // C1: Validate structure — safeParse so bad AI output degrades gracefully
+    // Validate structure — safeParse so bad AI output degrades gracefully
     const result = AIFeedbackOutputSchema.safeParse(raw);
     const validated = result.success ? result.data : raw; // fallback to raw on schema mismatch
 
@@ -137,7 +137,7 @@ function buildQuestionPrompt(config: ReturnType<typeof useInterviewStore.getStat
   ].join('\n');
 }
 
-// Fix (#17): the <candidate_answer>/<candidate_partial_answer> delimiter
+// the <candidate_answer>/<candidate_partial_answer> delimiter
 // tags below give the model a clear "this part is data" boundary, but
 // without first stripping literal occurrences of those exact tag
 // sequences from the untrusted text itself, a candidate could type
@@ -152,7 +152,7 @@ function buildFeedbackPrompt(
   answer: string,
   config: ReturnType<typeof useInterviewStore.getState>['config'],
 ) {
-  // H2: User-controlled content (question and answer) is wrapped in
+  // User-controlled content (question and answer) is wrapped in
   // XML-style delimiters so the model treats it as data, not instructions.
   // Any "ignore previous instructions" text inside the delimiters is
   // treated as part of the answer to evaluate, not as a directive.
@@ -186,7 +186,7 @@ function buildFeedbackPrompt(
 
 function buildChatSystemPrompt(config: ReturnType<typeof useInterviewStore.getState>['config']) {
   const ctx = getProfessionContext(config.profession, config.interviewType);
-  // H2: Config values (profession, interviewType, difficulty) come from a
+  // Config values (profession, interviewType, difficulty) come from a
   // controlled enum selection on the setup screen — low injection risk, but
   // kept on separate lines so any unexpected value is clearly labelled as
   // metadata, not instructions the model should obey.
@@ -273,8 +273,7 @@ function InterviewSessionPageInner() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const initRef = useRef(false);
 
-  // Read config/session once Zustand has hydrated — Fix (4):
-  // we defer inside useEffect but read state at call-time via getState(),
+  // Read config/session once Zustand has hydrated — // we defer inside useEffect but read state at call-time via getState(),
   // not via a stale closure capture from mount.
   const mode = store.config.mode;
 
@@ -304,7 +303,7 @@ function InterviewSessionPageInner() {
       return;
     }
 
-    // Fix (H1): parseJsonArray previously used a > 10 char threshold that
+    // parseJsonArray previously used a > 10 char threshold that
     // could silently drop short valid questions (e.g. "Why IT?"), making
     // questions.length < config.totalQ. The progress bar would show "Q1/4"
     // for a 5-question session, and accessing questions[currentQ] at the
@@ -393,13 +392,13 @@ function InterviewSessionPageInner() {
   // or finish session) without polling the store in every render.
   useEffect(() => {
     if (store.session.timerRemaining === 0 && phase === 'answering') {
-      // Fix (H2): Previously called submitAnswer() unconditionally.
+      // Previously called submitAnswer() unconditionally.
       // submitAnswer() has a !answer.trim() early-return but it returns
       // silently — phase stays 'answering', timer is stopped, and the user
       // is stuck on a frozen screen with no way to advance (must hard-refresh,
       // losing the session).
       //
-      // Fix: if the answer box is empty at expiry, record a zero-score
+      // if the answer box is empty at expiry, record a zero-score
       // skipped-question entry and call nextQuestion() to advance normally.
       // If a partial answer was typed, submit it for AI feedback as before.
       if (!answer.trim()) {
@@ -588,24 +587,24 @@ function InterviewSessionPageInner() {
 
     const aiText = res.data.text;
 
-    // Fix (M1): The old detection used aiText.includes('###INTERVIEW_COMPLETE###')
+    // The old detection used aiText.includes('###INTERVIEW_COMPLETE###')
     // with a hardcoded slice offset of 24. This had two failure modes:
     //
     // 1. Case / whitespace variation — LLMs sometimes emit the marker with
-    //    extra spaces, a newline prefix, or slightly different casing
-    //    (e.g. "### INTERVIEW_COMPLETE ###"). indexOf() returns -1 and
-    //    slice(markerIdx + 24) wraps around to the start of the string,
-    //    feeding the entire response text into parseFeedbackJson() as if it
-    //    were JSON. The parse fails, score defaults to 5, and the session
-    //    never ends — the user is stuck in an infinite chat loop, burning
-    //    through their AI call quota with no way to reach the summary page
-    //    short of closing the tab (losing all session data).
+    // extra spaces, a newline prefix, or slightly different casing
+    // (e.g. "### INTERVIEW_COMPLETE ###"). indexOf() returns -1 and
+    // slice(markerIdx + 24) wraps around to the start of the string,
+    // feeding the entire response text into parseFeedbackJson() as if it
+    // were JSON. The parse fails, score defaults to 5, and the session
+    // never ends — the user is stuck in an infinite chat loop, burning
+    // through their AI call quota with no way to reach the summary page
+    // short of closing the tab (losing all session data).
     //
     // 2. Hardcoded offset 24 — '###INTERVIEW_COMPLETE###'.length is 24, but
-    //    if the regex match is longer (e.g. with surrounding whitespace) the
-    //    offset drifts and jsonPart starts mid-word, guaranteed JSON parse fail.
+    // if the regex match is longer (e.g. with surrounding whitespace) the
+    // offset drifts and jsonPart starts mid-word, guaranteed JSON parse fail.
     //
-    // Fix: use a case-insensitive regex that allows optional surrounding
+    // use a case-insensitive regex that allows optional surrounding
     // spaces/newlines, and derive the end offset from the actual match so
     // jsonPart always starts on the character immediately after the marker.
     const COMPLETE_RE = /###\s*INTERVIEW_COMPLETE\s*###/i;
@@ -637,7 +636,7 @@ function InterviewSessionPageInner() {
     } else {
       store.addChatMessage('assistant', aiText);
 
-      // Fix (#18): previously relied entirely on the model voluntarily
+      // previously relied entirely on the model voluntarily
       // emitting ###INTERVIEW_COMPLETE### — if it never does (model
       // drift, a long-winded persona, etc.) the chat ran unbounded,
       // burning AI call quota with no escape. Force-finish once the hard

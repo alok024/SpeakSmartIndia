@@ -7,11 +7,11 @@ import React from 'react';
  *
  * Login page.
  *
- * Fix: redirect param was 'redirect' but Next.js middleware sets ?next=
+ * redirect param was 'redirect' but Next.js middleware sets ?next=
  * causing the post-login redirect to always go to /dashboard instead of
  * the originally-requested protected page.
  *
- * Fix: removed try/catch(_){} swallowing login errors — React Query's
+ * removed try/catch(_){} swallowing login errors — React Query's
  * isError state now surfaces them correctly.
  */
 
@@ -98,8 +98,8 @@ function LoginPageInner() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // Fix: No try/catch — let React Query set isError so the error banner renders.
-    // Fix: Read 'next' param (set by middleware) not 'redirect' (old/wrong name).
+    // No try/catch — let React Query set isError so the error banner renders.
+    // Read 'next' param (set by middleware) not 'redirect' (old/wrong name).
     await login.mutateAsync({ email, password });
     router.push(params.get('next') || '/dashboard');
   }

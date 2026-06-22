@@ -1,5 +1,5 @@
 /**
- * Token budgeting (Issue 8)
+ * Token budgeting
  *
  * AIRequestSchema already caps conversation length (max 100 messages) and
  * per-message size (max 32K chars), but a conversation anywhere near those

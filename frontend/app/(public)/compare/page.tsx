@@ -187,12 +187,20 @@ function ComparePageInner() {
       <header className="border-b border-white/[0.07] px-6 py-4">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
           <span className="text-lg font-bold tracking-tight">Vachix</span>
-          <a
-            href="/register"
-            className="rounded-lg bg-[#4F8EF7] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6ba3f9] transition-colors"
-          >
-            Try Free →
-          </a>
+          <div className="flex items-center gap-3">
+            <a
+              href="/login"
+              className="text-sm font-semibold text-white/60 hover:text-white/90 transition-colors"
+            >
+              Log in
+            </a>
+            <a
+              href="/register"
+              className="rounded-lg bg-[#4F8EF7] px-4 py-2 text-sm font-semibold text-white hover:bg-[#6ba3f9] transition-colors"
+            >
+              Try Free →
+            </a>
+          </div>
         </div>
       </header>
 
@@ -281,10 +289,16 @@ function ComparePageInner() {
 
             <div className="flex flex-wrap gap-3 pt-1">
               <a
-                href="/register"
+                href="/login"
                 className="flex-1 rounded-xl bg-[#4F8EF7] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-[#6ba3f9] transition-colors"
               >
                 Practice more on Vachix →
+              </a>
+              <a
+                href="/register"
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-white/[0.08] transition-colors"
+              >
+                New? Try free →
               </a>
               <button
                 onClick={handleCopy}

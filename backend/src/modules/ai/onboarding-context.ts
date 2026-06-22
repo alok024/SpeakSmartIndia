@@ -1,10 +1,7 @@
 /**
- * Onboarding Context — Deep Injection
+ * Onboarding Context
  *
- * Problem: users tell us their profession + goal at signup.
- * We store it. We never use it.
- *
- * This module converts onboarding data into three outputs:
+ * Converts onboarding data (profession + goal) into three outputs:
  *
  *   1. getOnboardingPromptContext()
  *      → System prompt injection for Aria: role-specific vocabulary,
@@ -51,7 +48,7 @@ export interface OnboardingData {
 
 export interface SessionDefaults {
   profession:     string;
-  // Fix (#13): the frontend's difficulty selector/schema use 'expert' as
+  // the frontend's difficulty selector/schema use 'expert' as
   // the top tier (see frontend/types, interview/setup/page.tsx,
   // features/interview/schemas) — this must match exactly, since this
   // value is consumed directly to pre-fill that selector.
@@ -105,7 +102,7 @@ const GOAL_ALIASES: Record<string, GoalType> = {
   'get a job':     'get_job',
   'find a job':    'get_job',
   job:             'get_job',
-  // Fix (#20): these are the exact (lowercased) strings the profile page's
+  // these are the exact (lowercased) strings the profile page's
   // onboarding form actually sends — 4 of 5 didn't match any existing
   // alias and silently fell through to 'unknown', disabling goal-based
   // coaching for most users who onboard. Add the real frontend strings
@@ -275,8 +272,8 @@ function computeInterviewType(goal: GoalType, domain: Domain): string {
 // 1. Prompt context
 
 // Coarse persona bucket — used to partition the AI response cache
-//    so that cached answers stay relevant to a user's profession/goal
-//    instead of erasing onboarding personalisation on a cache hit.
+// so that cached answers stay relevant to a user's profession/goal
+// instead of erasing onboarding personalisation on a cache hit.
 
 export function getPersonaBucket(onboarding: OnboardingData): string {
   if (!onboarding.profession && !onboarding.goal) return '';

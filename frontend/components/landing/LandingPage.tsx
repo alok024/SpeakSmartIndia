@@ -40,7 +40,7 @@ export default function LandingPage() {
   const [topbarOpen, setTopbarOpen] = useState(true);
   const [navScrolled, setNavScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  // Fix: the landing page used to keep its own private `theme` state +
+  // the landing page used to keep its own private `theme` state +
   
   // `useUIStore` that the rest of the app (AppShell, etc.) reads from. That
   // meant toggling theme here never updated the store, so the very next
@@ -142,7 +142,6 @@ export default function LandingPage() {
   const mqItems = TRACKS.map((t, i) => (
     <span key={i} className="ssi-mq-item"><span className="ssi-mq-dot" />{t}</span>
   ));
-
 
   return (
     <>

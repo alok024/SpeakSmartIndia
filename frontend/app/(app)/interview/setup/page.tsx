@@ -111,7 +111,7 @@ function InterviewSetupPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
-  // Fix (#13): session_defaults was computed by the backend on every
+  // session_defaults was computed by the backend on every
   // /api/me call but never consumed here — pre-fill the form from it so
   // a user's first session is already personalised, the same way the
   // backend intended. Only applies when nothing else has already set a

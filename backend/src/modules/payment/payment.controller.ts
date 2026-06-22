@@ -50,7 +50,7 @@ export async function verifyPayment(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // Fix (2): Verify the order belongs to this user before activating.
+  // Verify the order belongs to this user before activating.
   // Without this check, any authenticated user could supply another user's
   // order_id, pass the HMAC check, and upgrade their own account for free.
   // We fetch the order from Razorpay and compare notes.user_id to req.user.id.
