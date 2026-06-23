@@ -6,3 +6,9 @@ pages_build_output_dir = ".vercel/output/static"
 
 [vars]
 NEXT_PUBLIC_RAZORPAY_TEST_MODE = "true"
+
+# Cloudflare Pages build settings.
+# In the CF Pages dashboard, set:
+#   Root directory:    frontend
+#   Build command:     npm run build:cf
+#   Output directory:  .vercel/output/static
