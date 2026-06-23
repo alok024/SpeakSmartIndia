@@ -1,9 +1,9 @@
 {
   "name": "vachix-monorepo",
   "private": true,
-  "workspaces": [
-    "shared",
-    "frontend",
-    "backend"
-  ]
+  "workspaces": ["shared", "frontend", "backend"],
+  "scripts": {
+    "build": "npm run build --workspace=shared && npm run build --workspace=backend",
+    "start": "node backend/dist/app.js"
+  }
 }
