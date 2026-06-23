@@ -17,7 +17,6 @@
  */
 
 import { BACKEND_URL } from '@/lib/api';
-import { useAuthStore } from '@/store/auth';
 
 interface TrackPayload {
   event:       string;
@@ -44,13 +43,12 @@ function scheduleFlush(): void {
     const batch = queue.splice(0, 50); // backend max is 50 per batch
 
     try {
-      const token = useAuthStore.getState().accessToken ?? null;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       await fetch(`${BACKEND_URL}/api/events`, {
-        method:      'POST',
+        method:       'POST',
         headers,
+        credentials:  'include',
         body:        JSON.stringify({ events: batch }),
         // keepalive lets the request survive page unload (session_abandoned
         // fires as the user navigates away). Browsers cap keepalive at 64 KB

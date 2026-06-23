@@ -24,7 +24,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '@/lib/api';
+import { apiCall } from '@/lib/api';
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -57,22 +57,19 @@ export function usePushSubscription() {
 
     try {
       // Fetch VAPID public key
-      const keyRes = await apiFetch<{ publicKey: string }>('/api/push/vapid-public-key');
+      const keyRes = await apiCall<{ publicKey: string }>('/push/vapid-public-key');
       if (!keyRes.ok || !keyRes.data?.publicKey) return;
 
       const reg = await navigator.serviceWorker.ready;
       const subscription = await reg.pushManager.subscribe({
         userVisibleOnly:      true,
-        applicationServerKey: urlBase64ToUint8Array(keyRes.data.publicKey),
+        applicationServerKey: urlBase64ToUint8Array(keyRes.data.publicKey).buffer as ArrayBuffer,
       });
 
       const json = subscription.toJSON();
-      await apiFetch('/api/push/subscribe', {
-        method: 'POST',
-        body:   JSON.stringify({
+      await apiCall('/push/subscribe', 'POST', {
           endpoint: json.endpoint,
           keys:     json.keys,
-        }),
       });
 
       setIsSubscribed(true);
@@ -92,9 +89,8 @@ export function usePushSubscription() {
       const sub = await reg.pushManager.getSubscription();
       if (!sub) { setIsSubscribed(false); return; }
 
-      await apiFetch('/api/push/unsubscribe', {
-        method: 'DELETE',
-        body:   JSON.stringify({ endpoint: sub.endpoint }),
+      await apiCall('/push/unsubscribe', 'DELETE', {
+          endpoint: sub.endpoint,
       });
 
       await sub.unsubscribe();
