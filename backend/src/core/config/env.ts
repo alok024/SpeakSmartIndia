@@ -141,6 +141,20 @@ const EnvSchema = z.object({
   // code, so concurrent reward grants can't race past the cap.
   MAX_REFERRAL_BONUS_CALLS: z.coerce.number().int().positive().default(50),
 
+  // Web Push / VAPID (migration 015 — weekly progress cards)
+  // Generate a keypair with: npx web-push generate-vapid-keys
+  // VAPID_CONTACT_EMAIL is the mailto: address sent to push services.
+  // Optional — if unset, push notifications are silently skipped.
+  VAPID_PUBLIC_KEY:    z.string().default(''),
+  VAPID_PRIVATE_KEY:   z.string().default(''),
+  VAPID_CONTACT_EMAIL: z.string().default(''),
+
+  // Feature flags
+  // HUMANIZE_COACH: enables Aria's coach-style rewrite + per-turn tone detection.
+  // Default true — it's purely additive (no schema changes, no new DB reads).
+  // Set to "false" in Railway env to roll back instantly if session_completion_rate drops.
+  HUMANIZE_COACH: z.string().transform(v => v !== 'false').default('true'),
+
   // Voice usage ledger (migration 011)
   // Per-plan monthly voice caps (seconds). -1 = unlimited.
   // free:    no voice (gated by requireVoiceTier in voice.routes.ts)
@@ -238,6 +252,15 @@ export const PLAN_LIMITS: Record<PlanType, { ai_calls: number }> = {
   pro:     { ai_calls: -1 },
   elite:   { ai_calls: -1 },
 };
+
+/**
+ * P1-A: Monthly session cap for the free tier.
+ * Free users may complete at most this many full sessions per IST calendar month.
+ * Enforced in sessions.service.ts (_saveSession) and surfaced via /api/me usage.session_limit.
+ * Keep in sync with the hard-coded value in frontend/app/(app)/interview/setup/page.tsx
+ * (session_limit returned from /me drives that UI, so they stay consistent automatically).
+ */
+export const SESSION_CAP_FREE = 3;
 
 /**
  * In paise (INR × 100).

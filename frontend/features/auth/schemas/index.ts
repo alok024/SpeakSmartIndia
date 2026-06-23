@@ -2,8 +2,12 @@
  * features/auth/schemas/index.ts
  *
  * Client-side form validation schemas for auth flows.
- * These mirror the backend schemas in backend/src/core/utils/schemas.ts.
- * In future, both can import from @vachix/shared.
+ *
+ * These are form-layer schemas (UI labels, client-friendly messages) that
+ * intentionally differ from the backend's terse API schemas — so they stay
+ * local rather than living in @shared. The RegisterFormSchema password rule
+ * is kept in sync with backend RegisterSchema (min 8) by convention; if that
+ * rule ever changes, update both places.
  */
 import { z } from 'zod';
 

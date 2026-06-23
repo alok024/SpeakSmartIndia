@@ -24,6 +24,11 @@ export interface ExpireSubscriptionsData {
   triggeredAt: string; // ISO — for logging only
 }
 
+// weekly-progress-cards (Sunday 08:00 IST cron)
+export interface WeeklyProgressCardsData {
+  triggeredAt: string; // ISO — for logging/dedup only
+}
+
 // generate-readiness-report
 export interface GenerateReadinessReportData {
   userId:       string;

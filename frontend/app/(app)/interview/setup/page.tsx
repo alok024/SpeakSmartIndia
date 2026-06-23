@@ -9,6 +9,7 @@ import { useMe } from '@/hooks/queries';
 import { Button, Card, ChipGroup, Input } from '@/components/ui';
 import { Difficulty, InterviewType, SessionMode } from '@/types';
 import { voiceApi } from '@/features/voice/api';
+import { FLAG } from '@/lib/feature-flags'; // P2-A: humanized coaching UI indicator
 
 const PROFESSIONS = [
   'Software Developer', 'Java Developer', 'Government Job (SSC/UPSC)',
@@ -84,12 +85,34 @@ function InterviewSetupPageInner() {
 
   const [customProfession, setCustomProfession] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showJd, setShowJd] = useState(false);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewMsg, setPreviewMsg] = useState<string | null>(null);
   const [hasPreviewedToday, setHasPreviewedToday] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Auto-detect low-end devices and default to voice-only mode.
+  // This runs once on mount; if the user manually toggles the switch,
+  // their choice is honoured (avatarMode will already be set before this
+  // fires on any subsequent render, so we guard with the undefined check).
+  useEffect(() => {
+    if (store.config.avatarMode !== undefined) return; // already set by user or a previous mount
+    if (typeof window === 'undefined') return;
+
+    const nav = navigator as Navigator & {
+      deviceMemory?: number;
+      connection?: { effectiveType?: string };
+    };
+    const isLowMemory  = (nav.deviceMemory ?? Infinity) < 2;          // < 2 GB RAM
+    const isSlow2G     = nav.connection?.effectiveType === '2g';
+
+    if (isLowMemory || isSlow2G) {
+      store.setAvatarMode('voice-only');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Stop any in-flight preview audio and revoke its object URL on unmount
   // — otherwise a user who navigates away mid-preview leaks the blob URL
@@ -106,8 +129,12 @@ function InterviewSetupPageInner() {
   useEffect(() => {
     const profession = params.get('profession');
     const mode = params.get('mode') as SessionMode | null;
+    const difficulty = params.get('difficulty') as Difficulty | null;
+    const interviewType = params.get('interview_type') as InterviewType | null;
     if (profession) store.setProfession(profession);
     if (mode) store.setMode(mode);
+    if (difficulty) store.setDifficulty(difficulty);
+    if (interviewType) store.setInterviewType(interviewType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
@@ -137,7 +164,15 @@ function InterviewSetupPageInner() {
   // taste — they're paying for capped HD voice, not a daily sample.
   const hasVoiceQuota = livePlan === 'starter' || livePlan === 'pro' || livePlan === 'elite';
   const aiCallsLeft = useAuthStore((s) => s.aiCallsLeft());
-  const isLocked    = isFree && aiCallsLeft <= 0;
+
+  // P1-A: monthly session cap check for free users.
+  // session_limit is null for paid plans (no cap). isFreeSessionCapReached
+  // is only true when the server confirms a non-null limit has been hit.
+  const sessionCount = meData?.usage?.session_count ?? 0;
+  const sessionLimit = meData?.usage?.session_limit ?? null;
+  const isFreeSessionCapReached = isFree && sessionLimit !== null && sessionCount >= sessionLimit;
+
+  const isLocked = isFree && (aiCallsLeft <= 0 || isFreeSessionCapReached);
   const selectedProfession = store.config.profession;
 
   function selectProfession(p: string) {
@@ -211,6 +246,8 @@ function InterviewSetupPageInner() {
   }
 
   async function handleStart() {
+    // Hard cap guard — belt-and-suspenders in case disabled button is bypassed (keyboard, race condition, etc.)
+    if (isLocked) { showUpgradeModal('limit_hit'); return; }
     const profession = customProfession.trim() || selectedProfession;
     if (!profession) { setError('Please select or type a profession / field.'); return; }
     setError('');
@@ -228,9 +265,15 @@ function InterviewSetupPageInner() {
         <Card className="p-6 text-center" style={{ borderColor: 'var(--error-border)' }}>
           <div className="text-3xl mb-3">🔒</div>
           <h3 className="text-lg font-bold mb-2" style={{ color: 'var(--text-1)' }}>
-            You've used all your free sessions
+            {isFreeSessionCapReached
+              ? `You've used all ${sessionLimit} free sessions this month`
+              : "You've used all your free AI calls this month"}
           </h3>
           <p className="text-sm mb-4" style={{ color: 'var(--text-3)' }}>
+            {meData?.usage?.resets_at
+              ? `Your sessions reset on ${new Date(meData.usage.resets_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}.`
+              : 'Your sessions reset at the start of next month.'
+            }{' '}
             Upgrade to Pro for unlimited AI interviews, full history, and advanced analytics.
           </p>
           <Button variant="upgrade" onClick={() => showUpgradeModal('limit_hit')}>
@@ -378,10 +421,123 @@ function InterviewSetupPageInner() {
         </div>
       )}
 
+      {/* Voice-only toggle — saves data on slow / low-memory devices */}
+      <div
+        className="flex items-center justify-between rounded-xl px-4 py-3 border"
+        style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}
+      >
+        <div>
+          <p className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>
+            📵 Voice only (saves data)
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>
+            Disables the AI avatar — audio only. Best for 2G / low-memory devices.
+          </p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={store.config.avatarMode === 'voice-only'}
+          onClick={() =>
+            store.setAvatarMode(
+              store.config.avatarMode === 'voice-only' ? 'full' : 'voice-only'
+            )
+          }
+          className="relative flex-shrink-0 w-11 h-6 rounded-full border-2 transition-colors duration-200 focus:outline-none"
+          style={{
+            background:
+              store.config.avatarMode === 'voice-only'
+                ? 'var(--accent)'
+                : 'var(--surface-3, #d1d5db)',
+            borderColor:
+              store.config.avatarMode === 'voice-only'
+                ? 'var(--accent)'
+                : 'var(--border)',
+          }}
+        >
+          <span
+            className="block w-4 h-4 rounded-full bg-white shadow transition-transform duration-200"
+            style={{
+              transform:
+                store.config.avatarMode === 'voice-only'
+                  ? 'translateX(20px)'
+                  : 'translateX(2px)',
+              marginTop: '1px',
+            }}
+          />
+        </button>
+      </div>
+
+      {/* JD paste — optional, collapses under a toggle */}
+      <div>
+        <button
+          onClick={() => {
+            setShowJd(!showJd);
+            // Clear stored JD text when the user collapses the panel
+            // so a subsequent session without a JD isn't polluted by a
+            // previous paste that the user forgot to clear.
+            if (showJd) store.setJdText('');
+          }}
+          className="text-sm flex items-center gap-2 transition-colors"
+          style={{ color: 'var(--text-3)' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-2)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
+        >
+          <span>📋</span>
+          {showJd ? 'Remove job description' : 'Paste a job description (optional)'}
+        </button>
+        {showJd && (
+          <div className="mt-3">
+            <Card className="p-5">
+              <SectionLabel>Job Description</SectionLabel>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
+                AI will generate questions tailored to this specific role instead of generic ones.
+              </p>
+              <textarea
+                value={store.config.jdText ?? ''}
+                onChange={(e) => store.setJdText(e.target.value.slice(0, 4_000))}
+                placeholder="Paste the job description here — responsibilities, required skills, tech stack…"
+                rows={6}
+                maxLength={4_000}
+                className="w-full px-4 py-3 rounded-xl border text-sm resize-y focus:outline-none transition-colors"
+                style={{
+                  background:  'var(--surface-2)',
+                  borderColor: store.config.jdText ? 'var(--accent-border)' : 'var(--border)',
+                  color:       'var(--text-1)',
+                }}
+                onFocus={e  => (e.currentTarget.style.borderColor = 'var(--accent-border)')}
+                onBlur={e   => (e.currentTarget.style.borderColor = store.config.jdText ? 'var(--accent-border)' : 'var(--border)')}
+              />
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+                  {store.config.jdText
+                    ? `✓ ${store.config.jdText.length.toLocaleString()} / 4,000 chars — questions will be tailored to this JD`
+                    : 'Supports English, Hindi, or mixed — paste any JD'}
+                </p>
+              </div>
+            </Card>
+          </div>
+        )}
+      </div>
+
       {error && (
         <p className="text-sm rounded-xl px-4 py-3" style={{ color: 'var(--error)', background: 'var(--error-dim)', border: '1px solid var(--error-border)' }}>
           {error}
         </p>
+      )}
+
+      {/* P2-A: Humanized coaching indicator — shown only when the backend
+           HUMANIZE_COACH flag is on (surfaced via NEXT_PUBLIC_FF_HUMANIZED_COACH_PROMPT).
+           This is purely informational: it tells the user Aria will adapt her
+           tone to their confidence level during the session. The actual tone
+           detection + prompt rewrite happens in backend/ai.prompt-service.ts. */}
+      {FLAG.HUMANIZED_COACH_PROMPT && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium"
+          style={{ background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid var(--accent-border)' }}
+        >
+          <span aria-hidden>✨</span>
+          Smart coaching active — Aria adapts her feedback style to your confidence
+        </div>
       )}
 
       <Button

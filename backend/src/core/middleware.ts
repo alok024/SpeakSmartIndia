@@ -480,7 +480,16 @@ export function errorHandler(
   }
 
   if (requestId) res.setHeader('X-Request-Id', requestId);
-  fail(res, status, code, message);
+
+  // Forward structured details from AppError (e.g. session_limit_reached
+  // includes resets_at + session_limit so the client can show the reset date
+  // without a follow-up request).
+  const details = (err as AppError).details;
+  if (details !== undefined) {
+    fail(res, status, code, message, details);
+  } else {
+    fail(res, status, code, message);
+  }
 }
 
 // sessions.id is int8 (bigint) in Postgres — not a UUID. Routes that

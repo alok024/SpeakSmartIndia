@@ -7,7 +7,8 @@ import { useMe } from '@/features/user/hooks';
 import { extractErrorMessage } from '@/lib/api';
 import { Button, Badge, Spinner } from '@/components/ui';
 import { X, Infinity, History, BarChart, Zap, Crown, Diamond, Sparkles } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { analytics } from '@/lib/analytics';
 
 declare global {
   interface Window {
@@ -56,6 +57,17 @@ export function UpgradeModal() {
   const createOrder   = useCreateOrder();
   const verifyPayment = useVerifyPayment();
   const { data: meData } = useMe();
+
+  // Fire once each time the modal opens — captures trigger reason and current plan.
+  // Runs after render so upgradeModalOpen is guaranteed true when it executes.
+  useEffect(() => {
+    if (!upgradeModalOpen) return;
+    analytics.upgradeModalOpened({
+      trigger: upgradeTrigger,
+      plan:    user?.plan ?? null,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [upgradeModalOpen]);
 
   if (!upgradeModalOpen) return null;
 

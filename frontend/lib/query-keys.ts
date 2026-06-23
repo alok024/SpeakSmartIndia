@@ -19,4 +19,6 @@ export const QK = {
   session: (id: string) => ['session', id] as const,
   scoreHistory: (limit: number) => ['score-history', limit] as const,
   referral: ['referral'] as const,
+  readinessReport: ['readiness-report'] as const,
+  speechTrend:     ['speech-trend'] as const,
 };

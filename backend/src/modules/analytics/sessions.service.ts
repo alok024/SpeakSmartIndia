@@ -8,6 +8,7 @@
 
 import { db }                      from '../../core/database/client';
 import { AppError }                from '../../core/utils/errors';
+import { PlanType, SESSION_CAP_FREE } from '../../core/config/env';
 import { logger }                  from '../../infra/logger';
 import { computeScoreBreakdown, FeedbackForScoring } from '../ai/scoring';
 import {
@@ -160,6 +161,94 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     interview_type, personality, score,
     exchanges, duration_secs, hindi_mode, feedbacks,
   } = input;
+
+  // ── P1-A: Monthly session cap for free-tier users ─────────────────────────
+  //
+  // Free users are limited to SESSION_CAP_FREE sessions per IST calendar month.
+  // Paid plans (starter / pro / elite) are never gated here.
+  //
+  // Flow:
+  //  1. Read the user's plan.
+  //  2. If free, check if the IST month has rolled over since
+  //     monthly_session_reset_at and lazily reset if so.
+  //  3. Call increment_session_count(userId, cap) — a single atomic Postgres
+  //     function that checks AND increments inside one row-locked UPDATE.
+  //     Returns { new_count, blocked }.
+  //  4. If blocked → 429 with a helpful reset-date message.
+  //
+  // Why atomic?  A two-step "read count → JS check → increment" has a TOCTOU
+  // race: two concurrent POST /sessions from the same free user both read
+  // count=2, both pass the JS guard, and both increment — yielding count=4.
+  // Moving the check inside the Postgres UPDATE eliminates this because
+  // Postgres serialises row-level locks on the usage row.
+  //
+
+  {
+    const [dbUser, usage] = await Promise.all([
+      db.getUserById(userId),
+      db.getUsage(userId),
+    ]);
+
+    const plan = (dbUser?.plan as PlanType) ?? 'free';
+
+    if (plan === 'free') {
+      // Lazy monthly reset: if monthly_session_reset_at is in a previous IST
+      // month, reset the counter before the cap check. Avoids a background cron.
+      const resetAt = usage?.monthly_session_reset_at
+        ? new Date(usage.monthly_session_reset_at)
+        : null;
+
+      const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const isNewMonth =
+        !resetAt ||
+        resetAt.getFullYear() < nowIST.getFullYear() ||
+        (resetAt.getFullYear() === nowIST.getFullYear() &&
+          resetAt.getMonth() < nowIST.getMonth());
+
+      if (isNewMonth) {
+        // Non-fatal: if reset fails the increment below still runs. Worst case:
+        // the stale counter is slightly high for this request; the RPC's
+        // atomic check prevents over-counting regardless.
+        try {
+          await db.resetUsage(userId);
+          log.info('Monthly usage reset (lazy, new IST month)', { userId, plan });
+        } catch (resetErr) {
+          log.error('Monthly usage reset failed (non-fatal)', { userId, error: resetErr });
+        }
+      }
+
+      // Single atomic RPC — check + increment in one row-locked Postgres UPDATE.
+      // No JS pre-check needed; the RPC returns blocked=true if cap is reached.
+      let capResult: { new_count: number; blocked: boolean };
+      try {
+        capResult = await db.incrementSessionCount(userId, SESSION_CAP_FREE);
+      } catch (incErr) {
+        // RPC failure: log and allow the session to save (under-count is
+        // preferable to silently dropping a completed session).
+        log.error('incrementSessionCount RPC failed (non-fatal, session will still save)', {
+          userId, error: incErr,
+        });
+        capResult = { new_count: 1, blocked: false };
+      }
+
+      if (capResult.blocked) {
+        const nextMonth = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 1);
+        throw new AppError(
+          429,
+          'session_limit_reached',
+          `You've used all ${SESSION_CAP_FREE} free sessions for this month. ` +
+          `Your sessions reset on ${nextMonth.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}.`,
+          {
+            sessions_used:  capResult.new_count,
+            session_limit:  SESSION_CAP_FREE,
+            resets_at:      nextMonth.toISOString(),
+          },
+        );
+      }
+    }
+    // Paid plans: no session cap — fall straight through.
+  }
+  // ── end P1-A ──────────────────────────────────────────────────────────────
 
   // FeedbackInput accepts notes under either `tip` (older clients) or `tips`
   // (newer clients). normalizedFeedbacks resolves the alias once so all

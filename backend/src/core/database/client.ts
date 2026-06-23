@@ -62,6 +62,13 @@ export interface UserRow {
   // Set on password reset — authMiddleware rejects any token issued before this timestamp.
   // This invalidates all existing sessions without requiring individual token blacklisting.
   tokens_invalidated_at?: string | null;
+  // Job-landed — set once when the user reports they got a job (migration 014).
+  // job_landed_at non-null ↔ card hidden from dashboard.
+  job_landed_at?:      string | null;
+  job_landed_role?:    string | null;
+  job_landed_company?: string | null;
+  // P3-B: stores the raw SVG string of the last generated weekly progress card
+  weekly_card_url?: string | null;
   created_at?:    string;
   updated_at?:    string;
 }
@@ -82,9 +89,13 @@ export interface EmailVerificationSendRow {
 }
 
 export interface UsageRow {
-  user_id:    string;
-  call_count: number;
-  updated_at?: string;
+  user_id:      string;
+  call_count:   number;
+  period_start?: string;  // ISO timestamp — first day of current billing month (IST)
+  // P1-A: monthly session cap (migration 018)
+  monthly_session_count?:    number;     // sessions completed this IST month
+  monthly_session_reset_at?: string;     // ISO timestamp of last monthly reset
+  updated_at?:  string;
 }
 
 export interface StatsRow {
@@ -268,6 +279,15 @@ export interface ScoreComparisonRow {
   created_at?:     string;
 }
 
+export interface PushSubscriptionRow {
+  id?:        string;
+  user_id:    string;
+  endpoint:   string;
+  p256dh:     string;
+  auth:       string;
+  created_at?: string;
+}
+
 export interface ComparisonResponseRow {
   id?:                string;
   comparison_id:      string;
@@ -276,6 +296,37 @@ export interface ComparisonResponseRow {
   challenger_score:   number;
   ai_feedback?:       string | null;
   created_at?:        string;
+}
+
+export interface PrepPathDay {
+  day_number: number;
+  title: string;
+  session_config: {
+    profession: string;
+    mode: string;
+    difficulty: string;
+    interview_type: string;
+  };
+}
+
+export interface PrepPathRow {
+  id:            string;  // slug, e.g. 'bank-po-7day'
+  title:         string;
+  description:   string;
+  duration_days: number;
+  profession:    string;
+  days:          PrepPathDay[];
+  is_active?:    boolean;
+  created_at?:   string;
+}
+
+export interface UserPrepEnrollmentRow {
+  id?:           string;
+  user_id:       string;
+  prep_path_id:  string;
+  enrolled_at?:  string;
+  completed_at?: string | null;
+  created_at?:   string;
 }
 
 // Raw Supabase REST helper
@@ -409,10 +460,49 @@ export const db = {
     await sb('/rpc/increment_usage', 'POST', { p_user_id: userId });
   },
 
+  /**
+   * Atomically checks the monthly session cap AND increments the counter in a
+   * single Postgres statement (migration 018, updated RPC signature).
+   *
+   * The check-then-increment is inside one PL/pgSQL UPDATE so concurrent
+   * requests from the same user cannot both pass the cap guard — Postgres
+   * serialises row-level locks, eliminating the TOCTOU race that exists when
+   * the JS layer reads the count and then calls a separate increment.
+   *
+   * Returns { new_count, blocked }:
+   *   blocked = true  → cap was already reached; caller must 429, do NOT save
+   *   blocked = false → increment succeeded; proceed with session save
+   *
+   * Requires migration 018 (updated):
+   *   CREATE OR REPLACE FUNCTION increment_session_count(p_user_id uuid, p_cap integer)
+   *   RETURNS TABLE (new_count integer, blocked boolean) LANGUAGE plpgsql ...
+   */
+  async incrementSessionCount(
+    userId: string,
+    cap: number,
+  ): Promise<{ new_count: number; blocked: boolean }> {
+    const { data } = await sb<{ new_count: number; blocked: boolean }[]>(
+      '/rpc/increment_session_count',
+      'POST',
+      { p_user_id: userId, p_cap: cap },
+    );
+    // Supabase RPC wraps RETURNS TABLE results in an array.
+    // If the row is somehow missing (shouldn't happen), treat as not blocked.
+    return data?.[0] ?? { new_count: 1, blocked: false };
+  },
+
   async resetUsage(userId: string): Promise<void> {
+    // Compute first day of current IST month
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    nowIST.setDate(1);
+    nowIST.setHours(0, 0, 0, 0);
+
     await sb(`/usage?user_id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
-      call_count: 0,
-      updated_at: new Date().toISOString(),
+      call_count:              0,
+      monthly_session_count:   0,          // P1-A: reset session cap alongside AI-call cap
+      monthly_session_reset_at: nowIST.toISOString(),
+      period_start:            nowIST.toISOString(),
+      updated_at:              new Date().toISOString(),
     });
   },
 
@@ -1584,5 +1674,102 @@ export const db = {
         `comparison_responses insert failed (HTTP ${status})`);
     }
     return data[0];
+  },
+
+  // ── Push subscriptions (migration 015) ────────────────────────────────
+
+  /** Inserts or ignores a push subscription (ON CONFLICT DO NOTHING on endpoint). */
+  async upsertPushSubscription(row: Omit<PushSubscriptionRow, 'id' | 'created_at'>): Promise<void> {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions`, {
+      method:  'POST',
+      headers: {
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        'Content-Type':  'application/json',
+        'Prefer':        'resolution=ignore-duplicates',
+      },
+      body: JSON.stringify(row),
+    });
+    if (!res.ok && res.status !== 409) {
+      throw new AppError(500, 'db_push_subscription_failed', `push_subscriptions upsert failed (HTTP ${res.status})`);
+    }
+  },
+
+  /** Returns all push subscriptions for a user (fan-out across devices). */
+  async getPushSubscriptions(userId: string): Promise<PushSubscriptionRow[]> {
+    const { data } = await sb<PushSubscriptionRow[]>(
+      `/push_subscriptions?user_id=eq.${encodeURIComponent(userId)}&select=endpoint,p256dh,auth`
+    );
+    return data ?? [];
+  },
+
+  /** Removes a push subscription by endpoint (used when 410/404 received from push service). */
+  async deletePushSubscription(endpoint: string): Promise<void> {
+    await fetch(`${env.SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
+      method:  'DELETE',
+      headers: {
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+    });
+  },
+
+  /** Removes a push subscription by endpoint, scoped to a specific user (used by unsubscribe endpoint). */
+  async deletePushSubscriptionForUser(endpoint: string, userId: string): Promise<void> {
+    await fetch(
+      `${env.SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}&user_id=eq.${encodeURIComponent(userId)}`,
+      {
+        method:  'DELETE',
+        headers: {
+          'apikey':        env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        },
+      }
+    );
+  },
+
+  // ── Guided Prep Paths (migration 017, P6-A) ────────────────────────────
+
+  /** Returns all active prep paths (catalog), e.g. for a "browse paths" listing. */
+  async getActivePrepPaths(): Promise<PrepPathRow[]> {
+    const { data } = await sb<PrepPathRow[]>('/prep_paths?is_active=eq.true&select=*&order=duration_days.asc');
+    return data ?? [];
+  },
+
+  async getPrepPathById(id: string): Promise<PrepPathRow | null> {
+    const { data } = await sb<PrepPathRow[]>(`/prep_paths?id=eq.${encodeURIComponent(id)}&select=*`);
+    return data?.[0] ?? null;
+  },
+
+  /**
+   * Returns the user's most recent *open* (not-yet-completed) enrollment,
+   * or null if they have none. A user may have multiple historical
+   * enrollments (retakes), so this always orders by enrolled_at desc and
+   * takes the first — see migration 017's header comment for why this is
+   * enforced in application code rather than a DB uniqueness constraint.
+   */
+  async getActivePrepEnrollment(userId: string): Promise<UserPrepEnrollmentRow | null> {
+    const { data } = await sb<UserPrepEnrollmentRow[]>(
+      `/user_prep_enrollments?user_id=eq.${encodeURIComponent(userId)}&completed_at=is.null&select=*&order=enrolled_at.desc&limit=1`
+    );
+    return data?.[0] ?? null;
+  },
+
+  async createPrepEnrollment(userId: string, prepPathId: string): Promise<UserPrepEnrollmentRow> {
+    const { data, ok, status } = await sb<UserPrepEnrollmentRow[]>('/user_prep_enrollments', 'POST', {
+      user_id:      userId,
+      prep_path_id: prepPathId,
+    });
+    if (!ok || !data?.[0]) {
+      throw new AppError(500, 'db_prep_enrollment_failed', `user_prep_enrollments insert failed (HTTP ${status})`);
+    }
+    return data[0];
+  },
+
+  /** Marks an enrollment as completed (used once the user finishes the path's final day). */
+  async completePrepEnrollment(enrollmentId: string): Promise<void> {
+    await sb(`/user_prep_enrollments?id=eq.${encodeURIComponent(enrollmentId)}`, 'PATCH', {
+      completed_at: new Date().toISOString(),
+    });
   },
 };

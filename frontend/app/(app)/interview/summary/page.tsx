@@ -27,7 +27,12 @@ function InterviewSummaryPageInner() {
   const { user }  = useAuthStore();
   const { showUpgradeModal, showToast } = useUIStore();
   const { session: liveSession, config } = useInterviewStore();
-  const isFree = !user || (user.plan !== 'pro' && user.plan !== 'elite');
+  // Bug #4 fix: renamed isFree → isOnFreePlan for clarity.
+  // The job_ready_score RING renders for ALL plans (jobReadyScore != null check
+  // below). This flag only controls the upsell button next to the ring —
+  // Starter/Pro/Elite users see the score but not the upgrade prompt.
+  // Starter plan (₹299/mo) includes job_ready_score per PLAN_LIMITS in env.ts.
+  const isOnFreePlan = !user || user.plan === 'free';
 
   const { data, isLoading } = useSession(sessionId);
   const sessionData = data?.session;
@@ -198,7 +203,7 @@ function InterviewSummaryPageInner() {
               <div className="text-xs" style={{ color: 'var(--text-3)' }}>Based on your performance today</div>
             </div>
           </div>
-          {isFree && (
+          {isOnFreePlan && (
             <Button variant="upgrade" size="sm" onClick={() => showUpgradeModal('session_end')}>
               Upgrade ₹699 →
             </Button>

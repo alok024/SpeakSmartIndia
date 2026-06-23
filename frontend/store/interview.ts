@@ -8,7 +8,17 @@ import {
   Persona,
   Feedback,
   ErrorCorrection,
+  SessionMemory,
 } from '@/types';
+
+const DEFAULT_SESSION_MEMORY: SessionMemory = {
+  weakTopics:        [],
+  strongTopics:      [],
+  hintsUsed:         0,
+  correctionCounts:  [],
+  answerLengths:     [],
+  consecutiveStrong: 0,
+};
 
 // Default config — matches v4 defaults exactly
 const DEFAULT_CONFIG: LiveSessionConfig = {
@@ -41,6 +51,7 @@ const DEFAULT_SESSION: LiveSessionState = {
     typeof window !== 'undefined'
       ? window.localStorage.getItem('ss_voice_replies') === '1'
       : false,
+  sessionMemory: { ...DEFAULT_SESSION_MEMORY },
 };
 
 interface InterviewStore {
@@ -57,6 +68,8 @@ interface InterviewStore {
   setPersona: (p: Persona) => void;
   setMaxExchanges: (n: number) => void;
   setLang: (l: 'en' | 'hi' | 'hinglish') => void;
+  setJdText: (text: string) => void;
+  setAvatarMode: (mode: 'full' | 'voice-only') => void;
 
   // Session lifecycle — clear entry points, no leaked state
   startSession:  (config?: Partial<LiveSessionConfig>) => void;
@@ -79,6 +92,8 @@ interface InterviewStore {
   setLastSessionId:       (id: string) => void;
   setClientSessionId:     (id: string) => void;
   setVoiceReplies:        (v: boolean) => void;
+  updateSessionMemory:    (feedback: Feedback) => void;
+  recordHintUsed:         () => void;
 }
 
 // Timer handle — kept outside Zustand state intentionally
@@ -110,6 +125,8 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
   setPersona:       (p) => set((s) => ({ config: { ...s.config, persona: p } })),
   setMaxExchanges:  (n) => set((s) => ({ config: { ...s.config, maxExchanges: n } })),
   setLang:          (l) => set((s) => ({ config: { ...s.config, lang: l } })),
+  setJdText:        (text) => set((s) => ({ config: { ...s.config, jdText: text || undefined } })),
+  setAvatarMode:    (mode) => set((s) => ({ config: { ...s.config, avatarMode: mode } })),
 
   // Session lifecycle
 
@@ -219,4 +236,49 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
     }
     set((s) => ({ session: { ...s.session, voiceReplies: v } }));
   },
+
+  // Within-session memory — called after every answered question.
+  // Tracks weak/strong topics, correction density, answer length, and
+  // consecutive strong answer count so the memory context injected into
+  // subsequent AI calls is always current.
+  updateSessionMemory: (feedback) => {
+    set((s) => {
+      const mem = s.session.sessionMemory;
+
+      // Topic comes from the question text — take the first 60 chars as a label
+      // so weak/strong lists are readable in the prompt without ballooning it.
+      const topic = (feedback.question ?? '').slice(0, 60).trim();
+      const score = feedback.score ?? 5;
+      const correctionCount = (feedback.corrections ?? []).length;
+      const wordCount = (feedback.answer ?? '').trim().split(/\s+/).filter(Boolean).length;
+
+      const isStrong = score >= 7;
+      const isWeak   = score < 5;
+
+      return {
+        session: {
+          ...s.session,
+          sessionMemory: {
+            weakTopics:   isWeak   ? [...mem.weakTopics,   topic] : mem.weakTopics,
+            strongTopics: isStrong ? [...mem.strongTopics, topic] : mem.strongTopics,
+            hintsUsed:    mem.hintsUsed,
+            correctionCounts:  [...mem.correctionCounts, correctionCount],
+            answerLengths:     [...mem.answerLengths, wordCount],
+            consecutiveStrong: isStrong ? mem.consecutiveStrong + 1 : 0,
+          },
+        },
+      };
+    });
+  },
+
+  recordHintUsed: () =>
+    set((s) => ({
+      session: {
+        ...s.session,
+        sessionMemory: {
+          ...s.session.sessionMemory,
+          hintsUsed: s.session.sessionMemory.hintsUsed + 1,
+        },
+      },
+    })),
 }));

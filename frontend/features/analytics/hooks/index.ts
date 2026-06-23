@@ -42,3 +42,19 @@ export function useScoreHistory(limit = 20) {
     staleTime: 60_000,
   });
 }
+
+// Interview Readiness Report (Starter+)
+export function useReadinessReport(enabled: boolean) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+
+  return useQuery({
+    queryKey: QK.readinessReport,
+    queryFn: async () => {
+      const res = await analyticsApi.getReadinessReport();
+      if (!res.ok) throw new Error('Failed to fetch readiness report');
+      return res.data;
+    },
+    enabled: isAuthenticated && enabled,
+    staleTime: 5 * 60_000,   // report only regenerates every 5 sessions
+  });
+}

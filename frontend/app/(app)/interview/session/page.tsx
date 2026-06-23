@@ -23,16 +23,22 @@ import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { useSaveSession } from '@/features/interview/hooks';
 import { aiApi } from '@/features/ai/api';
+import { interviewApi }  from '@/features/interview/api';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import { Button, Card, Spinner, ScoreBadge } from '@/components/ui';
 import { parseJsonArray } from '@/lib/utils';
 import { withErrorRef } from '@/lib/api';
+import { countFillers, estimateWPM } from '@/lib/speech-analysis';
+import { speechApi } from '@/features/speech/api';
 import {
   getProfessionContext,
   getLiveFeedback,
   type LiveFeedbackChip,
 } from '@/lib/interview-prompts';
 import type { Feedback, ErrorCorrection } from '@/types';
+// Bug #1 fix: wire avatar + barge-in hooks (P7-B / P7-C)
+import { useSimliAvatar } from '@/features/avatar/useSimliAvatar';
+import { useBargeIn }     from '@/features/avatar/useBargeIn';
 
 // Score parsing
 // Looks for patterns like "score: 7", "7/10", "rating: 6.5", etc.
@@ -61,6 +67,7 @@ const MAX_ANSWER_LENGTH = 2_000;
 // Parse and validate AI feedback output with Zod so malformed
 // responses degrade safely instead of silently corrupting session data.
 import { z } from 'zod';
+import { analytics } from '@/lib/analytics';
 
 const AIFeedbackOutputSchema = z.object({
   score:          z.number().min(0).max(10).optional(),
@@ -250,6 +257,47 @@ export default function InterviewSessionPage() {
   );
 }
 
+// Builds a short memory-context string injected into AI calls after the first answer.
+// Keeps Aria aware of within-session patterns without re-fetching anything from the server.
+// Returns '' on the first question (no history yet) so there's no prompt overhead on turn 1.
+function buildSessionMemoryContext(memory: import('@/types').SessionMemory): string {
+  const lines: string[] = [];
+
+  if (memory.weakTopics.length > 0) {
+    lines.push(`WITHIN-SESSION NOTES:`);
+    lines.push(`- Candidate struggled with: ${memory.weakTopics.slice(-3).join('; ')}. Do NOT repeat a question on the same topic.`);
+  }
+
+  if (memory.consecutiveStrong >= 2) {
+    lines.push(`- Candidate has answered ${memory.consecutiveStrong} questions strongly in a row. Raise the difficulty — ask a harder follow-up or probe edge cases.`);
+  } else if (memory.strongTopics.length > 0) {
+    lines.push(`- Strong areas so far: ${memory.strongTopics.slice(-2).join('; ')}.`);
+  }
+
+  if (memory.hintsUsed > 0) {
+    lines.push(`- Candidate has requested ${memory.hintsUsed} hint${memory.hintsUsed > 1 ? 's' : ''} this session — they may need more structure guidance.`);
+  }
+
+  // Filler/correction trend — rising correction count signals verbal quality decline
+  if (memory.correctionCounts.length >= 2) {
+    const recent  = memory.correctionCounts.slice(-2).reduce((a, b) => a + b, 0);
+    const earlier = memory.correctionCounts.slice(0, -2).reduce((a, b) => a + b, 0) || 0;
+    if (recent > earlier + 2) {
+      lines.push(`- Grammar/correction errors are increasing. Gently note this trend in feedback.`);
+    }
+  }
+
+  // Pace trend — very short answers may indicate under-explanation
+  if (memory.answerLengths.length >= 2) {
+    const avgWords = memory.answerLengths.reduce((a, b) => a + b, 0) / memory.answerLengths.length;
+    if (avgWords < 30) {
+      lines.push(`- Answers have been quite short (avg ~${Math.round(avgWords)} words). Encourage the candidate to elaborate more.`);
+    }
+  }
+
+  return lines.length > 0 ? '\n\n' + lines.join('\n') : '';
+}
+
 function InterviewSessionPageInner() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -269,9 +317,63 @@ function InterviewSessionPageInner() {
   const [liveChips, setLiveChips] = useState<LiveFeedbackChip[]>([]);
   const [hintText, setHintText] = useState<string | null>(null);
   const [hintLoading, setHintLoading] = useState(false);
+  // Barge-in listening indicator — true while VAD has detected speech onset
+  // and is capturing the user's utterance. Shown as a badge in the UI so the
+  // user knows their speech was detected (avoids the confusing "avatar stopped
+  // talking but nothing happened" experience when STT is not yet wired).
+  const [isListening, setIsListening] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const initRef = useRef(false);
+
+  // ── Bug #1 fix: Avatar + Barge-In (P7-B / P7-C) ──────────────────────────
+  // avatarContainerRef  → <div> that Simli streams video into
+  // simliAudioRef       → <audio> element Simli plays TTS through (barge-in pauses it)
+  // simliClientRef      → SimliClient handle (barge-in calls stopSpeaking())
+  //
+  // Both hooks are no-ops when avatarMode === 'voice-only' (auto-detected or
+  // user-toggled in setup page) — so they are safe to call unconditionally here.
+  const avatarContainerRef = useRef<HTMLDivElement>(null);
+  const simliAudioRef      = useRef<HTMLAudioElement>(null);
+  // SimliHandle ref — populated by useSimliAvatar once the client connects.
+  // Typed as `{ stopSpeaking(): void } | null` to match UseBargeInOptions.
+  const simliClientRef     = useRef<{ stopSpeaking(): void } | null>(null);
+
+  const { ready: avatarReady, voiceOnly: isVoiceOnly } = useSimliAvatar(avatarContainerRef, simliClientRef);
+
+  // active / disable exposed for future use (e.g. a "mute mic" button, end-session cleanup).
+  // Prefixed _ to suppress TS noUnusedLocals until those call sites exist.
+  const { active: _bargeInActive, enable: enableBargeIn, disable: _disableBargeIn } = useBargeIn({
+    audioElRef:    simliAudioRef,
+    simliRef:      simliClientRef,
+    onUtterance:   (/* audio: Float32Array */) => {
+      // TODO (Phase 9 full wiring): send audio Float32Array to STT, then
+      // append the transcript to chatInput so the user can review before submit.
+      // For now the barge-in correctly silences the avatar on speech start
+      // (interrupt() fires immediately), and this callback is a no-op pending
+      // STT integration.
+    },
+    onSpeechStart: () => {
+      // Show listening badge so the user knows their speech was detected.
+      // The badge disappears when speech ends (onSpeechEnd below).
+      setIsListening(true);
+    },
+    onSpeechEnd: () => {
+      setIsListening(false);
+    },
+  });
+
+  // Enable barge-in once the avatar is ready (full mode only).
+  // Runs once when avatarReady flips true; disable on unmount handled
+  // automatically inside useBargeIn's own cleanup effect.
+  useEffect(() => {
+    if (avatarReady && !isVoiceOnly) {
+      enableBargeIn().catch((err) => {
+        console.warn('[session] barge-in enable failed (non-fatal):', err);
+      });
+    }
+  }, [avatarReady, isVoiceOnly, enableBargeIn]);
+  // ── end Bug #1 fix ────────────────────────────────────────────────────────
 
   // Read config/session once Zustand has hydrated — // we defer inside useEffect but read state at call-time via getState(),
   // not via a stale closure capture from mount.
@@ -281,6 +383,46 @@ function InterviewSessionPageInner() {
   const generateClassicQuestions = useCallback(async () => {
     // Read fresh state at call time — not from mount-time closure
     const { config, session } = useInterviewStore.getState();
+
+    //
+    // Two paths:
+    //   1. JD path  — if config.jdText is set (user pasted a job description),
+    //      POST /api/interview/jd-questions for a single tailored Groq call.
+    //      Falls back to path 2 on any non-ok response (network error, parse
+    //      failure, quota exhaustion) so the session always starts.
+    //   2. Default path — the existing buildQuestionPrompt() → aiApi.call() flow.
+    //
+    // The JD-path fallback is silent (no error shown) because the user still
+    // gets questions — just generic ones. A console.warn is emitted so it is
+    // visible in devtools without alarming the user.
+
+    // ── Path 1: JD-tailored questions ────────────────────────────────────
+    if (config.jdText) {
+      const jdRes = await interviewApi.getJdQuestions({
+        jd_text:        config.jdText,
+        profession:     config.profession,
+        interview_type: config.interviewType,
+        difficulty:     config.difficulty,
+        total_q:        config.totalQ,
+      });
+
+      if (jdRes.ok && jdRes.data.questions.length > 0) {
+        if (jdRes.data.questions.length < config.totalQ) {
+          console.warn(
+            `[session] JD endpoint returned ${jdRes.data.questions.length} questions, expected ${config.totalQ}. Proceeding with available questions.`
+          );
+        }
+        store.setQuestions(jdRes.data.questions);
+        setPhase('answering');
+        startTimer();
+        return;
+      }
+
+      // Non-ok or empty array — fall through to default generation silently.
+      console.warn('[session] JD question generation failed; falling back to default prompt.', jdRes);
+    }
+
+    // ── Path 2: Default question generation ──────────────────────────────
     const prompt = buildQuestionPrompt(config);
 
     const res = await aiApi.call({
@@ -373,6 +515,17 @@ function InterviewSessionPageInner() {
       return;
     }
 
+    // Fire session_started immediately — before any AI call so we always
+    // capture the event even if question generation fails.
+    const { session } = useInterviewStore.getState();
+    analytics.sessionStarted({
+      session_id:     session.clientSessionId ?? 'unknown',
+      profession:     config.profession,
+      mode:           config.mode,
+      difficulty:     config.difficulty,
+      interview_type: config.interviewType,
+    });
+
     if (config.mode === 'classic') {
       generateClassicQuestions();
     } else {
@@ -444,6 +597,7 @@ function InterviewSessionPageInner() {
     const question = session.questions[session.currentQ];
     if (!question) return;
 
+    store.recordHintUsed();   // track hint usage in session memory
     setHintLoading(true);
     setHintText(null);
     const prompt = buildHintPrompt(question, answer, config);
@@ -470,7 +624,8 @@ function InterviewSessionPageInner() {
     if (!answer.trim()) return;
 
     setPhase('loading_feedback');
-    const prompt = buildFeedbackPrompt(question, answer, config);
+    const memCtx = buildSessionMemoryContext(useInterviewStore.getState().session.sessionMemory);
+    const prompt = buildFeedbackPrompt(question, answer, config) + memCtx;
 
     const res = await aiApi.call({
       messages: [{ role: 'user', content: prompt }],
@@ -495,6 +650,7 @@ function InterviewSessionPageInner() {
     };
 
     store.addFeedback(feedback);
+    store.updateSessionMemory(feedback);   // within-session memory update
     if (feedback.corrections?.length) store.addErrors(feedback.corrections as ErrorCorrection[]);
     setCurrentFeedback(feedback);
     setAnswer('');
@@ -561,10 +717,11 @@ function InterviewSessionPageInner() {
     store.incrementChatExchanges();
     setChatLoading(true);
 
-    // Build full history for context
+    // Build full history for context, with within-session memory appended
     const systemPrompt = buildChatSystemPrompt(config);
+    const memCtx = buildSessionMemoryContext(useInterviewStore.getState().session.sessionMemory);
     const messages = [
-      { role: 'user' as const, content: `[SYSTEM]: ${systemPrompt}\n\nNow interview me.` },
+      { role: 'user' as const, content: `[SYSTEM]: ${systemPrompt}${memCtx}\n\nNow interview me.` },
       ...session.chatHistory.filter((m) => m.content !== '__start__').map((m) => ({
         role: m.role as 'user' | 'assistant',
         content: m.content,
@@ -678,7 +835,15 @@ function InterviewSessionPageInner() {
       : 0;
 
     // Bug 1 fix: actually call the mutation
-    const result = await saveSession.mutateAsync({
+    // P1-A: saveSession throws (via mutateAsync) when the backend returns 429
+    // session_limit_reached. Catch it here, show the upgrade modal with the
+    // reset date from the error details, and route to summary anyway so the
+    // user can still see their in-memory feedback.
+    const { showUpgradeModal } = useUIStore.getState();
+
+    let result: Awaited<ReturnType<typeof saveSession.mutateAsync>>;
+    try {
+      result = await saveSession.mutateAsync({
       client_session_id: (() => {
         // startSession() always sets clientSessionId — a null here would mean
         // the store was reset between session start and finish, which defeats
@@ -701,12 +866,75 @@ function InterviewSessionPageInner() {
       hindi_mode: config.lang !== 'en',
       feedbacks,
     });
+    } catch (saveErr: unknown) {
+      // P1-A: monthly session cap reached — show upgrade modal with reset date,
+      // then route to in-memory summary so the user doesn't lose their feedback.
+      const errBody = (saveErr as { response?: { data?: { error?: { code?: string; message?: string; details?: { resets_at?: string } } } } })?.response?.data?.error;
+      if (errBody?.code === 'session_limit_reached') {
+        const resetsAt = errBody.details?.resets_at
+          ? new Date(errBody.details.resets_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })
+          : 'next month';
+        showToast(`🔒 Monthly session limit reached — resets ${resetsAt}`);
+        showUpgradeModal('limit_hit');
+        router.push('/interview/summary');
+        return;
+      }
+      // Any other error — fall through to in-memory summary with warning toast.
+      showToast('⚠️ Could not save session to server. Your feedback is still shown below.');
+      router.push('/interview/summary');
+      return;
+    }
+
+    const exchanges = config.mode === 'chat' ? session.chatExchanges : feedbacks.length;
+    const sessionId = session.clientSessionId ?? 'unknown';
+
+    // ── Speech Metrics (P5) ───────────────────────────────────────────────
+    // Fire-and-forget: computed from the in-memory feedbacks, never blocks
+    // navigation. Only meaningful for classic mode (chat has no discrete
+    // per-answer texts to analyse). Skipped when there are no feedbacks
+    // (e.g. all questions timed out with empty answers).
+    //
+    // The POST is intentionally sent after mutateAsync resolves so the
+    // sessions table row already exists when the backend resolves the
+    // session_id FK. A dropped request (network loss) leaves no row —
+    // the dashboard's "3+ sessions" guard handles sparse data gracefully.
+    if (config.mode === 'classic' && feedbacks.length > 0 && session.clientSessionId) {
+      const answers     = feedbacks.map((f) => f.answer ?? '');
+      const fillerCount = countFillers(answers);
+      const wpm         = estimateWPM(answers, durationSecs);
+
+      speechApi.save({
+        client_session_id: session.clientSessionId,
+        filler_count:      fillerCount,
+        wpm,
+        answer_count:      answers.length,
+      }).catch((err: unknown) => {
+        // Non-fatal — speech metrics are a "nice to have" trend feature.
+        // A failed save simply means this session won't appear in the chart.
+        console.warn('[finishSession] speech metrics save failed (non-fatal):', err);
+      });
+    }
 
     if (result.ok) {
+      analytics.sessionCompleted({
+        session_id:    sessionId,
+        score:         avgScore,
+        exchanges,
+        duration_secs: durationSecs,
+        profession:    config.profession,
+        mode:          config.mode,
+      });
       store.setLastSessionId(result.data.session_id);
       router.push(`/interview/summary?session=${result.data.session_id}`);
     } else {
-      // Still go to summary — show in-memory data even if save failed
+      // Still go to summary — show in-memory data even if save failed.
+      // Track as abandoned since the server didn't record a completed session.
+      analytics.sessionAbandoned({
+        session_id:     sessionId,
+        profession:     config.profession,
+        mode:           config.mode,
+        questions_seen: exchanges,
+      });
       showToast('⚠️ Could not save session to server. Your feedback is still shown below.');
       router.push('/interview/summary');
     }
@@ -861,6 +1089,51 @@ function InterviewSessionPageInner() {
   // Classic Mode
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-5">
+
+      {/* ── Bug #1 fix: Avatar container (P7-B) ──────────────────────────────
+           Rendered in both modes so the ref is always attached. Hidden in
+           voice-only mode (avatarMode === 'voice-only' or Simli init failed).
+           The <audio> element is hidden always — Simli streams into it but
+           the user hears it through speakers, not through a visible player.
+           simliClientRef is populated by useSimliAvatar once SimliClient
+           connects; barge-in reads it via the ref without re-renders. */}
+      <div
+        ref={avatarContainerRef}
+        aria-hidden={isVoiceOnly || !avatarReady}
+        className={[
+          'rounded-2xl overflow-hidden bg-black transition-all duration-300',
+          isVoiceOnly || !avatarReady ? 'hidden' : 'block aspect-video w-full',
+        ].join(' ')}
+      />
+      {/* Hidden audio element — Simli streams TTS here; barge-in pauses it */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio ref={simliAudioRef} style={{ display: 'none' }} />
+
+      {/* Barge-in listening badge — visible only when VAD detects speech.
+           Gives the user immediate feedback that the avatar heard them, even
+           before the STT path is wired in Phase 9. Keeps the confusion
+           ("avatar stopped but nothing happened") away. */}
+      {isListening && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full w-fit"
+          style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
+        >
+          {/* Pulsing dot */}
+          <span className="relative flex h-2 w-2">
+            <span
+              className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+              style={{ background: 'var(--accent)' }}
+            />
+            <span
+              className="relative inline-flex rounded-full h-2 w-2"
+              style={{ background: 'var(--accent)' }}
+            />
+          </span>
+          Listening…
+        </div>
+      )}
 
       {/* Progress */}
       <div className="flex items-center gap-3">

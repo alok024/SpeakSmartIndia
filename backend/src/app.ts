@@ -8,7 +8,7 @@ import { env, IS_PROD }              from './core/config/env';
 import { errorHandler }              from './core/middleware';
 import { unauthorized, notFound }     from './core/utils/response';
 import { logger }                    from './infra/logger';
-import { scheduleSubscriptionExpiry, scheduleSessionExpiry, scheduleBlacklistCleanup, scheduleComparisonCleanup } from './infra/queue/dispatcher';
+import { scheduleSubscriptionExpiry, scheduleSessionExpiry, scheduleBlacklistCleanup, scheduleComparisonCleanup, scheduleWeeklyProgressCards } from './infra/queue/dispatcher';
 import { initSentry, captureException, getMetrics } from './infra/observability';
 import { startLoadMonitor, getSystemLoadStats }      from './infra/load-monitor';
 import { getAILimiterStats }                         from './infra/ai-limiter';
@@ -17,7 +17,8 @@ import { groqBreaker, openaiBreaker }                from './infra/circuit-break
 // Route modules
 import authRoutes    from './modules/auth/auth.routes';
 import paymentRoutes from './modules/payment/payment.routes';
-import userRoutes    from './modules/user/user.routes';
+import userRoutes         from './modules/user/user.routes';
+import resultsBoardRoutes from './modules/user/results-board.routes';
 import aiRoutes      from './modules/ai/ai.routes';
 import sessionRoutes from './modules/analytics/sessions.routes';
 import reportRoutes  from './modules/reports/reports.routes';
@@ -27,7 +28,12 @@ import adminRoutes   from './modules/admin/admin.routes';
 import leadsRoutes   from './modules/leads/leads.routes';
 import voiceRoutes   from './modules/voice/voice.routes';
 import eventsRoutes  from './modules/analytics/events.routes';
+import { pushRouter }    from './modules/push/push.routes';
+import interviewRoutes   from './modules/interview/interview.routes';
+import speechRoutes      from './modules/speech/speech.routes';
+import prepPathsRoutes   from './modules/prep-paths/prep-paths.routes';
 import { registerShutdownFlush } from './modules/analytics/events.service';
+import { initVapid } from './modules/analytics/weekly-card.service';
 
 // Extend Express Request with requestId
 declare global {
@@ -197,7 +203,14 @@ app.get('/health/metrics', (req: Request, res: Response) => {
 });
 
 // Routes
+// NOTE (Bug #2 fix): userRoutes is mounted at '/api' (NOT '/api/user').
+// Its actual paths are /api/me, /api/referral, /api/onboarding etc.
+// resultsBoardRoutes is mounted at '/api/user' for /api/user/job-landed,
+// /api/user/results-board. There is NO route conflict — but the naming is
+// intentionally documented here to prevent a future dev from accidentally
+// changing the userRoutes mount prefix to '/api/user' and shadowing these routes.
 app.use('/api',          userRoutes);
+app.use('/api/user',     resultsBoardRoutes);
 app.use('/api',          authRoutes);
 app.use('/api/payment',  paymentRoutes);
 app.use('/api/ai',       aiRoutes);
@@ -209,6 +222,10 @@ app.use('/api/admin',    adminRoutes);
 app.use('/api/leads',    leadsRoutes);
 app.use('/api/voice',    voiceRoutes);
 app.use('/api/events',   eventsRoutes);
+app.use('/api',          pushRouter);
+app.use('/api/interview',      interviewRoutes);
+app.use('/api/speech-metrics', speechRoutes);
+app.use('/api/prep-paths',    prepPathsRoutes);
 
 registerShutdownFlush();
 
@@ -276,6 +293,10 @@ app.listen(PORT, () => {
   // table growth and keep isTokenBlacklisted() fast under heavy auth load.
   scheduleBlacklistCleanup();
   scheduleComparisonCleanup();
+  scheduleWeeklyProgressCards().catch(err =>
+    logger.error('Failed to schedule weekly progress cards', { error: err })
+  );
+  initVapid();
 });
 
 export default app;

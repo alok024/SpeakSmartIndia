@@ -14,13 +14,18 @@
 // from one place instead of from emailVerification.service.
 
 export class AppError extends Error {
+  /** Optional structured payload forwarded to the client error envelope. */
+  public readonly details?: unknown;
+
   constructor(
     public readonly statusCode: number,
     public readonly code: string,
     message: string,
+    details?: unknown,
   ) {
     super(message);
-    this.name = 'AppError';
+    this.name    = 'AppError';
+    this.details = details;
     // Maintain proper prototype chain in transpiled ES5 output
     Object.setPrototypeOf(this, new.target.prototype);
   }

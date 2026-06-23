@@ -55,12 +55,18 @@ const nextConfig: NextConfig = {
     // this later without changing the rest of the header set.
     const csp = [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' https://checkout.razorpay.com",
+      // P7-C (barge-in): 'wasm-unsafe-eval' is required by onnxruntime-web to
+      // compile the Silero ONNX model inside the browser. Without it, the VAD
+      // worker throws a WASM compilation error and barge-in silently degrades.
+      "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://checkout.razorpay.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://images.unsplash.com https://*.razorpay.com",
       "font-src 'self' data:",
       "connect-src 'self' https://*.razorpay.com",
       "frame-src https://api.razorpay.com https://checkout.razorpay.com",
+      // P7-C (barge-in): vad-web registers an AudioWorklet from a blob: URL.
+      // Chrome requires blob: in worker-src for this to succeed.
+      "worker-src blob: 'self'",
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",

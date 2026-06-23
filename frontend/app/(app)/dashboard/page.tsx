@@ -1,20 +1,26 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 /**
  * app/(app)/dashboard/page.tsx — fully CSS-var themed, no hardcoded hex.
  */
 
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/features/user/hooks';
-import { useScoreHistory } from '@/features/analytics/hooks';
+import { useScoreHistory, useReadinessReport } from '@/features/analytics/hooks';
+import { useSpeechTrend } from '@/features/speech/hooks';
 import { useDailyQuestion } from '@/features/daily-question/hooks';
+import { useMyPrepEnrollment } from '@/features/prep-paths/hooks';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { ProgressBar, Spinner, ScoreRing } from '@/components/ui';
 import { formatDate, scoreColor } from '@/lib/utils';
-import { Target, Zap, TrendingUp, Lightbulb } from 'lucide-react';
+import { Target, Zap, TrendingUp, Lightbulb, FileText, ExternalLink, Trophy, CalendarCheck } from 'lucide-react';
+import { analytics } from '@/lib/analytics';
+import { FLAG } from '@/lib/feature-flags'; // Bug #5 fix
+import { JobLandedModal } from '@/components/shared/JobLandedModal';
 import type { Session, WeakArea } from '@/types';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const QUICK_STARTS = [
   { label: 'Software Dev',      desc: 'AI Chat · Friendly',   emoji: '💻', profession: 'Software Developer',        mode: 'chat' },
@@ -41,6 +47,8 @@ export default function DashboardPage() {
   const { data: meData, isLoading } = useMe();
   const { data: history }   = useScoreHistory(10);
   const { data: dailyQ }    = useDailyQuestion();
+  const { data: prepEnrollment } = useMyPrepEnrollment();
+  const { data: speechTrend }  = useSpeechTrend();
 
   const stats        = meData?.stats;
   const usage        = meData?.usage;
@@ -52,6 +60,10 @@ export default function DashboardPage() {
   // store only while meData is still loading (avoids a free→paid flash).
   const livePlan = meData?.user?.plan ?? user?.plan;
   const isFree       = !livePlan || livePlan === 'free';
+  const isStarter    = livePlan === 'starter' || livePlan === 'pro' || livePlan === 'elite';
+  const { data: readinessData } = useReadinessReport(isStarter);
+  const readinessReport   = readinessData?.report ?? null;
+  const sessionsUntilNext = readinessData?.sessions_until_next_report ?? null;
   const FREE_LIMIT   = usage?.limit ?? user?.ai_calls_limit ?? null;
   const aiUsed       = usage?.ai_calls ?? 0;
   const aiRemaining  = usage?.remaining ?? user?.ai_calls_remaining ?? null;
@@ -59,8 +71,45 @@ export default function DashboardPage() {
   const name         = user?.name?.split(' ')[0] || 'there';
   const hasData      = (stats?.sessions ?? 0) > 0;
 
+  // Job Landed card — show after 5+ sessions, hide once user has submitted
+  // (job_landed_at non-null = already submitted, card gone forever).
+  const [showJobLandedModal, setShowJobLandedModal] = useState(false);
+  const hasJobLandedCard =
+    (stats?.sessions ?? 0) >= 5 &&
+    !(meData?.user as unknown as { job_landed_at?: string | null })?.job_landed_at;
+
+  // day7_active — fire once per mount if the user is in the 6-8 day window
+  // after signup. Uses a ref so a React Strict Mode double-invoke or a
+  // fast remount doesn't double-fire within the same page load.
+  const day7Fired = useRef(false);
+  useEffect(() => {
+    if (day7Fired.current || !meData) return;
+    const createdAt = meData.user?.created_at ?? user?.created_at;
+    if (!createdAt) return;
+
+    const daysSinceSignup = Math.floor(
+      (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (daysSinceSignup >= 6 && daysSinceSignup <= 8) {
+      day7Fired.current = true;
+      analytics.day7Active({ days_since_signup: daysSinceSignup });
+    }
+  }, [meData, user]);
+
   function handleQuickStart(profession: string, mode: string) {
     router.push(`/interview/setup?profession=${encodeURIComponent(profession)}&mode=${mode}`);
+  }
+
+  // Continue button on the Prep Path card — pre-fills the setup page from
+  // today's day's session_config via the same ?profession=&mode= params
+  // already read by interview/setup/page.tsx, plus difficulty/interview_type.
+  function handleContinuePrepPath() {
+    const today = prepEnrollment?.today;
+    if (!today) return;
+    const { profession, mode, difficulty, interview_type } = today.session_config;
+    const qs = new URLSearchParams({ profession, mode, difficulty, interview_type });
+    router.push(`/interview/setup?${qs.toString()}`);
   }
 
   if (isLoading) {
@@ -104,7 +153,38 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Guided Prep Path — Phase 8 (P6-A). Shows the user's active enrollment
+          ("Day 3 of 7 — Bank PO Prep") with a Continue button that pre-fills
+          the setup page from today's day's session_config. Renders nothing
+          if the user isn't enrolled in a path or it's still loading. */}
+      {prepEnrollment?.enrollment && prepEnrollment.path && prepEnrollment.today && (
+        <div
+          className="rounded-2xl p-4 border flex items-center gap-3 flex-wrap"
+          style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
+        >
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'var(--accent-dim)' }}
+          >
+            <CalendarCheck className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] font-bold uppercase tracking-wide mb-0.5" style={{ color: 'var(--accent)' }}>
+              Day {prepEnrollment.current_day} of {prepEnrollment.path.duration_days} — {prepEnrollment.path.title}
+            </div>
+            <p className="text-sm" style={{ color: 'var(--text-1)' }}>{prepEnrollment.today.title}</p>
+          </div>
+          <button
+            onClick={handleContinuePrepPath}
+            className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90 shrink-0"
+            style={{ background: 'var(--accent)' }}
+          >
+            Continue
+          </button>
+        </div>
+      )}
+
+
       {!hasData && (
         <div className="rounded-2xl p-8 text-center border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
           <div className="text-5xl mb-4">🎙️</div>
@@ -248,6 +328,24 @@ export default function DashboardPage() {
                   </div>
                 </button>
               ))}
+              {!prepEnrollment?.enrollment && (
+                <button
+                  onClick={() => router.push('/prep-paths')}
+                  className="w-full flex items-center gap-3 px-4 py-3 border-b text-left transition-colors"
+                  style={{ borderColor: 'var(--border)' }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'var(--surface-2)')}
+                  onMouseLeave={(e: React.MouseEvent<HTMLElement>) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+                    style={{ background: 'var(--accent-dim)' }}>
+                    <CalendarCheck className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold" style={{ color: 'var(--text-1)' }}>Try a Guided Prep Path</div>
+                    <div className="text-[10px]" style={{ color: 'var(--text-3)' }}>Structured day-by-day tracks for Bank PO, UPSC & more</div>
+                  </div>
+                </button>
+              )}
               <button
                 onClick={() => router.push('/interview/setup')}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
@@ -342,6 +440,181 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {/* Interview Readiness Report — Starter+ only, only when a report exists */}
+      {isStarter && readinessReport && (
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-1)' }}>
+              <FileText className="w-4 h-4" style={{ color: 'var(--accent)' }} />
+              Interview Readiness Report
+            </span>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ background: 'var(--blue-dim)', color: 'var(--accent)' }}>
+              After session {readinessReport.session_count}
+            </span>
+          </div>
+
+          {/* Report body */}
+          <div className="px-4 py-4">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--text-2)' }}>
+              {readinessReport.report_text}
+            </p>
+
+            {/* Footer row: avg score + next checkpoint + cert link */}
+            <div className="mt-4 pt-3 border-t flex flex-wrap items-center justify-between gap-3" style={{ borderColor: 'var(--border)' }}>
+              <div className="flex items-center gap-4">
+                {readinessReport.avg_score != null && (
+                  <div className="text-center">
+                    <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-3)' }}>Avg Score</div>
+                    <div
+                      className="text-lg font-bold tabular-nums"
+                      style={{ color: readinessReport.avg_score >= 7 ? 'var(--success)' : readinessReport.avg_score >= 5 ? 'var(--warn)' : 'var(--error)' }}
+                    >
+                      {readinessReport.avg_score.toFixed(1)}/10
+                    </div>
+                  </div>
+                )}
+                {sessionsUntilNext != null && (
+                  <div className="text-center">
+                    <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-3)' }}>Next Report</div>
+                    <div className="text-sm font-semibold" style={{ color: 'var(--text-2)' }}>
+                      {sessionsUntilNext} session{sessionsUntilNext !== 1 ? 's' : ''} away
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* View Certificate */}
+              <button
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: 'var(--blue-dim)', color: 'var(--accent)' }}
+                onClick={async () => {
+                  try {
+                    const { analyticsApi } = await import('@/features/analytics/api');
+                    const res = await analyticsApi.getReadinessCertificateToken();
+                    if (res.ok && res.data.cert_url) {
+                      window.open(res.data.cert_url, '_blank', 'noopener');
+                    }
+                  } catch {
+                    // silently ignore — certificate is a nice-to-have
+                  }
+                }}
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View Certificate
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Speech Trends card — Beta (P5)
+           Gated by FLAG.SPEECH_ANALYTICS_CARD (Bug #5 fix) AND requires 3+
+           sessions with recorded metrics so the chart has a meaningful trend
+           line rather than a single dot. Set NEXT_PUBLIC_FF_SPEECH_ANALYTICS_CARD=true
+           to enable. Labelled "Beta" because WPM is an estimate (typed, not spoken)
+           and filler detection is heuristic, not ML-based. */}
+      {FLAG.SPEECH_ANALYTICS_CARD && (speechTrend ?? []).length >= 3 && (
+        <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+            <span className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--text-1)' }}>
+              🗣️ Speech Trends
+            </span>
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-md"
+              style={{ background: 'var(--warn-dim)', color: 'var(--warn)' }}
+            >
+              Beta
+            </span>
+          </div>
+
+          {/* Charts */}
+          <div className="px-4 pt-4 pb-5 space-y-6">
+
+            {/* WPM chart */}
+            <div>
+              <div className="text-[10px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
+                Typing Speed (WPM)
+              </div>
+              <ResponsiveContainer width="100%" height={100}>
+                <LineChart data={speechTrend} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="created_at"
+                    tickFormatter={(v: string) => new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    tick={{ fontSize: 9, fill: 'var(--text-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9, fill: 'var(--text-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }}
+                    labelFormatter={(v: string) => new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    formatter={(v: number) => [`${v} wpm`, 'Speed']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="wpm"
+                    stroke="var(--accent)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: 'var(--accent)' }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Filler count chart */}
+            <div>
+              <div className="text-[10px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
+                Filler Words Per Session
+              </div>
+              <ResponsiveContainer width="100%" height={100}>
+                <LineChart data={speechTrend} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis
+                    dataKey="created_at"
+                    tickFormatter={(v: string) => new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    tick={{ fontSize: 9, fill: 'var(--text-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 9, fill: 'var(--text-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11 }}
+                    labelFormatter={(v: string) => new Date(v).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                    formatter={(v: number) => [`${v}`, 'Fillers']}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="filler_count"
+                    stroke="var(--warn)"
+                    strokeWidth={2}
+                    dot={{ r: 3, fill: 'var(--warn)' }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+              <p className="text-[10px] mt-2 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+                Lower is better. Common fillers include "um", "uh", "like", "basically", "so".
+                Detected from your typed answers — estimates only.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Upgrade strip */}
       {isFree && (stats?.sessions ?? 0) >= 3 && (
         <div className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap border"
@@ -358,6 +631,41 @@ export default function DashboardPage() {
             Upgrade → ₹699/mo
           </button>
         </div>
+      )}
+
+      {/* Job Landed card — shown after ≥5 sessions, hidden once submitted */}
+      {hasData && hasJobLandedCard && (
+        <div
+          className="rounded-xl p-4 flex items-center justify-between gap-4 flex-wrap border"
+          style={{ background: 'var(--success-dim)', borderColor: 'var(--success)' }}
+        >
+          <div className="flex items-center gap-3">
+            <Trophy className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--success)' }} />
+            <div>
+              <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>
+                🎉 Did Vachix help you land a job?
+              </div>
+              <div className="text-xs mt-0.5" style={{ color: 'var(--text-2)' }}>
+                Share your win — inspire thousands of other candidates.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowJobLandedModal(true)}
+            className="text-xs font-bold px-4 py-2 rounded-lg whitespace-nowrap"
+            style={{ background: 'var(--success)', color: '#fff' }}
+          >
+            I Got the Job! 🚀
+          </button>
+        </div>
+      )}
+
+      {/* Job Landed modal */}
+      {showJobLandedModal && (
+        <JobLandedModal
+          onClose={() => setShowJobLandedModal(false)}
+          userName={user?.name ?? 'User'}
+        />
       )}
 
     </div>

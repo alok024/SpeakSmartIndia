@@ -4,14 +4,23 @@
     "module":                          "commonjs",
     "lib":                             ["ES2020"],
     "outDir":                          "./dist",
-    "rootDir":                         "./src",
+    // rootDirs lets tsc treat src/ and the shared package source as a
+    // single virtual root, so @shared/* path aliases compile correctly
+    // without needing a pre-built dist/ in shared/.
+    "rootDirs":                        ["./src", "../shared"],
     "strict":                          false,
     "esModuleInterop":                 true,
     "skipLibCheck":                    true,
     "resolveJsonModule":               true,
     "forceConsistentCasingInFileNames": true,
-    "noEmitOnError":                   false
+    "noEmitOnError":                   false,
+    // @shared/* → shared package source. At runtime Node resolves the
+    // workspace symlink via @vachix/shared (registered in package.json),
+    // so no extra module-alias setup is needed in app.ts.
+    "paths": {
+      "@shared/*": ["../shared/*"]
+    }
   },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*", "../shared/**/*.ts"],
+  "exclude": ["node_modules", "dist", "../shared/dist"]
 }

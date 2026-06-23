@@ -1,0 +1,9 @@
+{
+  "name": "vachix-monorepo",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "frontend",
+    "backend"
+  ]
+}

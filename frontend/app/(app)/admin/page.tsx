@@ -18,22 +18,40 @@
 import { useEffect, useState, useCallback } from 'react';
 import { apiCall } from '@/lib/api';
 
+// Matches AdminOverview returned by GET /api/admin/overview
 interface OverviewStats {
-  total_users:       number;
-  pro_users:         number;
-  elite_users:       number;
-  total_sessions:    number;
-  revenue_estimate:  number;
-  new_users_7d:      number;
+  users: {
+    total:   number;
+    new_7d:  number;
+    new_30d: number;
+    by_plan: Record<string, number>;
+  };
+  onboarding: {
+    total:     number;
+    completed: number;
+    rate:      number; // 0–1
+  };
+  revenue: {
+    active_subscriptions: Record<string, number>;
+    mrr_paise:            number;
+    mrr_inr:              number;
+  };
+  sessions: {
+    total:    number;
+    last_7d:  number;
+    last_30d: number;
+  };
 }
 
+// Matches AdminUsersPage.users[] returned by GET /api/admin/users
 interface AdminUser {
-  id:         string;
-  name:       string;
-  email:      string;
-  plan:       string;
-  ai_calls:   number;
-  created_at: string;
+  id:                    string;
+  name:                  string;
+  email:                 string;
+  plan:                  string;
+  onboarding_completed:  boolean;
+  referral_bonus:        number;
+  created_at:            string;
 }
 
 export default function AdminPage() {
@@ -49,10 +67,10 @@ function AdminDashboard() {
   const load = useCallback(async () => {
     setLoading(true);
     const [ovRes, usersRes] = await Promise.all([
-      apiCall<{ stats: OverviewStats }>('/admin/overview'),
+      apiCall<OverviewStats>('/admin/overview'),
       apiCall<{ users: AdminUser[] }>('/admin/users'),
     ]);
-    if (ovRes.ok)    setOverview(ovRes.data.stats);
+    if (ovRes.ok)    setOverview(ovRes.data);
     if (usersRes.ok) setUsers(usersRes.data.users);
     setLoading(false);
   }, []);
@@ -103,12 +121,12 @@ function AdminDashboard() {
             {tab === 'overview' && overview && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {[
-                  { label: 'Total Users',    value: overview.total_users },
-                  { label: 'Pro Users',      value: overview.pro_users },
-                  { label: 'Elite Users',    value: overview.elite_users },
-                  { label: 'Total Sessions', value: overview.total_sessions },
-                  { label: 'New (7d)',        value: overview.new_users_7d },
-                  { label: 'Revenue Est.',   value: `₹${overview.revenue_estimate?.toLocaleString('en-IN') ?? 0}` },
+                  { label: 'Total Users',       value: overview.users.total },
+                  { label: 'Pro Users',          value: overview.users.by_plan['pro'] ?? 0 },
+                  { label: 'Elite Users',        value: overview.users.by_plan['elite'] ?? 0 },
+                  { label: 'Total Sessions',     value: overview.sessions.total },
+                  { label: 'New (7d)',           value: overview.users.new_7d },
+                  { label: 'MRR',               value: `₹${overview.revenue.mrr_inr.toLocaleString('en-IN')}` },
                 ].map(({ label, value }) => (
                   <div key={label} className="rounded-xl border border-white/[0.07] bg-[#16181F] p-4">
                     <p className="text-xs text-white/40 mb-1">{label}</p>
@@ -126,7 +144,7 @@ function AdminDashboard() {
                       <th className="px-4 py-3 text-left">Name</th>
                       <th className="px-4 py-3 text-left">Email</th>
                       <th className="px-4 py-3 text-left">Plan</th>
-                      <th className="px-4 py-3 text-left">AI Calls</th>
+                      <th className="px-4 py-3 text-left">Onboarded</th>
                       <th className="px-4 py-3 text-left">Joined</th>
                     </tr>
                   </thead>
@@ -145,7 +163,7 @@ function AdminDashboard() {
                             {u.plan}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-white/60">{u.ai_calls ?? 0}</td>
+                        <td className="px-4 py-3 text-white/60">{u.onboarding_completed ? '✓' : '—'}</td>
                         <td className="px-4 py-3 text-white/40 text-xs">
                           {new Date(u.created_at).toLocaleDateString('en-IN')}
                         </td>

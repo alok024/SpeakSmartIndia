@@ -140,6 +140,14 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
+        // Weekly progress cards + push notifications (Sunday 08:00 IST)
+        case 'weekly-progress-cards': {
+          const { generateWeeklyProgressCards } =
+            await import('../../modules/analytics/weekly-card.service');
+          await generateWeeklyProgressCards();
+          break;
+        }
+
         default:
           log.warn('Unknown job name — skipped', { name: job.name, id: job.id });
       }

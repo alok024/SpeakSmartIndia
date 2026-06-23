@@ -77,3 +77,52 @@ self.addEventListener('fetch', (event) => {
     )
   );
 });
+
+// Push notification received from server
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: 'Vachix', body: event.data.text(), url: '/' };
+  }
+
+  const title   = payload.title ?? 'Vachix';
+  const options = {
+    body:  payload.body ?? '',
+    icon:  '/vachix-icon.svg',
+    badge: '/vachix-icon.svg',
+    data:  { url: payload.url ?? '/' },
+    // Keep the notification visible until the user interacts
+    requireInteraction: false,
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Notification click — open / focus the target URL
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const targetUrl = event.notification.data?.url ?? '/';
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((windowClients) => {
+        // Reuse an existing open tab if possible
+        for (const client of windowClients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(targetUrl);
+            return client.focus();
+          }
+        }
+        // Otherwise open a new tab
+        if (clients.openWindow) {
+          return clients.openWindow(targetUrl);
+        }
+      })
+  );
+});

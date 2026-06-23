@@ -15,7 +15,12 @@
     "incremental": true,
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      // @shared/* resolves to the shared package source so Next.js/tsc
+      // can type-check without requiring a pre-built dist/ in shared/.
+      // The webpack/Turbopack module resolver follows the workspace
+      // symlink to @vachix/shared at runtime.
+      "@shared/*": ["../shared/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

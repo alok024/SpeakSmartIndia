@@ -24,15 +24,32 @@ import { env }                                        from '../../core/config/en
 import { aiLogger }                                   from '../../infra/logger';
 import { trimMessagesToTokenBudget }                  from '../../core/utils/tokens';
 import { getRedis }                                   from '../../infra/queue/redis';
+import { detectTone, getToneAppendix }                from './tone-detection';
 
 // Aria base prompt
 // Single source of truth — imported by the controller, never duplicated.
 
-export const BASE_SYSTEM_PROMPT =
-  `You are Aria, an AI interview coach for Vachix. ` +
-  `Help users practice job interviews, evaluate their answers, give structured feedback, ` +
-  `and improve their English communication. Only assist with interview-related tasks. ` +
-  `Be concise and direct. Always respond with valid JSON when asked.`;
+export const BASE_SYSTEM_PROMPT = `You are Aria, a sharp and direct interview coach at Vachix — think of a senior professional who has sat on hundreds of hiring panels and genuinely wants the candidate in front of them to succeed.
+
+Your job is to run realistic mock interviews, evaluate answers honestly, and give feedback that actually moves the needle — not generic praise or vague suggestions.
+
+COACHING STYLE
+- Talk like a person, not a report. Short sentences. No corporate filler ("Certainly!", "Great question!", "Absolutely!"). Jump straight to substance.
+- Lead with what worked (one specific thing), then what to fix (one thing at a time, with the exact rephrasing they should try next time). Never list five problems at once.
+- When an answer is genuinely strong, say so clearly and raise the bar: follow up with a harder variant of the same question.
+- When an answer is weak, don't soften it into nothing — name the gap directly and give a concrete example of what a strong answer looks like.
+- Avoid filler transitions: "That said,", "Moving on,", "Certainly,", "Of course,", "Absolutely!" are banned.
+
+INTERVIEW CONDUCT
+- Ask one question at a time. Wait for the full answer before giving feedback or asking the next question.
+- Match the register of a real interview panel for the user's domain. A UPSC interview feels different from a startup SDE screen.
+- After 3-4 questions, briefly synthesise: what's the strongest part of this candidate's profile so far, and what's the one thing they must fix before a real interview.
+- Only assist with interview-related tasks. If asked about unrelated topics, redirect politely but firmly.
+
+FORMAT
+- Respond in plain prose unless the caller's prompt explicitly requests JSON.
+- When JSON is required, return ONLY valid JSON — no preamble, no explanation outside the object.
+- Keep responses under 200 words unless a detailed example or rewrite is genuinely needed.`;
 
 // Types
 
@@ -100,10 +117,20 @@ export async function buildPromptContext(
   const adaptiveContext = adaptive?.prompt ?? '';
   const adaptiveProfile = adaptive?.profile ?? null;
 
+  // Assemble the base system prompt from session-invariant context layers.
+  // Tone detection is intentionally NOT included here — it is per-turn and
+  // is appended after this function returns (see below).
   const systemPrompt = BASE_SYSTEM_PROMPT + onboardingContext + memoryContext + weakAreaContext + adaptiveContext;
 
+  // Tone detection — per-turn, so applied here (not cached).
+  // Appends a short coaching-style nudge based on the last user message.
+  // No-op when HUMANIZE_COACH is off or tone is neutral.
+  const toneAppendix = env.HUMANIZE_COACH
+    ? getToneAppendix(detectTone(rawMessages))
+    : '';
+
   const rawAssembled: AIMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt + toneAppendix },
     ...rawMessages,
   ];
 
@@ -252,8 +279,13 @@ export async function buildPromptContextCached(
   // message array and apply token-budget trimming fresh — these depend on
   // the live conversation (rawMessages) and the per-call maxResponseTokens,
   // neither of which is safe to memoize.
+  // Tone detection is also per-turn, so it must be re-applied here too.
+  const cachedToneAppendix = env.HUMANIZE_COACH
+    ? getToneAppendix(detectTone(rawMessages))
+    : '';
+
   const rawAssembled: AIMessage[] = [
-    { role: 'system', content: systemPrompt },
+    { role: 'system', content: systemPrompt + cachedToneAppendix },
     ...rawMessages,
   ];
   const { messages, trimmedCount } = trimMessagesToTokenBudget(rawAssembled, maxResponseTokens);

@@ -6,6 +6,7 @@ import { getOrCreateReferralCode } from '../growth/referral.service';
 import { trackEvent } from '../analytics/events.service';
 import { getSessionDefaults, getDashboardRecommendations } from '../ai/onboarding-context';
 import { ok, notFound } from '../../core/utils/response';
+import { SESSION_CAP_FREE } from '../../core/config/env';
 
 // GET /api/me
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
@@ -22,7 +23,7 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
     return;
   }
 
-  const { dbUser, stats, limit, callCount, jobReadyScore, readiness, onboarding } = profile;
+  const { dbUser, usage, stats, limit, callCount, jobReadyScore, readiness, onboarding } = profile;
 
   // Derive session defaults from onboarding data — pre-fills the session
   // start screen so the user doesn't have to configure anything.
@@ -76,12 +77,31 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
       onboarding_completed_at:  dbUser.onboarding_completed_at ?? null,
       is_admin:                 dbUser.is_admin ?? false,
       created_at:               dbUser.created_at,
+      // Job-landed fields — needed by dashboard to hide the "I got the job"
+      // card once the user has already submitted, and by the OG share panel.
+      // Null-coalesced so pre-migration rows (column not yet present) are
+      // safe: the dashboard's `!job_landed_at` guard will evaluate cleanly.
+      job_landed_at:            dbUser.job_landed_at      ?? null,
+      job_landed_role:          dbUser.job_landed_role    ?? null,
+      job_landed_company:       dbUser.job_landed_company ?? null,
     },
     onboarding,
     usage: {
       ai_calls:  callCount,
       limit:     limit === -1 ? null : limit,
       remaining: limit === -1 ? null : Math.max(0, limit - callCount),
+      resets_at: limit === -1 ? null : (() => {
+        // First day of next IST month — tells the frontend when the cap resets.
+        // Computed server-side so the client doesn't need to know timezone logic.
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        const nextMonth = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 1);
+        return nextMonth.toISOString();
+      })(),
+      // P1-A: monthly session cap (free tier only). Included for all plans so
+      // the frontend type is uniform; paid plans have session_limit: null which
+      // the setup page treats as "no cap".
+      session_count: usage?.monthly_session_count ?? 0,
+      session_limit: limit === -1 ? null : SESSION_CAP_FREE,  // paid plans have no session cap
     },
     stats: {
       streak:              stats?.streak     || 0,
@@ -117,5 +137,6 @@ export const getReferral = asyncHandler(async (req: Request, res: Response) => {
 export const saveOnboarding = asyncHandler(async (req: Request, res: Response) => {
   const { profession, goal } = req.body as { profession: string; goal: string };
   await saveOnboardingForUser(req.user!.id, profession, goal);
+  trackEvent({ event: 'onboarding_complete', userId: req.user!.id, plan: req.user!.plan, properties: { profession, goal } });
   ok(res, {});
 });

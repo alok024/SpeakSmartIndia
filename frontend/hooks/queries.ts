@@ -13,7 +13,7 @@
  */
 export { useLogin, useRegister, useLogout } from '@/features/auth/hooks';
 export { useMe, useCompleteOnboarding, useReferral } from '@/features/user/hooks';
-export { useSessions, useScoreHistory } from '@/features/analytics/hooks';
+export { useSessions, useScoreHistory, useReadinessReport } from '@/features/analytics/hooks';
 export { useSaveSession, useSession } from '@/features/interview/hooks';
 export { useCreateOrder, useVerifyPayment } from '@/features/payment/hooks';
 export { QK } from '@/lib/query-keys';

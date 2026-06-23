@@ -32,6 +32,12 @@ export interface Usage {
   /** null means unlimited (pro/elite) */
   limit?: number | null;
   remaining?: number | null;
+  /** ISO timestamp of when the monthly cap resets; null for unlimited plans */
+  resets_at?: string | null;
+  /** P1-A: sessions completed this IST month (free tier only) */
+  session_count?: number;
+  /** P1-A: monthly session cap; null = no cap (paid plans) */
+  session_limit?: number | null;
 }
 
 export interface UserStats {
@@ -165,6 +171,31 @@ export interface LiveSessionConfig {
   persona: Persona;
   maxExchanges: number;
   lang: 'en' | 'hi' | 'hinglish';
+  /** Raw job description text pasted by the user on the setup screen.
+   *  When set, session/page.tsx calls /api/interview/jd-questions to get
+   *  tailored questions instead of the generic AI prompt. Optional so
+   *  existing sessions without a JD are unaffected. */
+  jdText?: string;
+  /**
+   * Controls whether the Simli avatar is rendered.
+   *   'full'       — avatar + voice (default when the feature is available)
+   *   'voice-only' — audio-only fallback; no avatar iframe is mounted
+   * Omitting the field is equivalent to 'full'. The session page reads
+   * this and either initialises SimliClient or skips it entirely.
+   */
+  avatarMode?: 'full' | 'voice-only';
+}
+
+// Within-session memory — built up as answers come in, injected into
+// subsequent AI calls so Aria avoids repeating weak patterns and raises
+// difficulty after consistent strong answers.
+export interface SessionMemory {
+  weakTopics:     string[];   // question topics where score < 5
+  strongTopics:   string[];   // question topics where score >= 8
+  hintsUsed:      number;     // total hints requested this session
+  correctionCounts: number[]; // grammar/correction count per answer (proxy for filler trend)
+  answerLengths:  number[];   // word count per answer (proxy for pace trend)
+  consecutiveStrong: number;  // how many answers in a row scored >= 7
 }
 
 export interface LiveSessionState {
@@ -180,6 +211,7 @@ export interface LiveSessionState {
   clientSessionId: string | null;
   lastSessionId: string | null;
   voiceReplies: boolean;
+  sessionMemory: SessionMemory;
 }
 
 // Onboarding

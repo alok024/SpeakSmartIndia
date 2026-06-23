@@ -270,6 +270,40 @@ export function scheduleBlacklistCleanup(): void {
   setInterval(runCleanup, TWENTY_FOUR_HOURS);
 }
 
+// Weekly progress cards — Sunday 08:00 IST (02:30 UTC)
+//
+// Uses a BullMQ cron repeatable job rather than setInterval because
+// the timing must survive process restarts and must land at a specific
+// IST wall-clock time. Without Redis this is skipped with a warning —
+// there is no reasonable inline equivalent for a weekly cron.
+//
+// Cron expression: '30 2 * * 0'
+//   minute=30, hour=2 UTC = 08:00 IST (UTC+5:30) every Sunday.
+// The stable jobId ensures restarts don't register a second repeatable.
+
+export async function scheduleWeeklyProgressCards(): Promise<void> {
+  const q = getBackgroundQueue();
+
+  if (!q) {
+    log.warn('Redis not configured — weekly progress cards NOT scheduled');
+    return;
+  }
+
+  try {
+    await q.add(
+      'weekly-progress-cards',
+      { triggeredAt: new Date().toISOString() },
+      {
+        jobId:  'weekly-progress-cards-sunday', // stable — prevents duplicates on restart
+        repeat: { pattern: '30 2 * * 0' },      // 02:30 UTC = 08:00 IST every Sunday
+      }
+    );
+    log.info('Weekly progress cards scheduled (BullMQ, Sundays 08:00 IST)');
+  } catch (err) {
+    log.error('Failed to schedule weekly progress cards via BullMQ', { error: err });
+  }
+}
+
 // Score comparison cleanup (H-3)
 // score_comparisons has a 7-day TTL enforced at read time only — rows
 // are never deleted. comparison_responses are FK-linked with ON DELETE CASCADE,
