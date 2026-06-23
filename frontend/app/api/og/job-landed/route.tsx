@@ -17,19 +17,35 @@
 
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
-import crypto from 'crypto';
 
 export const runtime = 'edge';
 
 const OG_W = 1200;
 const OG_H = 630;
 
-function buildExpectedToken(userId: string, secret: string): string {
-  return crypto
-    .createHmac('sha256', secret)
-    .update(`og:job-landed:${userId}`)
-    .digest('hex')
+async function buildExpectedToken(userId: string, secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(`og:job-landed:${userId}`));
+  return Array.from(new Uint8Array(sig))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')
     .slice(0, 40);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  const encA = new TextEncoder().encode(a);
+  const encB = new TextEncoder().encode(b);
+  let result = 0;
+  for (let i = 0; i < encA.length; i++) result |= encA[i] ^ encB[i];
+  return result === 0;
 }
 
 export async function GET(req: NextRequest) {
@@ -42,16 +58,8 @@ export async function GET(req: NextRequest) {
     return new Response('Bad request', { status: 400 });
   }
 
-  // Constant-time comparison — identical to the backend's verifyOgToken()
-  const expected = buildExpectedToken(uid, secret);
-  if (expected.length !== token.length) {
-    return new Response('Forbidden', { status: 403 });
-  }
-  const valid = crypto.timingSafeEqual(
-    Buffer.from(expected, 'utf8'),
-    Buffer.from(token,    'utf8'),
-  );
-  if (!valid) {
+  const expected = await buildExpectedToken(uid, secret);
+  if (!timingSafeEqual(expected, token)) {
     return new Response('Forbidden', { status: 403 });
   }
 
