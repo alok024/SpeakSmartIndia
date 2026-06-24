@@ -421,6 +421,9 @@ function InterviewSetupPageInner() {
         <div
           key={step}
           className="space-y-4"
+        >
+          <Card className="p-5">
+            <SectionLabel>Difficulty</SectionLabel>
             <ChipGroup options={DIFFICULTIES} value={store.config.difficulty} onChange={(v) => store.setDifficulty(v as Difficulty)} />
           </Card>
 
