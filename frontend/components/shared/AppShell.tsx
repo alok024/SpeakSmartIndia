@@ -9,7 +9,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Play, History, User, Gift,
-  MessageSquare, LogOut, Sun, Moon, Menu, X, CalendarCheck,
+  MessageSquare, LogOut, Menu, X, CalendarCheck,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -313,11 +313,27 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-1">
-            <IconBtn onClick={toggleTheme} title="Toggle theme" aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
-              {isDark
-                ? <Sun className="w-4 h-4 transition-transform duration-300" />
-                : <Moon className="w-4 h-4 transition-transform duration-300" />}
-            </IconBtn>
+            <button
+              className="ssi-theme-toggle"
+              onClick={toggleTheme}
+              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-pressed={isDark}
+            >
+              <span className="ssi-tt-pill">
+                <span className="ssi-tt-star" />
+                <span className="ssi-tt-star" />
+                <span className="ssi-tt-star" />
+                <span className="ssi-tt-track">
+                  <span className="ssi-tt-crescent">
+                    <span className="ssi-tt-crater" />
+                    <span className="ssi-tt-crater" />
+                  </span>
+                  <span className="ssi-tt-rays">
+                    <i /><i /><i /><i /><i /><i /><i /><i />
+                  </span>
+                </span>
+              </span>
+            </button>
             <IconBtn onClick={handleLogout} title="Sign out" aria-label="Sign out">
               <LogOut className="w-3.5 h-3.5" />
             </IconBtn>

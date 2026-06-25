@@ -58,9 +58,6 @@ interface Toast { id: number; type: ToastType; title: string; msg: string; }
 const TOAST_ICONS: Record<ToastType, string> = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
 let _toastId = 0;
 
-/* ── CMD ITEMS ──────────────────────────────────────────────────────── */
-interface CmdItem { icon: string; title: string; sub: string; action: () => void; kbd?: string; }
-
 /* ── GLASS MODAL CONFIGS ─────────────────────────────────────────── */
 interface GlassConfig { icon: string; title: string; body: string; cta: string; onConfirm?: () => void; }
 
@@ -220,47 +217,6 @@ export default function LandingPage() {
   }, []);
 
   /* ── F09: COMMAND PALETTE ──────────────────────────────────────── */
-  const [cmdOpen, setCmdOpen] = useState(false);
-  const [cmdQuery, setCmdQuery] = useState('');
-  const [cmdFocused, setCmdFocused] = useState(0);
-  const cmdInputRef = useRef<HTMLInputElement>(null);
-
-  const CMD_ITEMS: CmdItem[] = [
-    { icon: '🏠', title: 'Go to Dashboard',      sub: 'Navigate',    action: () => router.push('/dashboard'), kbd: '' },
-    { icon: '🎙️', title: 'Start Interview',       sub: 'Navigate',    action: () => router.push('/interview/setup') },
-    { icon: '📊', title: 'View History',          sub: 'Navigate',    action: () => router.push('/history') },
-    { icon: '💼', title: 'Prep Paths',            sub: 'Navigate',    action: () => router.push('/prep-paths') },
-    { icon: '👤', title: 'My Profile',            sub: 'Navigate',    action: () => router.push('/profile') },
-    { icon: '🎁', title: 'Refer a Friend',        sub: 'Navigate',    action: () => router.push('/referral') },
-    { icon: '#',  title: 'Coaches',               sub: 'Section',     action: () => { window.location.hash='coaches'; setCmdOpen(false); } },
-    { icon: '💡', title: 'How It Works',          sub: 'Section',     action: () => { window.location.hash='how';     setCmdOpen(false); } },
-    { icon: '💳', title: 'Pricing',               sub: 'Section',     action: () => { window.location.hash='pricing'; setCmdOpen(false); } },
-    { icon: '🌙', title: isDark ? 'Switch to light mode' : 'Switch to dark mode', sub: 'Action', action: toggleTheme, kbd: '' },
-    { icon: '✓',  title: 'Show success toast',    sub: 'Demo',        action: () => showToast('success', 'Done', 'Action completed.') },
-    { icon: '⚡', title: 'Start mock session',    sub: 'Demo',        action: () => showToast('info', 'Loading…', 'Connecting to Aria') },
-  ];
-
-  const filteredCmds = cmdQuery.trim()
-    ? CMD_ITEMS.filter(it => it.title.toLowerCase().includes(cmdQuery.toLowerCase()) || it.sub.toLowerCase().includes(cmdQuery.toLowerCase()))
-    : CMD_ITEMS;
-
-  const openCmd = () => { setCmdOpen(true); setCmdQuery(''); setCmdFocused(0); setTimeout(() => cmdInputRef.current?.focus(), 50); };
-  const closeCmd = () => setCmdOpen(false);
-  const selectCmd = (idx: number) => { closeCmd(); setTimeout(() => filteredCmds[idx]?.action(), 80); };
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); cmdOpen ? closeCmd() : openCmd(); return; }
-      if (!cmdOpen) return;
-      if (e.key === 'Escape') { closeCmd(); return; }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setCmdFocused((f: number) => Math.min(f + 1, filteredCmds.length - 1)); }
-      if (e.key === 'ArrowUp')   { e.preventDefault(); setCmdFocused((f: number) => Math.max(f - 1, 0)); }
-      if (e.key === 'Enter' && cmdFocused >= 0) selectCmd(cmdFocused);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [cmdOpen, cmdFocused, filteredCmds]); // eslint-disable-line
-
   /* ── F12: FLOATING CTA ISLAND ──────────────────────────────────── */
   const [ctaVisible, setCtaVisible] = useState(false);
   const [ctaCollapsed, setCtaCollapsed] = useState(false);
@@ -638,60 +594,6 @@ export default function LandingPage() {
         ))}
       </div>
 
-      {/* ── COMMAND PALETTE (F09) ─────────────────────────────────── */}
-      {cmdOpen && (
-        <div id="ssi-cmd-backdrop" className="open" onClick={(e: React.MouseEvent<HTMLDivElement>) => { if (e.target === e.currentTarget) closeCmd(); }}>
-          <div className="cmd-palette" role="dialog" aria-modal="true" aria-label="Command palette">
-            <div className="cmd-input-wrap">
-              <div className="cmd-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-              </div>
-              <input
-                ref={cmdInputRef}
-                className="cmd-input"
-                placeholder="Search pages, sections, actions…"
-                value={cmdQuery}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setCmdQuery(e.target.value); setCmdFocused(0); }}
-              />
-              <span className="cmd-kbd">ESC</span>
-            </div>
-            <div className="cmd-results">
-              {filteredCmds.length === 0 ? (
-                <div className="cmd-empty">No results for "{cmdQuery}"</div>
-              ) : (
-                <>
-                  {filteredCmds.filter(i => i.sub === 'Navigate' || i.sub === 'Section').length > 0 && (
-                    <div className="cmd-group-label">Navigate</div>
-                  )}
-                  {filteredCmds.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className={`cmd-item${idx === cmdFocused ? ' focused' : ''}`}
-                      onClick={() => selectCmd(idx)}
-                      onMouseEnter={() => setCmdFocused(idx)}
-                    >
-                      <div className="cmd-item-icon">{item.icon}</div>
-                      <div className="cmd-item-body">
-                        <div className="cmd-item-title">{item.title}</div>
-                        <div className="cmd-item-sub">{item.sub}</div>
-                      </div>
-                      {item.kbd && <span className="cmd-item-kbd">{item.kbd}</span>}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
-            <div className="cmd-footer">
-              <span className="cmd-footer-hint"><kbd>↑↓</kbd> navigate</span>
-              <span className="cmd-footer-hint"><kbd>↵</kbd> select</span>
-              <span className="cmd-footer-hint"><kbd>ESC</kbd> close</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── SIDE RAIL (F01) ───────────────────────────────────────── */}
       <nav className="ssi-rail" aria-label="Page sections">
         <div className="ssi-rail-pill" ref={railPillRef}>
@@ -829,41 +731,26 @@ export default function LandingPage() {
         </ul>
 
         <div className="ssi-nav-end">
-          {/* ⌘K command palette trigger */}
-          <button
-            onClick={openCmd}
-            aria-label="Open command palette (⌘K)"
-            title="⌘K"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              background: 'none', border: '1px solid var(--border2)', borderRadius: 8,
-              padding: '6px 10px', cursor: 'pointer', color: 'var(--text2)',
-              fontFamily: 'var(--mono)', fontSize: 11, fontWeight: 600, letterSpacing: '.04em',
-              transition: 'border-color .2s, color .2s',
-            }}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <span style={{ opacity: .6 }}>⌘K</span>
-          </button>
           <button
             className="ssi-theme-toggle"
             onClick={toggleTheme}
             aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
             aria-pressed={isDark}
           >
-            <div className="ssi-tt-pill">
-              <div className="ssi-tt-track">
-                <svg className="ssi-tt-icon ssi-tt-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-                <svg className="ssi-tt-icon ssi-tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="4.5" /><line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
-                  <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
-                  <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
-                  <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" /><line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
-                </svg>
-              </div>
-            </div>
+            <span className="ssi-tt-pill">
+              <span className="ssi-tt-star" />
+              <span className="ssi-tt-star" />
+              <span className="ssi-tt-star" />
+              <span className="ssi-tt-track">
+                <span className="ssi-tt-crescent">
+                  <span className="ssi-tt-crater" />
+                  <span className="ssi-tt-crater" />
+                </span>
+                <span className="ssi-tt-rays">
+                  <i /><i /><i /><i /><i /><i /><i /><i />
+                </span>
+              </span>
+            </span>
           </button>
           <Link href="/login" className="ssi-btn-signin">Sign In</Link>
           <Link href="/register" className="ssi-btn-cta ssi-btn-micro" onClick={addRipple}>Start Free</Link>
@@ -887,17 +774,20 @@ export default function LandingPage() {
           <div className="ssi-mobile-theme-row">
             <span className="ssi-mobile-theme-label">{isDark ? 'Dark mode' : 'Light mode'}</span>
             <button className="ssi-theme-toggle" onClick={toggleTheme} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={isDark}>
-              <div className="ssi-tt-pill">
-                <div className="ssi-tt-track">
-                  <svg className="ssi-tt-icon ssi-tt-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></svg>
-                  <svg className="ssi-tt-icon ssi-tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="4.5" /><line x1="12" y1="2" x2="12" y2="4" /><line x1="12" y1="20" x2="12" y2="22" />
-                    <line x1="4.93" y1="4.93" x2="6.34" y2="6.34" /><line x1="17.66" y1="17.66" x2="19.07" y2="19.07" />
-                    <line x1="2" y1="12" x2="4" y2="12" /><line x1="20" y1="12" x2="22" y2="12" />
-                    <line x1="4.93" y1="19.07" x2="6.34" y2="17.66" /><line x1="17.66" y1="6.34" x2="19.07" y2="4.93" />
-                  </svg>
-                </div>
-              </div>
+              <span className="ssi-tt-pill">
+                <span className="ssi-tt-star" />
+                <span className="ssi-tt-star" />
+                <span className="ssi-tt-star" />
+                <span className="ssi-tt-track">
+                  <span className="ssi-tt-crescent">
+                    <span className="ssi-tt-crater" />
+                    <span className="ssi-tt-crater" />
+                  </span>
+                  <span className="ssi-tt-rays">
+                    <i /><i /><i /><i /><i /><i /><i /><i />
+                  </span>
+                </span>
+              </span>
             </button>
           </div>
           <Link href="/login" onClick={() => setMobileOpen(false)} className="ssi-btn-signin" style={{ textAlign: 'center' }}>Sign In</Link>
