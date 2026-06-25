@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import rateLimit, { MemoryStore } from 'express-rate-limit';
+import rateLimit from 'express-rate-limit';
 import * as AuthController from './auth.controller';
 import { validate, authMiddleware, asyncHandler } from '../../core/middleware';
 import {
@@ -13,19 +13,10 @@ import {
 
 const router = Router();
 
-// loginLimiterStore is exported so tests can call resetKey() in beforeEach,
-// clearing per-IP hit counts between test cases to prevent cross-test bleed.
-// The limiter itself is stateless between test files (each Jest worker gets a
-// fresh module registry), but within a single test file multiple tests share
-// the same in-process store — without a reset, hit counts accumulate and the
-// 11th request trips the limiter even in unrelated tests.
-export const loginLimiterStore = new MemoryStore();
-
 const loginLimiter = rateLimit({
   windowMs: 60_000,
   max:      10,
   message:  { error: 'Too many login attempts. Please wait a minute.' },
-  store:    loginLimiterStore,
 });
 
 const registerLimiter = rateLimit({

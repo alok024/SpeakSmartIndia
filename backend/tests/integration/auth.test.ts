@@ -13,12 +13,10 @@
  *   - modules/analytics/*                     — no event flush / VAPID init
  *   - modules/growth/referral.service         — not needed for login path
  *
- * Note on the rate-limit test: express-rate-limit uses an in-memory store
- * keyed by IP. supertest always sends from 127.0.0.1 and the global limiter
- * in app.ts is 200/min — well above the loginLimiter threshold of 10/min.
- * Firing 11 sequential requests from the same IP guarantees at least one 429.
- * We run them sequentially (not Promise.all) so the store increments
- * deterministically before we read the statuses.
+ * IP isolation strategy: every non-rate-limit test sets a unique
+ * X-Forwarded-For IP so loginLimiter hit counts never bleed across tests.
+ * The dedicated rate-limit test uses its own isolated IP (10.0.0.99) and
+ * fires 11 sequential requests to confirm the 429.
  */
 
 import request from 'supertest';
@@ -97,7 +95,6 @@ jest.mock('../../src/core/database/client', () => ({
 
 import app from '../../src/app';
 import { db } from '../../src/core/database/client';
-import { loginLimiterStore } from '../../src/modules/auth/auth.routes';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -132,50 +129,52 @@ async function buildFakeUser(overrides: Partial<{
   };
 }
 
+// Unique IP per test so loginLimiter hit counts never accumulate across tests.
+// Each test gets its own /32 in the 10.1.x.x range — the limiter treats them
+// as distinct clients, so no test can exhaust another test's quota.
+let testIpCounter = 0;
+function uniqueIp(): string {
+  testIpCounter += 1;
+  return `10.1.0.${testIpCounter}`;
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('POST /api/login', () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     jest.clearAllMocks();
     (db.getUsage as jest.Mock).mockResolvedValue({ call_count: 0 });
-    // Reset the loginLimiter's in-memory store between tests so hit counts
-    // from earlier tests don't bleed into later ones and cause spurious 429s.
-    // MemoryStore.resetAll() is available in express-rate-limit v7.
-    await loginLimiterStore.resetAll();
   });
 
   // ── Input validation (Zod layer) ────────────────────────────────────────────
 
   it('returns 400 when body is empty', async () => {
-    const res = await request(app).post('/api/login').send({});
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp()).send({});
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when email is missing', async () => {
-    const res = await request(app)
-      .post('/api/login')
-      .send({ password: 'somepassword' });
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp()).send({ password: 'somepassword' });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when password is missing', async () => {
-    const res = await request(app)
-      .post('/api/login')
-      .send({ email: 'user@test.com' });
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp()).send({ email: 'user@test.com' });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 with an invalid email format', async () => {
-    const res = await request(app)
-      .post('/api/login')
-      .send({ email: 'not-an-email', password: 'somepassword' });
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp()).send({ email: 'not-an-email', password: 'somepassword' });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when password is an empty string', async () => {
-    const res = await request(app)
-      .post('/api/login')
-      .send({ email: 'user@test.com', password: '' });
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp()).send({ email: 'user@test.com', password: '' });
     expect(res.status).toBe(400);
   });
 
@@ -184,8 +183,8 @@ describe('POST /api/login', () => {
   it('returns 401 when user does not exist', async () => {
     (db.getUserByEmail as jest.Mock).mockResolvedValue(null);
 
-    const res = await request(app)
-      .post('/api/login')
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp())
       .send({ email: 'ghost@test.com', password: 'wrongpass' });
 
     expect(res.status).toBe(401);
@@ -195,8 +194,8 @@ describe('POST /api/login', () => {
     const user = await buildFakeUser({ password: 'CorrectHorse99' });
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    const res = await request(app)
-      .post('/api/login')
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp())
       .send({ email: user.email, password: 'WrongPassword!' });
 
     expect(res.status).toBe(401);
@@ -206,8 +205,8 @@ describe('POST /api/login', () => {
     const user = await buildFakeUser({ email_verified: false });
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    const res = await request(app)
-      .post('/api/login')
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp())
       .send({ email: user.email, password: 'ValidPass123' });
 
     expect(res.status).toBe(403);
@@ -217,25 +216,26 @@ describe('POST /api/login', () => {
     const user = await buildFakeUser();
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    const res = await request(app)
-      .post('/api/login')
+    const res = await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp())
       .send({ email: user.email, password: 'ValidPass123' });
 
     expect(res.status).toBe(200);
   });
 
   it('does not leak which field was wrong (same 401 for bad email vs bad password)', async () => {
+    const ip = uniqueIp();
     const user = await buildFakeUser();
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    const wrongPass = await request(app)
-      .post('/api/login')
+    const wrongPass = await request(app).post('/api/login')
+      .set('X-Forwarded-For', ip)
       .send({ email: user.email, password: 'wrong' });
 
     (db.getUserByEmail as jest.Mock).mockResolvedValue(null);
 
-    const noUser = await request(app)
-      .post('/api/login')
+    const noUser = await request(app).post('/api/login')
+      .set('X-Forwarded-For', ip)
       .send({ email: 'nobody@test.com', password: 'wrong' });
 
     // Both paths must return 401 — never expose which half was wrong
@@ -247,8 +247,8 @@ describe('POST /api/login', () => {
     const user = await buildFakeUser({ email: 'user@test.com' });
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    await request(app)
-      .post('/api/login')
+    await request(app).post('/api/login')
+      .set('X-Forwarded-For', uniqueIp())
       .send({ email: 'USER@TEST.COM', password: 'ValidPass123' });
 
     // db must be queried with the lowercased address
@@ -264,12 +264,11 @@ describe('POST /api/login', () => {
 
     // Run 11 attempts sequentially so the in-memory rate-limit counter
     // increments deterministically before we read each status.
-    // x-test-rate-limit: 1 opts this test back into the loginLimiter
-    // (which is skipped for all other tests to prevent cross-test bleed).
+    // Uses a dedicated IP (10.0.0.99) isolated from all other tests.
     for (let i = 0; i < 11; i++) {
       const res = await request(app)
         .post('/api/login')
-        .set('X-Forwarded-For', '10.0.0.99') // consistent IP across all attempts
+        .set('X-Forwarded-For', '10.0.0.99')
         .send({ email: 'test@test.com', password: 'x' });
       statuses.push(res.status);
     }
