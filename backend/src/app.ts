@@ -287,11 +287,14 @@ app.use((err: Error, req: Request, res: Response, next: express.NextFunction) =>
   errorHandler(err, req, res, next);
 });
 
-// Start
-const PORT = env.PORT;
+// Start — skipped in test environment so integration tests can import
+// the app without binding a port (avoids EADDRINUSE when Jest runs
+// multiple test suites in the same process).
+if (env.NODE_ENV !== 'test') {
+  const PORT = env.PORT;
 
-app.listen(PORT, () => {
-  logger.info('🚀 Vachix API started', {
+  app.listen(PORT, () => {
+    logger.info('🚀 Vachix API started', {
     port: PORT, env: env.NODE_ENV, version: env.VERSION,
     queue: env.REDIS_URL ? 'BullMQ (Redis)' : 'inline (no Redis)',
   });
@@ -341,5 +344,6 @@ app.listen(PORT, () => {
   );
   initVapid();
 });
+} // end if (NODE_ENV !== 'test')
 
 export default app;
