@@ -96,7 +96,7 @@ function AnimatedScore({ score, max = 10 }: { score: number; max?: number }) {
       >
         {displayed}
       </span>
-      <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>/ {max}</span>
+      <span className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>/ {max}</span>
       {settled && tier === 'high' && (
         <span className="text-[10px] font-semibold" style={{ color: 'var(--success)' }}>Excellent ✓</span>
       )}
@@ -1146,7 +1146,7 @@ function InterviewSessionPageInner() {
               Send
             </Button>
           </div>
-          <p className="text-[10px] text-[#555A6A] text-center mt-2">
+          <p className="text-[11px] font-medium text-[#555A6A] text-center mt-2">
             Shift+Enter for new line · The AI will wrap up after {store.config.maxExchanges} exchanges
           </p>
         </div>
@@ -1231,7 +1231,7 @@ function InterviewSessionPageInner() {
           </div>
           {/* Exit button */}
           <div className="flex items-center justify-between px-4 py-3">
-            <span className="text-xs" style={{ color: 'var(--text-3)' }}>Q{qNum} / {totalQ}</span>
+            <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Q{qNum} / {totalQ}</span>
             <button
               onClick={() => setImmersive(false)}
               className="text-xs px-3 py-1.5 rounded-lg border transition-colors"
@@ -1251,7 +1251,7 @@ function InterviewSessionPageInner() {
                 transition: 'box-shadow .4s',
               }}
             >
-              <div className="text-xs mb-3 uppercase tracking-widest" style={{ color: 'var(--text-3)' }}>
+              <div className="text-xs mb-3 uppercase tracking-widest font-medium" style={{ color: 'var(--text-3)' }}>
                 {store.config.profession} · {store.config.interviewType}
               </div>
               <p className="text-xl font-semibold text-white leading-relaxed">{classicQ}</p>
@@ -1326,7 +1326,7 @@ function InterviewSessionPageInner() {
             {phase === 'answering' && (
               <button
                 onClick={() => setImmersive(true)}
-                className="text-[10px] px-2 py-1 rounded-md border flex-shrink-0 transition-colors"
+                className="text-[11px] font-medium px-2 py-1 rounded-md border flex-shrink-0 transition-colors"
                 style={{ borderColor:'var(--border)', color:'var(--text-3)' }}
                 title="Enter full-screen immersive mode"
               >
@@ -1356,7 +1356,7 @@ function InterviewSessionPageInner() {
             {/* F34: Word count + quality bar */}
             <div className="mt-1.5">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px]" style={{
+                <span className="text-[11px] font-medium" style={{
                   color: wcColor === 'green' ? 'var(--success)' : wcColor === 'amber' ? '#f59e0b' : 'var(--text-3)'
                 }}>
                   {wcWords} / 50 words
@@ -1364,7 +1364,7 @@ function InterviewSessionPageInner() {
                   {wcWords >= 15 && wcWords < 40 && ' — good, keep going'}
                   {wcWords >= 40 && ' — great length ✓'}
                 </span>
-                <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>{answer.length}/{MAX_ANSWER_LENGTH}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>{answer.length}/{MAX_ANSWER_LENGTH}</span>
               </div>
               <div className="h-1 rounded-full overflow-hidden" style={{ background: 'var(--surface-3, rgba(255,255,255,.08))' }}>
                 <div

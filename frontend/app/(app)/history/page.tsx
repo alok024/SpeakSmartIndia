@@ -75,7 +75,7 @@ export default function HistoryPage() {
                 <ScoreRing score={Math.round(s.score)} max={10} size="sm" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-1)' }}>{s.profession}</p>
-                  <p className="text-xs" style={{ color: 'var(--text-3)' }}>{formatDate(s.created_at)}</p>
+                  <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{formatDate(s.created_at)}</p>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--text-3)' }} />

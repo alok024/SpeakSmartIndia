@@ -132,7 +132,7 @@ export default function EnglishPage() {
         <ElaraAvatar size={40} />
         <div>
           <h1 className="text-lg font-bold" style={{ color: 'var(--text-1)' }}>Elara — English Coach</h1>
-          <p className="text-xs" style={{ color: 'var(--text-3)' }}>Grammar corrections, vocabulary & fluency coaching</p>
+          <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Grammar corrections, vocabulary & fluency coaching</p>
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export default function EnglishPage() {
           ].map((s) => (
             <div key={s.label} className="text-center min-w-[56px]">
               <div className="text-xl font-bold tabular-nums" style={{ color: s.color }}>{s.val ?? '—'}</div>
-              <div className="text-[10px]" style={{ color: 'var(--text-3)' }}>{s.label}</div>
+              <div className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -187,7 +187,7 @@ export default function EnglishPage() {
           <span className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Practice</span>
           <button
             onClick={resetChat}
-            className="text-xs flex items-center gap-1 transition-colors"
+            className="text-xs flex items-center gap-1 transition-colors font-medium"
             style={{ color: 'var(--text-3)' }}
             onMouseEnter={e => (e.currentTarget.style.color = 'var(--text-2)')}
             onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-3)')}
@@ -258,7 +258,7 @@ export default function EnglishPage() {
                     )}
 
                     {msg.analysis.tip && (
-                      <p className="text-xs italic" style={{ color: 'var(--text-3)' }}>{msg.analysis.tip}</p>
+                      <p className="text-xs italic font-medium" style={{ color: 'var(--text-3)' }}>{msg.analysis.tip}</p>
                     )}
                   </div>
                 )}

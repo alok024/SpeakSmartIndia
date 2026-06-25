@@ -49,7 +49,7 @@ export default function PrepPathsPage() {
           <CalendarCheck className="w-5 h-5" style={{ color: 'var(--accent)' }} />
           Guided Prep Paths
         </h1>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
+        <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-3)' }}>
           Structured, day-by-day interview prep tracks. Pick one and follow along — each day pre-fills a tailored mock interview for you.
         </p>
       </div>
@@ -109,7 +109,7 @@ export default function PrepPathsPage() {
                         <p className="text-xs leading-relaxed max-w-lg" style={{ color: 'var(--text-2)' }}>
                           {path.description}
                         </p>
-                        <p className="text-[10px] mt-1.5" style={{ color: 'var(--text-3)' }}>{path.profession}</p>
+                        <p className="text-[11px] font-medium mt-1.5" style={{ color: 'var(--text-3)' }}>{path.profession}</p>
                       </div>
 
                       {isActive ? (

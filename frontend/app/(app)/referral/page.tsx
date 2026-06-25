@@ -72,7 +72,7 @@ export default function ReferralPage() {
               <span className="text-xl mt-0.5 flex-shrink-0">{step.icon}</span>
               <div>
                 <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>{step.title}</div>
-                <div className="text-xs leading-relaxed mt-0.5" style={{ color: 'var(--text-3)' }}>{step.desc}</div>
+                <div className="text-xs leading-relaxed mt-0.5 font-medium" style={{ color: 'var(--text-3)' }}>{step.desc}</div>
               </div>
             </div>
           ))}
@@ -90,7 +90,7 @@ export default function ReferralPage() {
           <Card className="p-4 text-center">
             <s.icon className="w-4 h-4 mx-auto mb-2" style={{ color: s.color }} />
             <div className="text-2xl font-bold tabular-nums" style={{ color: s.color }}>{String(s.value)}</div>
-            <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{s.label}</div>
+            <div className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text-3)' }}>{s.label}</div>
           </Card>
           </div>
         ))}
@@ -129,7 +129,7 @@ export default function ReferralPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-xs mb-1" style={{ color: 'var(--text-3)' }}>Your code</div>
+              <div className="text-xs mb-1 font-medium" style={{ color: 'var(--text-3)' }}>Your code</div>
               <div className="text-lg font-bold font-mono tracking-widest" style={{ color: 'var(--text-1)' }}>
                 {referral.code}
               </div>
@@ -153,7 +153,7 @@ export default function ReferralPage() {
           <div className="font-bold" style={{ color: 'var(--success)' }}>
             🎉 You have {referral!.bonus_calls} bonus session{referral!.bonus_calls !== 1 ? 's' : ''} from referrals!
           </div>
-          <div className="text-xs mt-1" style={{ color: 'var(--text-3)' }}>
+          <div className="text-xs mt-1 font-medium" style={{ color: 'var(--text-3)' }}>
             These are added to your free session limit automatically.
           </div>
         </div>

@@ -365,7 +365,7 @@ function InterviewSetupPageInner() {
                     </span>
                     <div className="text-2xl">{card.icon}</div>
                     <div className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-1)' }}>{card.prof}</div>
-                    <div className="text-[10px] leading-snug" style={{ color: 'var(--text-3)' }}>{card.hint}</div>
+                    <div className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{card.hint}</div>
                   </button>
                 );
               })}
@@ -397,7 +397,7 @@ function InterviewSetupPageInner() {
                   >
                     <div className="text-2xl mb-2">{m.emoji}</div>
                     <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-1)' }}>{m.title}</div>
-                    <div className="text-xs leading-snug" style={{ color: 'var(--text-3)' }}>{m.desc}</div>
+                    <div className="text-xs leading-snug font-medium" style={{ color: 'var(--text-3)' }}>{m.desc}</div>
                   </button>
                 );
               })}
@@ -455,7 +455,7 @@ function InterviewSetupPageInner() {
                 UNIQUE IN INDIA
               </span>
             </SectionLabel>
-            <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>AI + voice input adapts to your chosen language</p>
+            <p className="text-xs mb-3 font-medium" style={{ color: 'var(--text-3)' }}>AI + voice input adapts to your chosen language</p>
             <div className="grid grid-cols-3 gap-2">
               {[
                 { lang: 'en',      flag: '🇬🇧', label: 'English' },
@@ -488,7 +488,7 @@ function InterviewSetupPageInner() {
               >
                 {previewLoading ? <>🔊 Loading preview…</> : !hasVoiceQuota && hasPreviewedToday ? <>🔊 Replay preview</> : <>🔊 Preview HD voice {!hasVoiceQuota ? '(free taste)' : ''}</>}
               </button>
-              {previewMsg && (<p className="text-xs mt-2" style={{ color: 'var(--text-3)' }}>{previewMsg}</p>)}
+              {previewMsg && (<p className="text-xs mt-2 font-medium" style={{ color: 'var(--text-3)' }}>{previewMsg}</p>)}
             </div>
           </Card>
 
@@ -506,7 +506,7 @@ function InterviewSetupPageInner() {
               <div className="mt-3">
                 <Card className="p-5">
                   <SectionLabel>Job Description</SectionLabel>
-                  <p className="text-xs mb-3" style={{ color: 'var(--text-3)' }}>
+                  <p className="text-xs mb-3 font-medium" style={{ color: 'var(--text-3)' }}>
                     AI will generate questions tailored to this specific role instead of generic ones.
                   </p>
                   <textarea
@@ -524,7 +524,7 @@ function InterviewSetupPageInner() {
                     onFocus={e  => (e.currentTarget.style.borderColor = 'var(--accent-border)')}
                     onBlur={e   => (e.currentTarget.style.borderColor = store.config.jdText ? 'var(--accent-border)' : 'var(--border)')}
                   />
-                  <p className="text-xs mt-2" style={{ color: 'var(--text-3)' }}>
+                  <p className="text-xs mt-2 font-medium" style={{ color: 'var(--text-3)' }}>
                     {store.config.jdText
                       ? `✓ ${store.config.jdText.length.toLocaleString()} / 4,000 chars — questions will be tailored to this JD`
                       : 'Supports English, Hindi, or mixed — paste any JD'}
@@ -541,7 +541,7 @@ function InterviewSetupPageInner() {
           >
             <div>
               <p className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>📵 Voice only (saves data)</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>Disables the AI avatar — audio only. Best for 2G / low-memory devices.</p>
+              <p className="text-xs mt-0.5 font-medium" style={{ color: 'var(--text-3)' }}>Disables the AI avatar — audio only. Best for 2G / low-memory devices.</p>
             </div>
             <button
               role="switch"
@@ -611,7 +611,7 @@ function InterviewSetupPageInner() {
                 })}
               </p>
               {livePreview.line2 && (
-                <p className="text-xs" style={{ color: 'var(--text-3)' }}>{livePreview.line2}</p>
+                <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{livePreview.line2}</p>
               )}
             </Card>
           )}
@@ -631,7 +631,7 @@ function InterviewSetupPageInner() {
               { label: 'Language', value: store.config.lang === 'hi' ? 'हिंदी' : store.config.lang === 'hinglish' ? 'Hinglish' : 'English' },
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between">
-                <span className="text-xs" style={{ color: 'var(--text-3)' }}>{label}</span>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{label}</span>
                 <span className="text-xs font-semibold" style={{ color: 'var(--text-1)' }}>{value}</span>
               </div>
             ))}

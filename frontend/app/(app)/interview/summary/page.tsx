@@ -190,7 +190,7 @@ function InterviewSummaryPageInner() {
             >
               {avgScore}
             </span>
-            <span className="text-[10px]" style={{ color: 'var(--text-3)' }}>/10</span>
+            <span className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>/10</span>
           </div>
           {/* F35: Confetti particles (rendered by CSS animation, shown for high scores) */}
           {avgScore >= 8 && (
@@ -238,7 +238,7 @@ function InterviewSummaryPageInner() {
         ].map((s) => (
           <Card key={s.label} className="p-4 text-center">
             <div className="text-2xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</div>
-            <div className="text-xs mt-0.5" style={{ color: 'var(--text-3)' }}>{s.label}</div>
+            <div className="text-xs mt-0.5 font-medium" style={{ color: 'var(--text-3)' }}>{s.label}</div>
           </Card>
         ))}
       </div>
@@ -272,7 +272,7 @@ function InterviewSummaryPageInner() {
             <ScoreRing score={jobReadyScore} size={72} label="Job-ready" />
             <div>
               <div className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>Readiness Score</div>
-              <div className="text-xs" style={{ color: 'var(--text-3)' }}>Based on your performance today</div>
+              <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Based on your performance today</div>
             </div>
           </div>
           {isOnFreePlan && (
@@ -330,7 +330,7 @@ function InterviewSummaryPageInner() {
             <Card className="p-5 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-xs mb-1" style={{ color: 'var(--text-3)' }}>Q{i + 1}</div>
+                  <div className="text-xs mb-1 font-medium" style={{ color: 'var(--text-3)' }}>Q{i + 1}</div>
                   <p className="text-sm font-medium" style={{ color: 'var(--text-1)' }}>{fb.question}</p>
                 </div>
                 <ScoreRing score={Math.round(fb.score)} max={10} size="md" />

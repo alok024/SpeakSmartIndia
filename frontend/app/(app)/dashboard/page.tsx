@@ -300,7 +300,7 @@ export default function DashboardPage() {
         <h1 className="text-xl font-bold leading-tight mb-1" style={{ color: 'var(--text-1)', letterSpacing: '-0.02em' }}>
           {greeting.headline}
         </h1>
-        <p className="text-xs" style={{ color: 'var(--text-3)' }}>{greeting.subline}</p>
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{greeting.subline}</p>
       </div>
 
       {/* Daily Question Drop — Easy build item. Renders nothing while
@@ -453,9 +453,9 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {cards.map((s) => (
               <div key={s.label} className="rounded-xl p-4 text-center border" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
-                <div className="text-[10px] uppercase tracking-wide mb-1" style={{ color: 'var(--text-3)' }}>{s.label}</div>
+                <div className="text-[11px] font-medium uppercase tracking-wide mb-1" style={{ color: 'var(--text-3)' }}>{s.label}</div>
                 <div className="text-2xl font-bold tabular-nums" style={{ color: s.color, letterSpacing: '-0.03em' }}>{s.value}</div>
-                <div className="text-[10px] mt-0.5" style={{ color: 'var(--text-3)' }}>{s.sub}</div>
+                <div className="text-[11px] font-medium mt-0.5" style={{ color: 'var(--text-3)' }}>{s.sub}</div>
               </div>
             ))}
           </div>
@@ -512,7 +512,7 @@ export default function DashboardPage() {
                 >
                   <div>
                     <div className="text-xs font-medium" style={{ color: 'var(--text-1)' }}>{s.profession}</div>
-                    <div className="text-[10px]" style={{ color: 'var(--text-3)' }}>{formatDate(s.created_at)}</div>
+                    <div className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>{formatDate(s.created_at)}</div>
                   </div>
                   <ScoreRing score={Math.round(s.score)} max={10} size="sm" />
                 </button>
@@ -545,7 +545,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold" style={{ color: 'var(--text-1)' }}>{qs.label}</div>
-                    <div className="text-[10px]" style={{ color: 'var(--text-3)' }}>{qs.desc}</div>
+                    <div className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>{qs.desc}</div>
                   </div>
                   <span className="qs-arrow">→</span>
                 </button>
@@ -564,7 +564,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-semibold" style={{ color: 'var(--text-1)' }}>Try a Guided Prep Path</div>
-                    <div className="text-[10px]" style={{ color: 'var(--text-3)' }}>Structured day-by-day tracks for Bank PO, UPSC & more</div>
+                    <div className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>Structured day-by-day tracks for Bank PO, UPSC & more</div>
                   </div>
                   <span className="qs-arrow">→</span>
                 </button>
@@ -581,7 +581,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold" style={{ color: 'var(--accent)' }}>Browse all tracks →</div>
-                  <div className="text-[10px]" style={{ color: 'var(--text-3)' }}>11 career tracks available</div>
+                  <div className="text-[11px] font-medium" style={{ color: 'var(--text-3)' }}>11 career tracks available</div>
                 </div>
                 <span className="qs-arrow">→</span>
               </button>
@@ -753,7 +753,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-4">
                 {readinessReport.avg_score != null && (
                   <div className="text-center">
-                    <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-3)' }}>Avg Score</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-3)' }}>Avg Score</div>
                     <div
                       className="text-lg font-bold tabular-nums"
                       style={{ color: readinessReport.avg_score >= 7 ? 'var(--success)' : readinessReport.avg_score >= 5 ? 'var(--warn)' : 'var(--error)' }}
@@ -764,7 +764,7 @@ export default function DashboardPage() {
                 )}
                 {sessionsUntilNext != null && (
                   <div className="text-center">
-                    <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-3)' }}>Next Report</div>
+                    <div className="text-[11px] font-medium uppercase tracking-wide mb-0.5" style={{ color: 'var(--text-3)' }}>Next Report</div>
                     <div className="text-sm font-semibold" style={{ color: 'var(--text-2)' }}>
                       {sessionsUntilNext} session{sessionsUntilNext !== 1 ? 's' : ''} away
                     </div>
@@ -822,7 +822,7 @@ export default function DashboardPage() {
 
             {/* WPM chart */}
             <div>
-              <div className="text-[10px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
+              <div className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
                 Typing Speed (WPM)
               </div>
               <ResponsiveContainer width="100%" height={100}>
@@ -860,7 +860,7 @@ export default function DashboardPage() {
 
             {/* Filler count chart */}
             <div>
-              <div className="text-[10px] uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
+              <div className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--text-3)' }}>
                 Filler Words Per Session
               </div>
               <ResponsiveContainer width="100%" height={100}>
@@ -894,7 +894,7 @@ export default function DashboardPage() {
                   />
                 </LineChart>
               </ResponsiveContainer>
-              <p className="text-[10px] mt-2 leading-relaxed" style={{ color: 'var(--text-3)' }}>
+              <p className="text-[11px] font-medium mt-2 leading-relaxed" style={{ color: 'var(--text-3)' }}>
                 Lower is better. Common fillers include "um", "uh", "like", "basically", "so".
                 Detected from your typed answers — estimates only.
               </p>

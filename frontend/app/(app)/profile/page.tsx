@@ -168,7 +168,7 @@ function ProfilePageInner() {
               ].map((s, i) => (
                 <div key={i}>
                   <div className="text-2xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</div>
-                  <div className="text-xs" style={{ color: 'var(--text-3)' }}>{s.sub}</div>
+                  <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{s.sub}</div>
                 </div>
               ))}
             </div>
@@ -190,7 +190,7 @@ function ProfilePageInner() {
             animated
             className="mb-2"
           />
-          <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+          <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>
             {aiRemaining != null
               ? aiRemaining > 0 ? `${aiRemaining} session${aiRemaining !== 1 ? 's' : ''} remaining.` : 'All sessions used for this period.'
               : 'Check usage in your dashboard.'}
@@ -202,7 +202,7 @@ function ProfilePageInner() {
       {hasUsageCap && (
         <Card className="p-5" style={{ borderColor: 'var(--blue-border)' }}>
           <div className="text-sm font-bold mb-1" style={{ color: 'var(--text-1)' }}>🚀 Unlock unlimited practice</div>
-          <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+          <p className="text-xs mb-4 font-medium" style={{ color: 'var(--text-3)' }}>
             {isStarter
               ? 'Upgrade to Pro for unlimited AI sessions, full session history, and HD voice.'
               : 'Choose a plan to get more sessions, HD voice, and advanced analytics.'}
@@ -279,7 +279,7 @@ function ProfilePageInner() {
       )}
 
       {user?.created_at && (
-        <p className="text-xs text-center" style={{ color: 'var(--text-3)' }}>
+        <p className="text-xs text-center font-medium" style={{ color: 'var(--text-3)' }}>
           Member since {formatDate(user.created_at)}
         </p>
       )}
