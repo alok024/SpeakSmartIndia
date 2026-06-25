@@ -13,10 +13,19 @@ import {
 
 const router = Router();
 
+// In test mode, normal requests bypass the in-memory rate-limit store so
+// call counts don't bleed across tests (each test is logically independent).
+// Rate-limit behaviour is still tested explicitly: the dedicated test sets
+// the `x-test-rate-limit: 1` header to opt back in and verifies the 429.
+// This header is checked only when NODE_ENV === 'test', so it has zero
+// surface area in staging or production.
 const loginLimiter = rateLimit({
   windowMs: 60_000,
   max:      10,
   message:  { error: 'Too many login attempts. Please wait a minute.' },
+  skip: (req) =>
+    process.env.NODE_ENV === 'test' &&
+    req.headers['x-test-rate-limit'] !== '1',
 });
 
 const registerLimiter = rateLimit({

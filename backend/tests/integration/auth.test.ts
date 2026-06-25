@@ -259,10 +259,13 @@ describe('POST /api/login', () => {
 
     // Run 11 attempts sequentially so the in-memory rate-limit counter
     // increments deterministically before we read each status.
+    // x-test-rate-limit: 1 opts this test back into the loginLimiter
+    // (which is skipped for all other tests to prevent cross-test bleed).
     for (let i = 0; i < 11; i++) {
       const res = await request(app)
         .post('/api/login')
         .set('X-Forwarded-For', '10.0.0.99') // consistent IP across all attempts
+        .set('x-test-rate-limit', '1')        // opt-in to limiter for this test only
         .send({ email: 'test@test.com', password: 'x' });
       statuses.push(res.status);
     }
