@@ -6,10 +6,10 @@
  * after any change to the CB or env config.
  */
 
-import { CircuitBreaker } from '../../src/infra/circuit-breaker';
+import { CircuitBreaker } from '../src/infra/circuit-breaker';
 
 // Silence the winston logger output during tests — we care about state, not logs.
-jest.mock('../../src/infra/logger', () => ({
+jest.mock('../src/infra/logger', () => ({
   logger: {
     child: () => ({
       info:  jest.fn(),

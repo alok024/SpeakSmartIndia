@@ -32,7 +32,7 @@ jest.mock('../../src/infra/logger', () => ({
   logger:             { child: _silent, ..._silent() },
   authLogger:         _silent(),
   paymentLogger:      _silent(),
-  aiLogger:           _silent(),
+  aiLogger:           { child: _silent, ..._silent() },
   subscriptionLogger: _silent(),
 }));
 
