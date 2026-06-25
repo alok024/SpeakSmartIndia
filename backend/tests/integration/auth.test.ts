@@ -75,18 +75,23 @@ jest.mock('../../src/modules/growth/referral.service', () => ({
 // that verifies rate-limiting behaviour uses jest.isolateModules() to load a
 // fresh, unmocked app instance so the real limiter runs in isolation.
 
-const realRateLimit = jest.requireActual('express-rate-limit');
-
 jest.mock('express-rate-limit', () => {
-  // Default export is a function that returns Express middleware.
-  // Return a passthrough middleware so no request is ever rate-limited
+  // Return a passthrough middleware factory so no request is ever rate-limited
   // during normal tests. Named exports (MemoryStore etc.) are passed through.
-  const passthrough = () =>
-    (_req: unknown, _res: unknown, next: () => void) => next();
-  // Copy named exports (MemoryStore, rateLimit, etc.) onto the mock
-  const actual = jest.requireActual('express-rate-limit');
-  Object.assign(passthrough, actual);
-  return { ...actual, default: passthrough, __esModule: true };
+  // Note: jest.requireActual MUST be called inside the factory (not at
+  // module scope) because jest.mock() is hoisted before any variable
+  // declarations, so any reference to a variable defined with const/let at
+  // module scope is a TDZ error inside a factory that runs at hoist time.
+  const actual = jest.requireActual<typeof import('express-rate-limit')>('express-rate-limit');
+  const passthrough = () => (_req: unknown, _res: unknown, next: () => void) => next();
+  // Copy named exports (MemoryStore, rateLimit, etc.) so any named import
+  // from the module still resolves to the real implementation.
+  return {
+    ...actual,
+    default:    passthrough,
+    rateLimit:  passthrough,
+    __esModule: true,
+  };
 });
 
 // ── DB mock ───────────────────────────────────────────────────────────────────
@@ -225,6 +230,12 @@ describe('POST /api/login', () => {
 
   it('rate-limits after 10 attempts per minute from the same IP', async () => {
     await jest.isolateModulesAsync(async () => {
+      // Restore the real express-rate-limit inside this isolated scope.
+      // jest.mock() calls are file-scoped and apply to isolateModulesAsync
+      // registries too — without explicitly unmocking here, the passthrough
+      // stub above would still run and the 429 would never fire.
+      jest.unmock('express-rate-limit');
+
       // Re-mock everything except express-rate-limit so the real limiter runs
       jest.mock('../../src/infra/logger', () => ({
         logger:             { child: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }), info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
