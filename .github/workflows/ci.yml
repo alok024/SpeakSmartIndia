@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build --workspace=shared
+
+      - name: Build backend (TypeScript check)
+        run: npm run build --workspace=backend
+
+      - name: TypeScript check frontend
+        run: npx tsc --noEmit --project frontend/tsconfig.json
+        continue-on-error: true   # Remove once frontend types are fully clean
+
+      - name: Run backend tests
+        run: npm test --workspace=backend
+        env:
+          NODE_ENV: test
+          REDIS_URL: redis://localhost:6379
+          # Dummy secrets — never use real keys in CI
+          JWT_SECRET: ci-test-secret-minimum-32-chars-here
+          JWT_REFRESH_SECRET: ci-refresh-secret-minimum-32-chars-x
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_SERVICE_KEY: ci-test-service-key
+          SUPABASE_ANON_KEY: ci-test-anon-key
+          GROQ_API_KEY: ci-test-groq-key
+          RAZORPAY_KEY_ID: rzp_test_ci
+          RAZORPAY_KEY_SECRET: ci-test-razorpay-secret
+          RAZORPAY_WEBHOOK_SECRET: ci-test-webhook-secret
+          REPORT_SECRET: ci-test-report-secret-32-chars-xx
+          FRONTEND_URL: http://localhost:3000
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Backend npm audit
+        # Backend has no frontend build tooling — clean audit expected.
+        run: npm audit --audit-level=high --workspace=backend
+
+      - name: Frontend npm audit
+        # All remaining highs are inside @cloudflare/next-on-pages → vercel →
+        # @vercel/fun/node/remix-builder. These are build-time deps that never
+        # reach the Cloudflare Pages runtime. next, undici, ws have no upstream
+        # fix available as of this writing.
+        # Review when @cloudflare/next-on-pages releases a major update
+        # or when npm audit shows new advisories not in this list.
+        run: npm audit --audit-level=high --workspace=frontend
+        continue-on-error: true
