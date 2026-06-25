@@ -42,7 +42,12 @@ jobs:
 
       - name: TypeScript check frontend
         run: npx tsc --noEmit --project frontend/tsconfig.json
-        continue-on-error: true   # Remove once frontend types are fully clean
+
+      - name: Lint frontend
+        run: npm run lint --workspace=frontend
+
+      - name: Build frontend
+        run: npm run build --workspace=frontend
 
       - name: Run backend tests
         run: npm test --workspace=backend
