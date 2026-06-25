@@ -1,22 +1,9 @@
 /**
  * Auth route integration tests — POST /api/login
  *
- * Uses supertest against the real Express app with the full routing and
- * middleware stack (rate limiter, Zod validation, error handler).
- *
- * Mocked layers:
- *   - db (../../src/core/database/client)    — no real Supabase calls
- *   - infra/logger                            — silence winston in CI
- *   - infra/observability (Sentry)            — no external calls at boot
- *   - infra/load-monitor                      — no setInterval noise
- *   - infra/queue/dispatcher                  — no BullMQ / Redis at boot
- *   - modules/analytics/*                     — no event flush / VAPID init
- *   - modules/growth/referral.service         — not needed for login path
- *
- * IP isolation strategy: every non-rate-limit test sets a unique
- * X-Forwarded-For IP so loginLimiter hit counts never bleed across tests.
- * The dedicated rate-limit test uses its own isolated IP (10.0.0.99) and
- * fires 11 sequential requests to confirm the 429.
+ * express-rate-limit is mocked to a passthrough for all tests except the
+ * dedicated rate-limit test, which restores the real implementation and uses
+ * a unique IP to isolate its counter from every other test in the suite.
  */
 
 import request from 'supertest';
@@ -78,6 +65,30 @@ jest.mock('../../src/modules/growth/referral.service', () => ({
   getOrCreateReferralCode: jest.fn(),
 }));
 
+// ── Rate-limit mock ───────────────────────────────────────────────────────────
+// express-rate-limit's MemoryStore is keyed by req.ip. supertest bypasses the
+// real network stack so req.ip is always 127.0.0.1 regardless of any
+// X-Forwarded-For header — meaning hit counts bleed across every test in the
+// suite and trip the loginLimiter (max 10) before the later tests run.
+//
+// Solution: mock rateLimit to a passthrough for the whole module. The one test
+// that verifies rate-limiting behaviour uses jest.isolateModules() to load a
+// fresh, unmocked app instance so the real limiter runs in isolation.
+
+const realRateLimit = jest.requireActual('express-rate-limit');
+
+jest.mock('express-rate-limit', () => {
+  // Default export is a function that returns Express middleware.
+  // Return a passthrough middleware so no request is ever rate-limited
+  // during normal tests. Named exports (MemoryStore etc.) are passed through.
+  const passthrough = () =>
+    (_req: unknown, _res: unknown, next: () => void) => next();
+  // Copy named exports (MemoryStore, rateLimit, etc.) onto the mock
+  const actual = jest.requireActual('express-rate-limit');
+  Object.assign(passthrough, actual);
+  return { ...actual, default: passthrough, __esModule: true };
+});
+
 // ── DB mock ───────────────────────────────────────────────────────────────────
 
 jest.mock('../../src/core/database/client', () => ({
@@ -98,7 +109,6 @@ import { db } from '../../src/core/database/client';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Minimal valid UserRow for a verified, active user. */
 async function buildFakeUser(overrides: Partial<{
   id: string;
   email: string;
@@ -114,28 +124,16 @@ async function buildFakeUser(overrides: Partial<{
     email_verified = true,
   } = overrides;
 
-  const password_hash = await bcrypt.hash(password, 1); // cost 1 = fast in tests
+  const password_hash = await bcrypt.hash(password, 1);
 
   return {
-    id,
-    email,
-    password_hash,
-    plan,
+    id, email, password_hash, plan,
     name:           'Test User',
     email_verified,
     referral_code:  null,
     referred_by:    null,
     referral_bonus: 0,
   };
-}
-
-// Unique IP per test so loginLimiter hit counts never accumulate across tests.
-// Each test gets its own /32 in the 10.1.x.x range — the limiter treats them
-// as distinct clients, so no test can exhaust another test's quota.
-let testIpCounter = 0;
-function uniqueIp(): string {
-  testIpCounter += 1;
-  return `10.1.0.${testIpCounter}`;
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -146,99 +144,68 @@ describe('POST /api/login', () => {
     (db.getUsage as jest.Mock).mockResolvedValue({ call_count: 0 });
   });
 
-  // ── Input validation (Zod layer) ────────────────────────────────────────────
-
   it('returns 400 when body is empty', async () => {
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp()).send({});
+    const res = await request(app).post('/api/login').send({});
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when email is missing', async () => {
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp()).send({ password: 'somepassword' });
+    const res = await request(app).post('/api/login').send({ password: 'somepassword' });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when password is missing', async () => {
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp()).send({ email: 'user@test.com' });
+    const res = await request(app).post('/api/login').send({ email: 'user@test.com' });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 with an invalid email format', async () => {
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp()).send({ email: 'not-an-email', password: 'somepassword' });
+    const res = await request(app).post('/api/login').send({ email: 'not-an-email', password: 'somepassword' });
     expect(res.status).toBe(400);
   });
 
   it('returns 400 when password is an empty string', async () => {
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp()).send({ email: 'user@test.com', password: '' });
+    const res = await request(app).post('/api/login').send({ email: 'user@test.com', password: '' });
     expect(res.status).toBe(400);
   });
 
-  // ── Auth logic (service layer) ──────────────────────────────────────────────
-
   it('returns 401 when user does not exist', async () => {
     (db.getUserByEmail as jest.Mock).mockResolvedValue(null);
-
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp())
-      .send({ email: 'ghost@test.com', password: 'wrongpass' });
-
+    const res = await request(app).post('/api/login').send({ email: 'ghost@test.com', password: 'wrongpass' });
     expect(res.status).toBe(401);
   });
 
   it('returns 401 when password is wrong', async () => {
     const user = await buildFakeUser({ password: 'CorrectHorse99' });
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
-
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp())
-      .send({ email: user.email, password: 'WrongPassword!' });
-
+    const res = await request(app).post('/api/login').send({ email: user.email, password: 'WrongPassword!' });
     expect(res.status).toBe(401);
   });
 
   it('returns 403 when email is not verified', async () => {
     const user = await buildFakeUser({ email_verified: false });
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
-
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp())
-      .send({ email: user.email, password: 'ValidPass123' });
-
+    const res = await request(app).post('/api/login').send({ email: user.email, password: 'ValidPass123' });
     expect(res.status).toBe(403);
   });
 
   it('returns 200 with valid credentials for a verified user', async () => {
     const user = await buildFakeUser();
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
-
-    const res = await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp())
-      .send({ email: user.email, password: 'ValidPass123' });
-
+    const res = await request(app).post('/api/login').send({ email: user.email, password: 'ValidPass123' });
     expect(res.status).toBe(200);
   });
 
   it('does not leak which field was wrong (same 401 for bad email vs bad password)', async () => {
-    const ip = uniqueIp();
     const user = await buildFakeUser();
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    const wrongPass = await request(app).post('/api/login')
-      .set('X-Forwarded-For', ip)
-      .send({ email: user.email, password: 'wrong' });
+    const wrongPass = await request(app).post('/api/login').send({ email: user.email, password: 'wrong' });
 
     (db.getUserByEmail as jest.Mock).mockResolvedValue(null);
 
-    const noUser = await request(app).post('/api/login')
-      .set('X-Forwarded-For', ip)
-      .send({ email: 'nobody@test.com', password: 'wrong' });
+    const noUser = await request(app).post('/api/login').send({ email: 'nobody@test.com', password: 'wrong' });
 
-    // Both paths must return 401 — never expose which half was wrong
     expect(wrongPass.status).toBe(401);
     expect(noUser.status).toBe(401);
   });
@@ -247,33 +214,47 @@ describe('POST /api/login', () => {
     const user = await buildFakeUser({ email: 'user@test.com' });
     (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
 
-    await request(app).post('/api/login')
-      .set('X-Forwarded-For', uniqueIp())
-      .send({ email: 'USER@TEST.COM', password: 'ValidPass123' });
+    await request(app).post('/api/login').send({ email: 'USER@TEST.COM', password: 'ValidPass123' });
 
-    // db must be queried with the lowercased address
     expect(db.getUserByEmail).toHaveBeenCalledWith('user@test.com');
   });
 
   // ── Rate limiting ───────────────────────────────────────────────────────────
+  // Loaded in a fresh isolated module scope so the real (unmocked) rateLimit
+  // runs and the MemoryStore starts at zero — no bleed from tests above.
 
   it('rate-limits after 10 attempts per minute from the same IP', async () => {
-    (db.getUserByEmail as jest.Mock).mockResolvedValue(null);
+    await jest.isolateModulesAsync(async () => {
+      // Re-mock everything except express-rate-limit so the real limiter runs
+      jest.mock('../../src/infra/logger', () => ({
+        logger:             { child: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }), info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+        authLogger:         { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+        paymentLogger:      { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+        aiLogger:           { child: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }), info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+        subscriptionLogger: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() },
+      }));
+      jest.mock('../../src/infra/observability', () => ({ initSentry: jest.fn().mockResolvedValue(undefined), captureException: jest.fn(), getMetrics: jest.fn().mockReturnValue({}) }));
+      jest.mock('../../src/infra/load-monitor', () => ({ startLoadMonitor: jest.fn(), getSystemLoadStats: jest.fn().mockReturnValue({}) }));
+      jest.mock('../../src/infra/ai-limiter', () => ({ getAILimiterStats: jest.fn().mockReturnValue({}) }));
+      jest.mock('../../src/infra/circuit-breaker', () => ({ groqBreaker: { getState: jest.fn().mockReturnValue({ state: 'CLOSED', failures: 0 }) }, openaiBreaker: { getState: jest.fn().mockReturnValue({ state: 'CLOSED', failures: 0 }) }, CircuitBreaker: jest.fn() }));
+      jest.mock('../../src/infra/queue/dispatcher', () => ({ scheduleSubscriptionExpiry: jest.fn().mockResolvedValue(undefined), scheduleSessionExpiry: jest.fn().mockResolvedValue(undefined), scheduleBlacklistCleanup: jest.fn(), scheduleComparisonCleanup: jest.fn(), scheduleWeeklyProgressCards: jest.fn().mockResolvedValue(undefined) }));
+      jest.mock('../../src/modules/analytics/weekly-card.service', () => ({ initVapid: jest.fn() }));
+      jest.mock('../../src/modules/analytics/events.service', () => ({ registerShutdownFlush: jest.fn(), trackEvent: jest.fn() }));
+      jest.mock('../../src/modules/growth/referral.service', () => ({ getOrCreateReferralCode: jest.fn() }));
+      jest.mock('../../src/core/database/client', () => ({ db: { getUserByEmail: jest.fn().mockResolvedValue(null), getUserById: jest.fn(), createUser: jest.fn(), getUsage: jest.fn().mockResolvedValue({ call_count: 0 }), isTokenBlacklisted: jest.fn().mockResolvedValue(false), createUsage: jest.fn() } }));
 
-    const statuses: number[] = [];
+      const { default: isolatedApp } = await import('../../src/app');
 
-    // Run 11 attempts sequentially so the in-memory rate-limit counter
-    // increments deterministically before we read each status.
-    // Uses a dedicated IP (10.0.0.99) isolated from all other tests.
-    for (let i = 0; i < 11; i++) {
-      const res = await request(app)
-        .post('/api/login')
-        .set('X-Forwarded-For', '10.0.0.99')
-        .send({ email: 'test@test.com', password: 'x' });
-      statuses.push(res.status);
-    }
+      const statuses: number[] = [];
+      for (let i = 0; i < 11; i++) {
+        const res = await request(isolatedApp)
+          .post('/api/login')
+          .set('X-Forwarded-For', '10.0.0.99')
+          .send({ email: 'test@test.com', password: 'x' });
+        statuses.push(res.status);
+      }
 
-    // loginLimiter: max 10 per minute — the 11th must be 429
-    expect(statuses[10]).toBe(429);
+      expect(statuses[10]).toBe(429);
+    });
   });
 });

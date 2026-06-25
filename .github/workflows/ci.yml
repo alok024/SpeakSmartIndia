@@ -84,8 +84,12 @@ jobs:
         # high outside this known set still fails CI.
         # Review list when @cloudflare/next-on-pages releases a major update
         # or when npm audit shows new advisories not in this list.
+        #
+        # Run from monorepo root (where package-lock.json lives) and scope to
+        # the frontend workspace — audit-ci needs the lockfile to detect the
+        # package manager type.
         run: |
-          npx --yes audit-ci@^7 --high --allowlist \
+          npx --yes audit-ci@^7 --high --workspace=frontend --allowlist \
             GHSA-9g9p-9gw9-jx7f \
             GHSA-ggv3-7p47-pfv8 \
             GHSA-3x4c-7xq6-9pq8 \
@@ -124,4 +128,3 @@ jobs:
             GHSA-g8m3-5g58-fq7m \
             GHSA-58qx-3vcg-4xpx \
             GHSA-96hv-2xvq-fx4p
-        working-directory: frontend
