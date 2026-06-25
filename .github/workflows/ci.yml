@@ -44,7 +44,8 @@ jobs:
         run: npx tsc --noEmit --project frontend/tsconfig.json
 
       - name: Lint frontend
-        run: npm run lint --workspace=frontend
+        working-directory: frontend
+        run: npx next lint
 
       - name: Build frontend
         run: npm run build --workspace=frontend
