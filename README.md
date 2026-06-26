@@ -2,12 +2,13 @@
 
 <img src="https://img.shields.io/badge/status-active%20development-brightgreen?style=flat-square" alt="Status" />
 <img src="https://img.shields.io/badge/license-proprietary-red?style=flat-square" alt="License" />
+<img src="https://img.shields.io/badge/version-5.1.0-blue?style=flat-square" alt="Version" />
 
 # Vachix
 
 **AI-powered interview practice and English coaching for Indian job seekers.**
 
-Two AI coaches. Real interview questions. Live language correction. Built for UPSC, Bank PO, SSC, campus placements, and tech roles.
+Two AI coaches. Eleven exam tracks. Live language correction with real-time feedback. Built for UPSC, Bank PO, SSC, campus placements, and tech roles.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js%2015-000000?style=flat-square&logo=next.js&logoColor=white)](https://nextjs.org/)
@@ -26,10 +27,10 @@ Most competitive-exam coaching teaches candidates *what* to say. Nobody trains t
 
 Vachix puts two AI coaches in the room:
 
-- **Aria** — fires realistic questions across 11 exam and role tracks (UPSC/IAS, Bank PO, SSC CGL, Railway, Defence, Software Engineering, Data Science, Product Management, Campus Placements, Teaching, Healthcare). Adapts difficulty as readiness scores improve.
-- **Elara** — watches every answer in real time and catches grammar errors, incorrect tenses, bureaucratic filler, and Hinglish patterns the moment they appear — not at the end of the session. Scores each answer across Grammar, Fluency, and Vocabulary independently.
+- **Aria** — fires realistic questions across 11 exam and role tracks (UPSC/IAS, Bank PO, SSC CGL, Railway, Defence, Software Engineering, Data Science, Product Management, Campus Placements, Teaching, Healthcare). Adapts difficulty, coaching depth, and feedback style automatically as your session history grows — beginner, intermediate, and advanced modes with trajectory-aware coaching.
+- **Elara** — watches every answer in real time and catches grammar errors, incorrect tenses, bureaucratic filler, and Hinglish patterns the moment they appear — not at the end of the session. Scores each answer independently across Grammar, Fluency, and Vocabulary.
 
-Sessions run via text or voice (Web Speech API), feedback is instant, and every session's scores are tracked over time so candidates can see exactly which dimension is holding them back.
+Sessions run via text or voice. Feedback is instant. Scores are tracked per-dimension over time so candidates can see exactly which axis is holding them back. Voice input uses VAD (voice activity detection) in the browser — no audio uploads.
 
 ---
 
@@ -41,9 +42,11 @@ Sessions run via text or voice (Web Speech API), feedback is instant, and every 
 - [Feature Map](#feature-map)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
+- [Database Migrations](#database-migrations)
 - [Scripts](#scripts)
 - [Security Model](#security-model)
 - [Deployment](#deployment)
+- [CI](#ci)
 - [Roadmap](#roadmap)
 
 ---
@@ -53,28 +56,36 @@ Sessions run via text or voice (Web Speech API), feedback is instant, and every 
 ```
 ┌──────────────────────────────┐        /api/* rewrite proxy         ┌──────────────────────────────┐
 │   Next.js 15  (App Router)   │ ──────────────────────────────────► │   Express + TypeScript API    │
-│   Cloudflare Pages           │ ◄────────── httpOnly cookies ─────── │   Railway                     │
+│   Cloudflare Pages           │ ◄────────── httpOnly cookies ─────── │   Railway  (v5.1.0)           │
 └──────────────────────────────┘                                      └──────────────────────────────┘
                                                                                │
-                  ┌────────────────────────────────────┬──────────────────────┼────────────────────────┐
-                  ▼                                    ▼                       ▼                        ▼
-        ┌──────────────────┐              ┌──────────────────┐     ┌──────────────────┐    ┌──────────────────┐
-        │  Supabase        │              │  Groq (primary)  │     │  BullMQ + Redis  │    │  Razorpay        │
-        │  Postgres + RLS  │              │  AI inference    │     │  Background jobs │    │  Payments        │
-        └──────────────────┘              └──────────────────┘     └──────────────────┘    └──────────────────┘
+          ┌────────────────────────────────────┬──────────────────────┬────────┴───────────────────────┐
+          ▼                                    ▼                       ▼                                ▼
+┌──────────────────┐              ┌──────────────────────┐  ┌──────────────────┐            ┌──────────────────┐
+│  Supabase        │              │  Groq (primary)       │  │  BullMQ + Redis  │            │  Razorpay        │
+│  Postgres + RLS  │              │  llama-3.3-70b        │  │  Background jobs │            │  Payments        │
+└──────────────────┘              ├──────────────────────┤  └──────────────────┘            └──────────────────┘
+                                  │  Sarvam TTS (primary) │
+                                  │  ElevenLabs (fallback)│
+                                  └──────────────────────┘
 ```
 
-The frontend proxies all `/api/*` traffic to the backend at the edge. This keeps cookies same-origin in the browser regardless of where the API is hosted, and means the frontend never has to manage CORS credentials.
+**Key design decisions:**
 
-Authentication uses short-lived JWT access tokens and rotating refresh tokens, both stored exclusively in `httpOnly` cookies. Frontend JavaScript never touches a token — this closes the XSS-to-account-takeover path that bearer token setups leave open.
+The frontend proxies all `/api/*` traffic to the backend at the edge. Cookies are same-origin in the browser regardless of where the API is hosted — no CORS credential juggling required.
 
-All privileged state (plan, admin status, email verification) is re-validated against the database on every request — never trusted from the JWT claim alone. Revocations and plan downgrades take effect immediately.
+Authentication uses short-lived JWT access tokens + rotating refresh tokens, stored exclusively in `httpOnly` cookies. No token ever touches frontend JavaScript, which eliminates the XSS → account-takeover path that bearer-token setups leave open.
+
+All privileged state (plan, admin status, email verification) is re-validated against the database on every request — never trusted from a JWT claim alone. Revocations and plan downgrades take effect immediately.
+
+TTS calls go to **Sarvam** (Indian-English–tuned) with **ElevenLabs** as automatic fallback, protected by a Redis-backed circuit breaker. After `SARVAM_BREAKER_FAILURE_THRESHOLD` (default 3) consecutive failures the breaker opens and routes straight to ElevenLabs, skipping the failing Sarvam call entirely until a probe succeeds.
 
 ---
 
 ## Tech Stack
 
 ### Frontend
+
 | Layer | Technology |
 |---|---|
 | Framework | Next.js 15 (App Router) + React 18 + TypeScript |
@@ -83,19 +94,26 @@ All privileged state (plan, admin status, email verification) is re-validated ag
 | Server state | TanStack Query v5 |
 | Client state | Zustand (auth, UI, interview session) |
 | Validation | Zod (shared schemas with backend via `shared/`) |
-| Voice input | Web Speech API with `@ricky0123/vad-web` for voice activity detection |
+| Analytics | PostHog |
+| Error tracking | Sentry (`@sentry/nextjs`) |
+| Voice input | Web Speech API + `@ricky0123/vad-web` (Silero VAD, ONNX runtime, runs in-browser) |
+| Charts | Recharts |
 | Deployment | Cloudflare Pages via `@cloudflare/next-on-pages` |
 
 ### Backend
+
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js 20 + Express + TypeScript |
+| Runtime | Node.js 20+ / 22 (CI) + Express + TypeScript |
 | Database | Supabase (Postgres + Row Level Security) |
-| AI inference | Groq (primary) — llama-3.3-70b-versatile |
-| Job queue | BullMQ + Redis (email follow-ups, session/subscription expiry) |
-| Payments | Razorpay (webhook-verified plan activation) |
-| Email | Resend (transactional — verification, password reset, B2B follow-ups) |
-| Logging | Winston + Sentry |
+| AI inference | Groq — `llama-3.3-70b-versatile` (primary LLM) |
+| TTS | Sarvam AI `bulbul:v3` (primary) → ElevenLabs (fallback) with circuit breaker |
+| Job queue | BullMQ + Redis (email follow-ups, session/subscription expiry, weekly progress cards) |
+| Payments | Razorpay (webhook-verified HMAC plan activation) |
+| Email | Resend (verification, password reset, B2B follow-ups) |
+| Push | Web Push / VAPID |
+| Logging | Winston + Sentry (`@sentry/node`) |
+| Observability | Custom load monitor + AI limiter stats + queue depth endpoint |
 | Deployment | Railway |
 
 ---
@@ -114,52 +132,85 @@ vachix/
 │   │   ├── shared/                  AppShell, ProtectedRoute, ErrorBoundary, modals
 │   │   ├── landing/                 LandingPage (self-contained — animations, rail, toggles)
 │   │   └── ui/                      Base component library (shadcn wrappers)
-│   ├── features/                    Vertical feature slices
+│   ├── features/                    Vertical feature slices (each owns api/ types/ hooks/ schemas/)
 │   │   ├── auth/                    Login, register, logout, password reset
-│   │   ├── user/                    Profile, onboarding, referral, stats
-│   │   ├── ai/                      AI chat proxy (interview + English practice)
+│   │   ├── user/                    Profile, onboarding, referral, stats, results board
+│   │   ├── ai/                      AI chat proxy (interview + English coaching)
+│   │   ├── interview/               Session setup, JD upload, impromptu mode
+│   │   ├── daily-question/          Daily practice question
+│   │   ├── speech/                  Speech analysis (filler words, WPM)
+│   │   ├── voice/                   TTS proxy (Sarvam/ElevenLabs)
+│   │   ├── prep-paths/              Guided multi-day exam prep programs
+│   │   ├── reports/                 Shareable session report viewer
 │   │   ├── certificates/            Certificate generation and retrieval
-│   │   └── …                        (analytics, payment, voice, reports)
+│   │   ├── analytics/               Score history, session list
+│   │   ├── payment/                 Razorpay checkout flow
+│   │   └── push/                    Push notification subscription
 │   ├── store/
 │   │   ├── auth.ts                  User + token state (Zustand)
 │   │   ├── ui.ts                    Sidebar, theme, toasts (Zustand)
 │   │   └── interview.ts             Active session state
 │   ├── lib/
 │   │   ├── api.ts                   Core fetch wrapper — auth refresh, error shaping
+│   │   ├── interview-prompts.ts     Client-side prompt configuration
+│   │   ├── speech-analysis.ts       Filler-word detection, WPM estimation
+│   │   ├── analytics.ts             PostHog event helpers
+│   │   ├── feature-flags.ts         Runtime flag checks
 │   │   └── query-keys.ts            Centralised React Query key registry
-│   ├── app/globals.css              App-shell design tokens and component styles
-│   ├── app/landing.css              Landing page styles (isolated from app shell)
+│   ├── public/
+│   │   ├── vad/                     Silero VAD ONNX model + worklet bundle (ships with app)
+│   │   ├── sw.js                    Service worker (offline support)
+│   │   └── manifest.json            PWA manifest
 │   └── middleware.ts                Edge auth gate — redirects unauthenticated requests
 │
-├── backend/                         Express API
+├── backend/                         Express API (v5.1.0)
 │   └── src/
 │       ├── app.ts                   Entry point — middleware stack, routes, error handler
-│       ├── core/                    Config, DB client, shared middleware, utils
-│       ├── infra/                   BullMQ workers, rate limiters, circuit breakers
+│       ├── core/
+│       │   ├── config/env.ts        Zod-validated environment (fails fast if required vars missing)
+│       │   ├── database/client.ts   Supabase typed DB client + all RPC wrappers
+│       │   ├── middleware.ts        Auth, plan gating, usage limits, admin guard
+│       │   └── utils/               Error classes, response helpers, token utilities, Zod schemas
+│       ├── infra/
+│       │   ├── ai-cache.ts          Redis-backed per-user AI response cache
+│       │   ├── ai-limiter.ts        Concurrency limiter for upstream AI calls
+│       │   ├── burst-limiter.ts     Per-user burst window rate limiter
+│       │   ├── circuit-breaker.ts   Generic circuit breaker (Groq, OpenAI)
+│       │   ├── sarvam-circuit-breaker.ts  Redis-backed TTS failover (Sarvam → ElevenLabs)
+│       │   ├── load-monitor.ts      System load heartbeat logger
+│       │   ├── observability.ts     Sentry init + metrics aggregation endpoint
+│       │   ├── request-context.ts   AsyncLocalStorage request ID propagation
+│       │   ├── logger/              Winston logger
+│       │   └── queue/               BullMQ setup (queues, worker, dispatcher, Redis client)
 │       └── modules/
 │           ├── auth/                JWT issuance, refresh, email verification
-│           ├── ai/                  Groq inference, prompt construction, quota gating
-│           ├── interview/           Session creation, JD-based questions, impromptu mode
-│           ├── payment/             Razorpay order creation, webhook verification
-│           ├── user/                Profile, onboarding, referral system, streak tracking
-│           ├── reports/             HMAC-signed shareable session reports
+│           ├── ai/                  Groq inference, streaming, prompt construction, adaptive coaching, memory
+│           ├── interview/           Session creation, JD-based question generation, impromptu mode
+│           ├── payment/             Razorpay order creation + webhook verification
+│           ├── user/                Profile, onboarding, referral system, streak tracking, results board
+│           ├── analytics/           Score history, session list, weak-area detection, weekly progress cards, events
+│           ├── reports/             HMAC-SHA256 signed shareable session reports
 │           ├── certificates/        Certificate generation
-│           ├── analytics/           Score history, session list
-│           ├── prep-paths/          Structured exam prep track management
-│           ├── voice/               ElevenLabs TTS proxy
-│           ├── speech/              Speech processing utilities
+│           ├── prep-paths/          Guided exam-track enrollment + progress tracking
+│           ├── voice/               Sarvam/ElevenLabs TTS proxy with usage ledger + quota gating
+│           ├── speech/              Speech metric ingestion (filler words, WPM)
 │           ├── leads/               B2B lead capture with email follow-up
-│           ├── admin/               Internal dashboard — users, subs, lead funnel
-│           ├── comparison/          Cross-session comparison views
+│           ├── comparison/          Cross-session score comparison views
 │           ├── growth/              Referral tracking, bonus session grants
-│           └── push/                Push notification infrastructure
+│           ├── push/                Web Push / VAPID notification infrastructure
+│           └── admin/               Internal dashboard — users, subscriptions, lead funnel (DB-role gated)
 │
-└── shared/                          Types and Zod schemas shared across frontend + backend
-    ├── index.ts
-    └── schemas/api.schemas.ts
+├── shared/                          Types + Zod schemas shared across frontend and backend
+│   ├── index.ts
+│   └── schemas/api.schemas.ts
+│
+├── .github/
+│   ├── workflows/ci.yml             GitHub Actions — build, TypeScript check, Jest
+│   └── dependabot.yml
+└── package.json                     npm workspaces root
 ```
 
-Each `features/<name>/` slice in the frontend owns its own `api/`, `types/`, `hooks/`, and `schemas/` — no shared god-object API client. Adding a new endpoint means touching exactly one feature slice.
+Each `features/<name>/` slice in the frontend owns its own `api/`, `types/`, `hooks/`, and `schemas/` subdirectories. There is no shared god-object API client. Adding a new endpoint means touching exactly one feature slice.
 
 ---
 
@@ -169,28 +220,38 @@ Each `features/<name>/` slice in the frontend owns its own `api/`, `types/`, `ho
 
 | Feature | Notes |
 |---|---|
-| AI interview sessions | Streaming responses, 11 exam/role tracks, adaptive difficulty |
+| AI interview sessions (Aria) | Streaming responses, 11 exam/role tracks |
+| Adaptive coaching | Depth, trajectory, focus, and engagement adapt automatically per user history |
 | JD-based questions | Upload a job description, get role-specific interview questions |
 | Impromptu practice mode | DB-seeded topic library, quota-gated Groq calls |
-| Live English correction (Elara) | Grammar, fluency, vocabulary scored per answer |
-| Web Speech API voice input | Real-time transcription with VAD, browser-native, no upload |
+| Daily question | One focused practice question per day |
+| Live English correction (Elara) | Grammar, fluency, vocabulary scored per answer in real time |
+| Web Speech API voice input | Real-time transcription with Silero VAD; no audio upload |
+| TTS voice responses | Sarvam `bulbul:v3` (Indian-English–tuned) with ElevenLabs fallback + circuit breaker |
+| Voice usage ledger | Monthly per-plan caps with streak-milestone bonus pools; atomic Postgres RPCs |
+| Speech metrics | Filler-word count + WPM tracked per session; charted after 3+ data points |
 | Session history + score tracking | Per-dimension charts, weak-area detection over time |
 | Shareable session reports | HMAC-SHA256 signed links, tamper-proof, publicly accessible |
 | Certificates | Generated on qualifying sessions |
+| Guided prep paths | Structured multi-day exam-track programs; enrollment + day-by-day progress |
 | Referral system | Unique codes, bonus session grants on verified signup |
 | Subscriptions — Free / Starter / Pro / Elite | Razorpay-powered, webhook-verified, instant plan changes |
-| Streak tracking | Daily practice streaks with badge in app shell |
-| Prep paths | Structured exam-track learning plans |
+| Monthly session cap (Free tier) | Atomic `increment_session_count` RPC — race-condition safe |
+| Streak tracking | IST-timezone-aware daily streaks with streak-milestone bonus voice seconds |
+| Results board | Community-visible job-landed outcomes |
+| Weekly progress cards | BullMQ-generated summaries dispatched weekly |
 | B2B lead capture | Rate-limited intake, automated email follow-up via Resend |
-| Admin dashboard | User, subscription, and lead funnel overview — DB-role gated |
+| Push notifications | Web Push / VAPID subscription management |
+| Admin dashboard | Users, subscriptions, lead funnel — DB-role gated |
 | Animated day/night toggle | Sun↔moon morph with spring knob, twinkling stars, crescent mask |
+| PWA / offline support | Service worker, app manifest, offline fallback page |
 | Responsive landing page | Scroll-tracking side rail, parallax, toast system, glass modals |
 
 ### In development / coming next
 
 | Feature | Plan tier |
 |---|---|
-| Upgraded voice recognition (accent-tuned speech engine) | Pro + Elite |
+| Accent-tuned speech engine upgrade | Pro + Elite |
 | Elara spoken feedback (audio responses during sessions) | Pro + Elite |
 | Pronunciation scoring (word-by-word) | Elite |
 | Live avatar (animated face, real-time response) | Elite |
@@ -201,11 +262,11 @@ Each `features/<name>/` slice in the frontend owns its own `api/`, `types/`, `ho
 
 ### Prerequisites
 
-- **Node.js 20+**
+- **Node.js 20+** (Node 22 used in CI)
 - A **[Supabase](https://supabase.com/)** project (Postgres + auth)
-- A **[Groq](https://groq.com/)** API key — primary AI provider
+- A **[Groq](https://groq.com/)** API key — primary LLM provider
 - A **[Razorpay](https://razorpay.com/)** account — test mode works for local dev
-- **Redis** — optional locally; background jobs run inline without it
+- **Redis** — optional locally; BullMQ jobs degrade gracefully to inline execution without it
 
 ### Installation
 
@@ -213,53 +274,108 @@ Each `features/<name>/` slice in the frontend owns its own `api/`, `types/`, `ho
 git clone https://github.com/<your-org>/vachix.git
 cd vachix
 
-# Install root-level workspace dependencies
+# Install all workspace packages from the root
 npm install
 
 # Backend
 cd backend
-cp .env.example .env    # fill in required keys — see below
-npm install
+cp .env.example .env    # fill in required keys — see Environment Variables below
 npm run dev             # starts on :8080 by default
 
 # Frontend (new terminal)
 cd frontend
-npm install
-npm run dev             # starts on :3000, proxies /api/* to backend
+npm run dev             # starts on :3000, proxies /api/* to NEXT_PUBLIC_BACKEND_URL
 ```
 
-The frontend dev server proxies `/api/*` to `NEXT_PUBLIC_BACKEND_URL`. No manual CORS configuration needed in development.
+The frontend dev server proxies `/api/*` to `NEXT_PUBLIC_BACKEND_URL`. No manual CORS configuration is needed in development.
+
+### Running the background worker
+
+BullMQ jobs (email follow-ups, subscription expiry, weekly cards) run in a separate process:
+
+```bash
+cd backend
+npm run worker
+```
+
+In production this should be a separate Railway service pointing at the same repo (see [Deployment](#deployment)).
 
 ---
 
 ## Environment Variables
 
-Copy `backend/.env.example` → `backend/.env`. The server **will refuse to start** in production if these are missing:
+Copy `backend/.env.example` → `backend/.env`. The server **will refuse to start** in production if any required variable is missing — `env.ts` uses Zod to validate everything on boot.
+
+### Required
 
 | Variable | Purpose |
 |---|---|
 | `SUPABASE_URL` | Supabase project URL |
-| `SUPABASE_SERVICE_KEY` | Service role key — full DB access, keep secret |
+| `SUPABASE_SERVICE_KEY` | Service role key — full DB access, never expose |
 | `SUPABASE_ANON_KEY` | Anon/public key for RLS-scoped operations |
 | `JWT_SECRET` | Access token signing key |
 | `JWT_REFRESH_SECRET` | Refresh token signing key (separate from access) |
 | `REPORT_SECRET` | HMAC key for shareable session report links |
-| `GROQ_API_KEY` | Groq inference — primary AI provider |
+| `GROQ_API_KEY` | Groq inference — primary LLM provider |
 | `RAZORPAY_KEY_ID` | Razorpay public key |
 | `RAZORPAY_KEY_SECRET` | Razorpay secret key |
 | `RAZORPAY_WEBHOOK_SECRET` | Razorpay webhook signature verification |
 
-Optional (have sane defaults or degrade gracefully without them):
+### Optional (degrade gracefully or have sane defaults)
 
-| Variable | Purpose |
+| Variable | Default | Purpose |
+|---|---|---|
+| `REDIS_URL` | — | BullMQ job queue — jobs run inline if absent |
+| `RESEND_API_KEY` | — | Transactional email — verification, resets, B2B follow-ups |
+| `ELEVENLABS_API_KEY` | — | TTS fallback when Sarvam circuit breaker is open |
+| `ELEVENLABS_VOICE_ID` | `21m00Tcm4TlvDq8ikWAM` | ElevenLabs voice selection |
+| `SARVAM_API_KEY` | — | Primary TTS provider (Indian-English–tuned) |
+| `SARVAM_TTS_SPEAKER` | `shubh` | Sarvam `bulbul:v3` speaker name |
+| `SARVAM_TTS_MODEL` | `bulbul:v3` | Sarvam TTS model |
+| `SARVAM_PRIMARY` | `true` | Set to `false` to route all TTS directly to ElevenLabs |
+| `SARVAM_EN_LANG_CODE` | `en-IN` | Language code passed to Sarvam for English requests |
+| `SARVAM_BREAKER_FAILURE_THRESHOLD` | `3` | Consecutive failures before circuit opens |
+| `SARVAM_BREAKER_COOLDOWN_MS` | `15000` | Time before circuit allows a probe request |
+| `OPENAI_API_KEY` | — | Reserved for future fallback — not used in primary path |
+| `MAX_CONCURRENT_AI_CALLS` | `10` | Concurrency cap on upstream LLM calls |
+| `AI_QUEUE_TIMEOUT_MS` | `30000` | Max wait time in AI concurrency queue |
+| `AI_BURST_LIMIT` | `3` | Max AI calls per user per burst window |
+| `AI_BURST_WINDOW_MS` | `10000` | Burst window duration |
+| `AI_CONTEXT_TOKEN_BUDGET` | `8000` | Token budget for conversation history trimming |
+| `AI_CACHE_TTL_SECONDS` | — | Global AI response cache TTL (omit to disable) |
+| `AI_PROMPT_CACHE_TTL_SECONDS` | `1800` | Per-user personalised prompt cache TTL |
+| `MAX_BONUS_VOICE_SECONDS` | `3600` | Hard ceiling on streak-milestone voice bonus (60 min) |
+| `EXTRA_ALLOWED_ORIGINS` | — | Comma-separated origins to extend the CORS allowlist (preview deploys) |
+| `SENTRY_DSN` | — | Sentry error tracking |
+
+> **Never commit a populated `.env` file.** `SUPABASE_SERVICE_KEY` and the Razorpay secret grant full backend access.
+
+---
+
+## Database Migrations
+
+Migrations live in `backend/migrations/` and are applied in order. Run them against your Supabase project via the SQL editor or Supabase CLI before first deploy.
+
+| Migration | What it adds |
 |---|---|
-| `REDIS_URL` | BullMQ job queue — jobs run inline if absent |
-| `RESEND_API_KEY` | Transactional email — verification, resets, B2B follow-ups |
-| `ELEVENLABS_API_KEY` | TTS voice responses (Pro/Elite feature) |
-| `EXTRA_ALLOWED_ORIGINS` | Comma-separated list to extend the CORS allowlist (preview deploys) |
-| `SENTRY_DSN` | Error tracking |
-
-> **Never commit a populated `.env` file.** `SUPABASE_SERVICE_KEY` and the Razorpay secret grant full backend access. Treat them as passwords.
+| `001_email_verification.sql` | Email verification tokens table |
+| `002_onboarding_admin.sql` | Onboarding fields + admin flag on users |
+| `003_b2b_leads.sql` | B2B lead capture table |
+| `004_analytics_events.sql` | Client-side analytics event store |
+| `005_referral.sql` | Referral codes, tracking, bonus session grants |
+| `006_tokens_invalidated_at.sql` | Per-user token invalidation timestamp for instant revocation |
+| `007_referral_bonus_cap.sql` | Hard ceiling on referral bonus sessions via atomic RPC |
+| `008_rls_default_deny.sql` | Default-deny RLS on all tables |
+| `009_streak_timezone_ist.sql` | IST-aware streak calendar day fix |
+| `010_interviewer_notes_daily_question.sql` | Interviewer notes field + daily question table |
+| `011_voice_usage_ledger.sql` | Monthly voice/avatar usage tracking with streak bonus pool |
+| `012_readiness_reports.sql` | Per-session readiness score snapshots |
+| `013_score_comparisons.sql` | Cross-session score comparison materialisation |
+| `014_job_landed_results_board.sql` | Community results board |
+| `015_weekly_progress_card.sql` | Weekly summary card generation tracking |
+| `016_speech_metrics.sql` | Per-session filler-word count + WPM |
+| `017_prep_paths.sql` | Prep path catalog + user enrollment table |
+| `018_monthly_session_cap.sql` | Monthly session cap for Free tier with atomic increment RPC |
 
 ---
 
@@ -268,22 +384,29 @@ Optional (have sane defaults or degrade gracefully without them):
 ### Backend (`/backend`)
 
 ```bash
-npm run dev        # ts-node-dev watch mode
-npm run build      # tsc → dist/
-npm start          # run compiled build (production)
-npm run worker     # BullMQ background worker (run as separate process in prod)
-npm test           # Jest test suite
+npm run dev          # ts-node-dev watch mode — starts on :8080
+npm run build        # tsc → dist/
+npm start            # run compiled build (production)
+npm run worker       # BullMQ background worker (separate process in prod)
+npm test             # Jest test suite
+npm run test:coverage  # Jest with coverage report
 ```
 
 ### Frontend (`/frontend`)
 
 ```bash
-npm run dev            # Next.js dev server
-npm run build          # Next.js production build
-npm run build:cf       # Next.js build + Cloudflare Pages adapter
-npm run type-check     # tsc --noEmit (zero errors enforced)
-npm run lint           # ESLint
-npm run deploy         # build:cf + wrangler pages deploy
+npm run dev          # Next.js dev server — starts on :3000
+npm run build        # Standard Next.js production build
+npm run build:cf     # Next.js build + Cloudflare Pages adapter
+npm run type-check   # tsc --noEmit (zero errors enforced)
+npm run lint         # ESLint
+npm run deploy       # build:cf + wrangler pages deploy
+```
+
+### Root (workspace)
+
+```bash
+npm install          # installs all workspace packages
 ```
 
 ---
@@ -293,22 +416,25 @@ npm run deploy         # build:cf + wrangler pages deploy
 Defense in depth — neither surface is trusted to police the other.
 
 **Token handling**
-- Access and refresh tokens live exclusively in `httpOnly`, `Secure`, `SameSite=Lax` cookies. Frontend JavaScript has no token access, which eliminates XSS-to-session-hijack as an attack class.
-- The Next.js middleware gate runs at the edge — unauthenticated requests are redirected before they hit React.
+Short-lived JWT access tokens and rotating refresh tokens live exclusively in `httpOnly`, `Secure`, `SameSite=Lax` cookies. Frontend JavaScript has no token access, which eliminates XSS-to-session-hijack as an attack class. The Next.js edge middleware rejects unauthenticated requests before they reach React.
 
-**Server-side validation**
-- Every privileged attribute (plan tier, admin role, email verification) is re-read from the database on every request. JWT claims are never trusted in isolation, so revoking a session or downgrading a plan takes effect immediately — no wait for token expiry.
-- 422 vs 502 status code discipline: client input errors return 422, upstream failures return 502. Never mix these.
+**Server-side privilege validation**
+Every privileged attribute (plan tier, admin role, email verification) is re-read from the database on every request. JWT claims are never trusted in isolation. Revoking a session or downgrading a plan takes effect immediately with no wait for token expiry. The `tokens_invalidated_at` column (migration 006) provides per-user instant invalidation.
 
 **Payment integrity**
-- Razorpay webhooks are verified using constant-time HMAC comparison before any plan change is applied. The order-verify flow requires both the frontend signature *and* a passing webhook before a subscription is activated.
+Razorpay webhooks are verified using constant-time HMAC comparison before any plan change is applied. The order-verify flow requires both the frontend signature and a passing webhook before a subscription is activated.
 
 **Public endpoints**
-- Shareable report links use HMAC-SHA256 with constant-time verification — not Base64 or sequential IDs.
-- Per-route rate limiting on every public or auth-sensitive endpoint: login, registration, password reset, B2B lead intake, public report access.
+Shareable report links use HMAC-SHA256 with constant-time verification — not Base64 or sequential IDs. Per-route rate limiting covers every public or auth-sensitive endpoint: login, registration, password reset, B2B lead intake, TTS, and public report access.
+
+**Database**
+Row Level Security is default-deny on all tables (migration 008). Only the service-role key used by `database/client.ts` can read or write. All monthly counters and ledger operations use atomic Postgres RPCs to prevent read-then-write race conditions under concurrent load.
+
+**Status code discipline**
+422 for client input errors, 502 for upstream failures. Never mixed.
 
 **Secrets**
-- No secrets in source. `.env.example` ships with placeholder values and inline documentation — no defaults that would silently work in production with a real secret.
+No secrets in source. `.env.example` ships with placeholder values and inline documentation — no defaults that silently work in production.
 
 ---
 
@@ -321,32 +447,49 @@ cd frontend
 npm run deploy    # next build + @cloudflare/next-on-pages + wrangler pages deploy
 ```
 
-Set `EXTRA_ALLOWED_ORIGINS` on the backend to include your Cloudflare Pages preview URLs so CORS doesn't block PR deploys.
+Set `EXTRA_ALLOWED_ORIGINS` on the backend to include your Cloudflare Pages preview URLs so CORS does not block PR deploys.
 
 ### Backend → Railway
 
 1. Connect the `/backend` directory as the Railway service root.
 2. Set all required environment variables in the Railway dashboard.
-3. Railway auto-detects `npm run build && npm start` as the build/start command.
-4. Run `npm run worker` as a **separate Railway service** pointing at the same repo — background jobs (email follow-ups, expiry) run in this process.
+3. Railway auto-detects `npm run build && npm start` as the build/start command (`railway.toml` configures this).
+4. Run `npm run worker` as a **separate Railway service** pointing at the same repo — BullMQ background jobs (email follow-ups, subscription/session expiry, weekly cards) run in this process.
 
 ### Database migrations
 
-Migrations live in `backend/migrations/`. Apply them to your Supabase project via the Supabase SQL editor or the Supabase CLI before first deploy.
+Apply migrations in order via the Supabase SQL editor or Supabase CLI before first deploy. Migrations are idempotent (`CREATE TABLE IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`) and safe to re-run.
+
+---
+
+## CI
+
+GitHub Actions runs on every push to `main`/`develop` and on PRs targeting `main`.
+
+The pipeline (`ci.yml`):
+1. Spins up a Redis service container
+2. Validates all `package.json` files
+3. Installs npm workspace dependencies
+4. Builds the `shared` package
+5. Builds the backend (TypeScript compile via `tsc`)
+6. Type-checks the frontend (`tsc --noEmit`)
+7. Runs the Jest test suite on the backend
+
+Node version: **22** (matching production-compatible LTS).
 
 ---
 
 ## Roadmap
 
-Short-term (in active development):
-- Accent-tuned speech engine upgrade
-- Elara spoken audio responses
-- Pronunciation scoring (word-by-word)
-- Animated avatar (live video-style face)
+**Short-term (in active development)**
+- Accent-tuned speech engine upgrade (Pro/Elite)
+- Elara spoken audio responses during sessions (Pro/Elite)
+- Pronunciation scoring, word-by-word (Elite)
+- Animated live avatar (Elite)
 
-Medium-term:
-- B2B institution dashboard (batch seat management, coordinator view, per-student progress)
-- Mobile app (React Native, sharing session state with existing backend)
+**Medium-term**
+- B2B institution dashboard — batch seat management, coordinator view, per-student progress
+- Mobile app (React Native, same backend)
 - Hindi-medium question sets
 
 ---
