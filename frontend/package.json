@@ -3,6 +3,7 @@
   "version": "5.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "npm config set package-manager npm",
     "dev": "next dev",
     "build": "npx next build",
     "build:cf": "npx next build && npx @cloudflare/next-on-pages",
