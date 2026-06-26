@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "npx next build",
-    "build:cf": "npx next build && npx @cloudflare/next-on-pages",
+    "build:cf": "node -e \"const fs=require('fs');const f='node_modules/next/dist/lib/helpers/get-pkg-manager.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(\\\"lockFile: 'yarn.lock'\\\",\\\"lockFile: '_no_yarn.lock'\\\"))\" && npx next build && npx @cloudflare/next-on-pages",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
-    "@babel/runtime": "^8.0.0",
+    "@babel/runtime": "^7.27.0",
     "@radix-ui/react-dialog": "^1.1.2",
     "@radix-ui/react-dropdown-menu": "^2.1.2",
     "@radix-ui/react-label": "^2.1.0",
@@ -54,5 +54,8 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.9.3"
+  },
+  "optionalDependencies": {
+    "@next/swc-linux-x64-gnu": "^15.0.5"
   }
 }
