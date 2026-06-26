@@ -41,8 +41,10 @@
     "zod": "^3.22.4",
     "zustand": "^5.0.1"
   },
-  "devDependencies": {
+ "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^15.0.3",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
@@ -50,7 +52,5 @@
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.9.3"
-    "eslint": "^9.0.0",
-    "eslint-config-next": "^15.0.3",
   }
 }
