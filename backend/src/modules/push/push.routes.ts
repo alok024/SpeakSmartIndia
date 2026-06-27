@@ -14,6 +14,7 @@ import {
   subscribePush,
   unsubscribePush,
   getWeeklyCardSvg,
+  getWeeklyCardVoice,
 } from './push.controller';
 
 export const pushRouter = Router();
@@ -39,3 +40,6 @@ pushRouter.delete('/push/unsubscribe', authMiddleware, validate(UnsubscribeSchem
 
 // Public weekly card SVG
 pushRouter.get('/weekly-card/:userId', getWeeklyCardSvg);
+
+// Auth-required — voiced weekly summary (Pro+ only; content is user-specific)
+pushRouter.get('/weekly-card/:userId/voice', authMiddleware, getWeeklyCardVoice);

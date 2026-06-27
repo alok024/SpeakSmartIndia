@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/features/user/hooks';
-import { useScoreHistory, useReadinessReport } from '@/features/analytics/hooks';
+import { useScoreHistory, useReadinessReport, useElaraJourney } from '@/features/analytics/hooks';
 import { useSpeechTrend } from '@/features/speech/hooks';
 import { useDailyQuestion } from '@/features/daily-question/hooks';
 import { useMyPrepEnrollment } from '@/features/prep-paths/hooks';
@@ -58,6 +58,26 @@ const SpeechTrendsChart = dynamic(
         </div>
         <div className="px-4 pt-4 pb-2">
           <div className="h-[240px] rounded-lg animate-pulse" style={{ background: 'var(--surface-2)' }} />
+        </div>
+      </div>
+    ),
+  },
+);
+
+const EnglishJourneyChart = dynamic(
+  () => import('@/components/shared/EnglishJourneyChart').then(m => ({ default: m.EnglishJourneyChart })),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="rounded-2xl border overflow-hidden"
+        style={{ background: 'var(--surface)', borderColor: 'var(--border)', height: 220 }}
+      >
+        <div className="px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div className="h-4 w-32 rounded" style={{ background: 'var(--surface-2)' }} />
+        </div>
+        <div className="px-4 pt-4 pb-2">
+          <div className="h-[160px] rounded-lg animate-pulse" style={{ background: 'var(--surface-2)' }} />
         </div>
       </div>
     ),
@@ -168,7 +188,9 @@ export default function DashboardPage() {
   const livePlan = meData?.user?.plan ?? user?.plan;
   const isFree       = !livePlan || livePlan === 'free';
   const isStarter    = livePlan === 'starter' || livePlan === 'pro' || livePlan === 'elite';
+  const isPro        = livePlan === 'pro' || livePlan === 'elite';
   const { data: readinessData } = useReadinessReport(isStarter);
+  const { data: elaraJourney }  = useElaraJourney(isPro);
   const readinessReport   = readinessData?.report ?? null;
   const sessionsUntilNext = readinessData?.sessions_until_next_report ?? null;
   const FREE_LIMIT   = usage?.limit ?? user?.ai_calls_limit ?? null;
@@ -198,6 +220,8 @@ export default function DashboardPage() {
   const bestScoreRaw  = stats?.best_score != null ? Math.round(stats.best_score * 10) : 0;
   const bestScoreCount= useCountUp(bestScoreRaw,          { delay: 240, duration: 800, decimals: 0 });
   const aiUsedCount   = useCountUp(aiUsed,                { delay: 360, duration: 700 });
+  // XP — monthly for leaderboard motivation, lifetime on profile
+  const xpMonthlyCount = useCountUp(stats?.xp_monthly ?? 0, { delay: 480, duration: 900 });
 
   // Feature 24 — score history ordered oldest→newest for the chart
   const chartData = useMemo(() => {
@@ -430,6 +454,7 @@ export default function DashboardPage() {
           { label: 'Streak',      value: streakCount,      sub: 'days 🔥',                                      color: 'var(--warn)'    },
           { label: 'Sessions',    value: sessionsCount,    sub: 'completed',                                    color: 'var(--accent)'  },
           { label: 'Best Score',  value: bestScoreDisplay, sub: 'personal best',                                color: 'var(--success)' },
+          { label: 'XP',          value: xpMonthlyCount,   sub: 'this month ⚡',                                color: 'var(--accent)'  },
           { label: 'AI Sessions', value: aiUsedCount,      sub: FREE_LIMIT ? `of ${FREE_LIMIT} used` : 'used', color: 'var(--accent)'  },
         ];
         return (
@@ -576,6 +601,13 @@ export default function DashboardPage() {
       {/* Feature 24 — Score chart: gradient fill + custom dot + polished tooltip */}
       {hasData && chartData.length >= 2 && (
         <ScoreHistoryChart chartData={chartData} chartScores={chartScores} />
+      )}
+
+      {/* English Journey — Pro+ Elara fluency trend (week-over-week).
+          Renders from week 2 onward (EnglishJourneyChart internally
+          suppresses itself when < 2 weeks of data exist). */}
+      {isPro && (elaraJourney ?? []).length > 0 && (
+        <EnglishJourneyChart sessions={elaraJourney!} />
       )}
 
       {/* Job Readiness */}

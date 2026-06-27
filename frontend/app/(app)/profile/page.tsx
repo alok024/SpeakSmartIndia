@@ -4,7 +4,7 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMe, useLogout } from '@/hooks/queries';
-import { useCompleteOnboarding } from '@/features/user/hooks';
+import { useCompleteOnboarding, useDAF, useSaveDAF } from '@/features/user/hooks';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { Button, Card, CardHeader, CardBody, Badge, ProgressBar, Spinner } from '@/components/ui';
@@ -12,6 +12,8 @@ import type { BadgeVariant } from '@/components/ui';
 import { formatDate, formatDateShort } from '@/lib/utils';
 import { LogOut, Crown, Diamond, Zap } from 'lucide-react';
 import { QK } from '@/lib/query-keys';
+import { VoiceSettingsPanel } from '@/components/shared/VoiceSettingsPanel';
+import { ElaraSettingsPanel } from '@/components/shared/ElaraSettingsPanel';
 
 const PROFESSIONS = [
   'Software Engineering', 'Data Science / AI', 'Product Management', 'Business Analyst',
@@ -21,6 +23,241 @@ const PROFESSIONS = [
 const GOALS = [
   'Get my first job', 'Switch companies', 'Get promoted', 'Improve confidence', 'Practice regularly',
 ];
+
+// ─── DAF Section ──────────────────────────────────────────────────────────────
+// UPSC Detailed Application Form. Only shown when the user's onboarding
+// profession is in the Civil Services track. Saves on every explicit submit.
+
+const INDIAN_STATES = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+  'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra & Nagar Haveli and Daman & Diu',
+  'Delhi', 'Jammu & Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry',
+];
+
+const UPSC_OPTIONAL_SUBJECTS = [
+  'Agriculture', 'Animal Husbandry & Veterinary Science', 'Anthropology',
+  'Botany', 'Chemistry', 'Civil Engineering', 'Commerce & Accountancy',
+  'Economics', 'Electrical Engineering', 'Geography', 'Geology',
+  'History', 'Law', 'Management', 'Mathematics', 'Mechanical Engineering',
+  'Medical Science', 'Philosophy', 'Physics', 'Political Science & International Relations',
+  'Psychology', 'Public Administration', 'Sociology', 'Statistics', 'Zoology',
+  'Literature (Assamese)', 'Literature (Bengali)', 'Literature (Bodo)', 'Literature (Dogri)',
+  'Literature (Gujarati)', 'Literature (Hindi)', 'Literature (Kannada)',
+  'Literature (Kashmiri)', 'Literature (Konkani)', 'Literature (Maithili)',
+  'Literature (Malayalam)', 'Literature (Manipuri)', 'Literature (Marathi)',
+  'Literature (Nepali)', 'Literature (Odia)', 'Literature (Punjabi)',
+  'Literature (Sanskrit)', 'Literature (Santhali)', 'Literature (Sindhi)',
+  'Literature (Tamil)', 'Literature (Telugu)', 'Literature (Urdu)',
+];
+
+interface DAFSectionProps {
+  isUpscUser: boolean;
+}
+
+function DAFSection({ isUpscUser }: DAFSectionProps) {
+  const { data: dafData, isLoading } = useDAF();
+  const saveDAF = useSaveDAF();
+
+  const [form, setForm] = useState({
+    name:               '',
+    home_state:         '',
+    graduation_subject: '',
+    graduation_college: '',
+    optional_subject:   '',
+    hobbies:            ['', '', ''] as [string, string, string],
+    work_experience:    '',
+    extracurriculars:   '',
+  });
+  const [initialised, setInitialised] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Pre-fill from fetched DAF data
+  if (dafData && !initialised) {
+    const hobbiesList = (dafData.hobbies ?? '').split(',').map((h: string) => h.trim());
+    setForm({
+      name:               dafData.name               ?? '',
+      home_state:         dafData.home_state         ?? '',
+      graduation_subject: dafData.graduation_subject ?? '',
+      graduation_college: dafData.graduation_college ?? '',
+      optional_subject:   dafData.optional_subject   ?? '',
+      hobbies:            [hobbiesList[0] ?? '', hobbiesList[1] ?? '', hobbiesList[2] ?? ''],
+      work_experience:    dafData.work_experience    ?? '',
+      extracurriculars:   dafData.extracurriculars   ?? '',
+    });
+    setInitialised(true);
+  }
+
+  if (!isUpscUser) return null;
+
+  async function handleSave() {
+    const hobbiesStr = form.hobbies.filter(Boolean).join(', ');
+    await saveDAF.mutateAsync({
+      name:               form.name.trim()               || null,
+      home_state:         form.home_state.trim()         || null,
+      graduation_subject: form.graduation_subject.trim() || null,
+      graduation_college: form.graduation_college.trim() || null,
+      optional_subject:   form.optional_subject.trim()   || null,
+      hobbies:            hobbiesStr                     || null,
+      work_experience:    form.work_experience.trim()    || null,
+      extracurriculars:   form.extracurriculars.trim()   || null,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  }
+
+  function field(key: keyof Omit<typeof form, 'hobbies'>) {
+    return {
+      value: form[key] as string,
+      onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+        setForm(f => ({ ...f, [key]: e.target.value })),
+    };
+  }
+
+  const inputStyle = {
+    background: 'var(--surface-2)',
+    borderColor: 'var(--border)',
+    color: 'var(--text-1)',
+  };
+
+  const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus:outline-none';
+
+  if (isLoading) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <span className="text-sm font-semibold" style={{ color: 'var(--text-1)' }}>
+          🏛️ UPSC DAF Profile
+        </span>
+        <span
+          className="ml-2 text-[9px] rounded px-1.5 py-0.5"
+          style={{ background: 'var(--blue-dim)', color: 'var(--accent)', border: '1px solid var(--blue-border)' }}
+        >
+          PERSONALISED MOCK BOARD
+        </span>
+      </CardHeader>
+      <CardBody className="space-y-4">
+        <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>
+          Fill this once. Aria will use it to ask personalised questions exactly like a real UPSC board —
+          your home state, optional subject, hobbies, and background all become part of the interview.
+        </p>
+
+        {/* Name */}
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+            Name (as on UPSC application)
+          </label>
+          <input className={inputClass} style={inputStyle} placeholder="Full name" {...field('name')} />
+        </div>
+
+        {/* Home State */}
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+            Home State / UT
+          </label>
+          <select className={inputClass} style={inputStyle} value={form.home_state}
+            onChange={e => setForm(f => ({ ...f, home_state: e.target.value }))}>
+            <option value="">Select state…</option>
+            {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {/* Graduation */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+              Graduation Subject
+            </label>
+            <input className={inputClass} style={inputStyle} placeholder="e.g. Computer Science, History" {...field('graduation_subject')} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+              College / University
+            </label>
+            <input className={inputClass} style={inputStyle} placeholder="e.g. IIT Bombay, DU" {...field('graduation_college')} />
+          </div>
+        </div>
+
+        {/* Optional Subject */}
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+            UPSC Optional Subject
+          </label>
+          <select className={inputClass} style={inputStyle} value={form.optional_subject}
+            onChange={e => setForm(f => ({ ...f, optional_subject: e.target.value }))}>
+            <option value="">Select optional…</option>
+            {UPSC_OPTIONAL_SUBJECTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        {/* Hobbies */}
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+            Hobbies (up to 3)
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {([0, 1, 2] as const).map(i => (
+              <input
+                key={i}
+                className={inputClass}
+                style={inputStyle}
+                placeholder={`Hobby ${i + 1}`}
+                value={form.hobbies[i]}
+                onChange={e => {
+                  const updated = [...form.hobbies] as [string, string, string];
+                  updated[i] = e.target.value;
+                  setForm(f => ({ ...f, hobbies: updated }));
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Work Experience */}
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+            Work Experience (if any)
+          </label>
+          <textarea
+            className={inputClass}
+            style={inputStyle}
+            rows={2}
+            maxLength={500}
+            placeholder="e.g. 2 years as Software Engineer at Infosys before appearing for UPSC"
+            {...field('work_experience')}
+          />
+        </div>
+
+        {/* Extra-curriculars */}
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--text-3)' }}>
+            Extra-curriculars / Achievements
+          </label>
+          <input
+            className={inputClass}
+            style={inputStyle}
+            maxLength={300}
+            placeholder="e.g. NCC A Certificate, State-level chess player, NSS volunteer"
+            {...field('extracurriculars')}
+          />
+        </div>
+
+        <Button
+          onClick={handleSave}
+          loading={saveDAF.isPending}
+          disabled={saveDAF.isPending}
+          className="w-full"
+        >
+          {saved ? '✓ DAF Saved' : 'Save DAF Profile'}
+        </Button>
+      </CardBody>
+    </Card>
+  );
+}
 
 function OnboardingForm({ onDone }: { onDone: () => void }) {
   const [profession, setProfession] = useState('');
@@ -172,6 +409,18 @@ function ProfilePageInner() {
                 </div>
               ))}
             </div>
+            {(stats.xp_lifetime ?? 0) > 0 && (
+              <div className="mt-4 pt-4 flex items-center justify-between" style={{ borderTop: '1px solid var(--border)' }}>
+                <div>
+                  <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>Lifetime XP</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: 'var(--accent)' }}>⚡ {stats.xp_lifetime?.toLocaleString('en-IN')}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>This Month</div>
+                  <div className="text-xl font-bold tabular-nums" style={{ color: 'var(--warn)' }}>{stats.xp_monthly?.toLocaleString('en-IN')} XP</div>
+                </div>
+              </div>
+            )}
           </CardBody>
         </Card>
       )}
@@ -338,6 +587,21 @@ function ProfilePageInner() {
           Member since {formatDate(user.created_at)}
         </p>
       )}
+
+      <VoiceSettingsPanel user={user ?? null} />
+      <ElaraSettingsPanel user={user ?? null} />
+
+      {/* DAF — shown for UPSC/Civil Services users only */}
+      <DAFSection
+        isUpscUser={
+          !!(
+            meData?.onboarding?.profession?.toLowerCase().includes('upsc') ||
+            meData?.onboarding?.profession?.toLowerCase().includes('civil service') ||
+            meData?.onboarding?.profession?.toLowerCase().includes('ias') ||
+            meData?.onboarding?.profession?.toLowerCase().includes('ips')
+          )
+        }
+      />
 
       <Button variant="danger" className="w-full" onClick={handleLogout} loading={logout.isPending}>
         <LogOut className="w-4 h-4" /> Sign Out

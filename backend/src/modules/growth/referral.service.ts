@@ -8,14 +8,15 @@
  *   1. User gets a unique referral code (generated on first request).
  *   2. New user signs up with ?ref=CODE → code is attributed.
  *   3. When referred user completes their FIRST session → referrer gets reward.
- *   4. Reward: +10 bonus AI calls credited to the referrer's account.
- *      (Configurable via REFERRAL_BONUS_CALLS env var.)
+ *      (Trigger: first session completion, NOT just signup — prevents spam.)
+ *   4. Reward: plan-keyed bonus sessions credited to the referrer's current
+ *      month pool (usage.monthly_session_bonus). Does not roll over.
+ *      Free → +1 · Starter → +2 · Pro → +5 · Elite → +10
  *
- * DB schema additions (migration 003)
+ * DB schema additions (migration 003, updated migration 025)
  *   users table:
  *     referral_code    TEXT UNIQUE  — this user's shareable code
  *     referred_by      TEXT         — code used at signup
- *     referral_bonus   INT DEFAULT 0 — extra calls granted
  *
  *   referral_events table:
  *     id               UUID PRIMARY KEY DEFAULT gen_random_uuid()
@@ -23,6 +24,10 @@
  *     referred_id      UUID REFERENCES users(id)
  *     rewarded_at      TIMESTAMPTZ     — null until first session complete
  *     created_at       TIMESTAMPTZ DEFAULT now()
+ *
+ *   usage table (migration 025):
+ *     monthly_session_bonus          INT     — bonus sessions earned this month
+ *     monthly_session_bonus_reset_at TIMESTAMPTZ
  *
  * Usage
  *   // On signup (auth.service.ts):
@@ -32,20 +37,17 @@
  *   await maybeRewardReferrer(userId);
  *
  *   // In user profile endpoint:
- *   const { code, url } = await getOrCreateReferralCode(userId);
+ *   const info = await getOrCreateReferralCode(userId);
  */
 
-import { AppError } from '../../core/utils/errors';
-import { env }    from '../../core/config/env';
-import { db }     from '../../core/database/client';
-import { logger } from '../../infra/logger';
-import crypto     from 'crypto';
+import { AppError }                 from '../../core/utils/errors';
+import { env, PlanType, REFERRAL_BONUS_SESSIONS } from '../../core/config/env';
+import { db }                        from '../../core/database/client';
+import { logger }                    from '../../infra/logger';
+import crypto                        from 'crypto';
 
-const log = logger.child({ module: 'referral' });
-
-const BONUS_CALLS    = env.REFERRAL_BONUS_CALLS;
-const MAX_BONUS_CALLS = env.MAX_REFERRAL_BONUS_CALLS;
-const BASE_URL       = env.FRONTEND_URL;
+const log      = logger.child({ module: 'referral' });
+const BASE_URL = env.FRONTEND_URL;
 
 // Code generation
 
@@ -62,19 +64,19 @@ function generateCode(): string {
 // Public API
 
 export interface ReferralInfo {
-  code:         string;
-  url:          string;
-  uses:         number;   // how many people signed up with this code
-  rewarded:     number;   // how many completed a session (reward triggered)
-  bonus_calls:  number;   // total bonus calls earned
+  code:            string;
+  url:             string;
+  uses:            number;   // how many people signed up with this code
+  rewarded:        number;   // how many triggered a reward (completed first session)
+  bonus_sessions:  number;   // this month's bonus sessions from referrals
   // Share context
   // Pre-built copy for share buttons, success screens, and invite flows.
   // Computed once here so no frontend template string logic is needed.
   share_context: {
-    whatsapp_url: string;   // deep-links into WhatsApp with message pre-filled
-    copy_text:    string;   // plain text for "Copy link" button
-    invite_headline: string; // headline for the invite card / modal
-    reward_line:  string;   // e.g. "You both get 10 extra AI sessions"
+    whatsapp_url:    string;   // deep-links into WhatsApp with message pre-filled
+    copy_text:       string;   // plain text for "Copy link" button
+    invite_headline: string;   // headline for the invite card / modal
+    reward_line:     string;   // e.g. "Earn +2 bonus sessions this month"
   };
 }
 
@@ -104,23 +106,25 @@ export async function getOrCreateReferralCode(userId: string): Promise<ReferralI
     if (!code) throw new AppError(500, 'referral_code_generation_failed', 'Could not generate a unique referral code');
   }
 
-  const stats = await db.getReferralStats(userId);
+  const stats   = await db.getReferralStats(userId);
+  const plan    = (user.plan as PlanType) ?? 'free';
+  const bonusSessions = REFERRAL_BONUS_SESSIONS[plan];
 
-  const shareUrl    = `${BASE_URL}?ref=${code}`;
-  const copyText    = `Practice for your next interview with Aria on Vachix — get real-time feedback and English corrections from Elara too. Use my link and we both get ${BONUS_CALLS} extra AI sessions free: ${shareUrl}`;
-  const waMessage   = encodeURIComponent(`Hey! I've been using Vachix to prep for interviews and it's really good. Try it free — we both get ${BONUS_CALLS} bonus AI sessions: ${shareUrl}`);
+  const shareUrl  = `${BASE_URL}?ref=${code}`;
+  const copyText  = `Practice for your next interview with Aria on Vachix — get real-time feedback and English corrections from Elara too. Use my link and earn +${bonusSessions} bonus interview session${bonusSessions !== 1 ? 's' : ''} this month: ${shareUrl}`;
+  const waMessage = encodeURIComponent(`Hey! I've been using Vachix to prep for interviews and it's really good. Use my link — you get access and I earn +${bonusSessions} bonus sessions this month: ${shareUrl}`);
 
   return {
     code,
-    url:         shareUrl,
-    uses:        stats.uses,
-    rewarded:    stats.rewarded,
-    bonus_calls: stats.bonus_calls,
+    url:            shareUrl,
+    uses:           stats.uses,
+    rewarded:       stats.rewarded,
+    bonus_sessions: stats.bonus_sessions,
     share_context: {
       whatsapp_url:    `https://wa.me/?text=${waMessage}`,
       copy_text:       copyText,
-      invite_headline: 'Invite a friend, get more sessions',
-      reward_line:     `You both get ${BONUS_CALLS} extra AI sessions free`,
+      invite_headline: 'Invite friends, earn extra sessions',
+      reward_line:     `Earn +${bonusSessions} bonus session${bonusSessions !== 1 ? 's' : ''} this month when a friend completes their first interview`,
     },
   };
 }
@@ -150,27 +154,35 @@ export async function attributeReferral(
 }
 
 /**
- * Called after a user's first session is saved.
- * If this user was referred, rewards their referrer with bonus calls.
- * Idempotent — reward_at check prevents double-granting.
+ * Called after the referred user's FIRST session is saved.
+ * If this user was referred, rewards their referrer with plan-keyed bonus sessions.
+ * Idempotent — rewarded_at check prevents double-granting.
+ *
+ * Bonus amount is determined by the referrer's plan at reward time, not at
+ * signup time, so upgrading before the friend completes their session earns
+ * the higher tier bonus.
  */
 export async function maybeRewardReferrer(userId: string): Promise<void> {
   try {
     const event = await db.getPendingReferralEvent(userId);
     if (!event) return; // not referred, or already rewarded
 
-    // MAX_BONUS_CALLS is enforced atomically inside the RPC
-    // (LEAST(referral_bonus + p_amount, p_max)) — see migrations/007.
-    // Without a cap, a coordinated abuse pattern (disposable accounts all
-    // referring one account, each completing one session) grants unlimited
-    // free AI calls to the referrer.
-    await db.addBonusCalls(event.referrer_id, BONUS_CALLS, MAX_BONUS_CALLS);
+    // Look up referrer's current plan to determine plan-keyed bonus.
+    // One extra DB read, but this path is rare (only fires once per referred user).
+    const referrer     = await db.getUserById(event.referrer_id);
+    const referrerPlan = (referrer?.plan as PlanType) ?? 'free';
+    const bonusSessions = REFERRAL_BONUS_SESSIONS[referrerPlan];
+
+    // Atomic upsert into usage.monthly_session_bonus via RPC (migration 025).
+    // No cap param needed — the monthly reset is the natural ceiling.
+    await db.addBonusSessions(event.referrer_id, bonusSessions);
     await db.markReferralRewarded(event.id);
 
     log.info('Referral reward granted', {
-      referrerId: event.referrer_id,
-      referredId: userId,
-      bonusCalls: BONUS_CALLS,
+      referrerId:     event.referrer_id,
+      referredId:     userId,
+      referrerPlan,
+      bonusSessions,
     });
   } catch (err) {
     log.warn('Referral reward failed (non-fatal)', { error: (err as Error).message });

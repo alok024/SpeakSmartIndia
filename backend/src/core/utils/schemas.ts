@@ -27,6 +27,31 @@ export const OnboardingSchema = z.object({
   goal:       z.string().min(1).max(30),
 });
 
+// DAF — UPSC Detailed Application Form fields.
+// All fields optional; the save endpoint accepts whatever the user
+// has filled in so partial saves work (user can fill one field at a time).
+export const DAFSchema = z.object({
+  name:               z.string().max(100).nullable().optional(),
+  home_state:         z.string().max(60).nullable().optional(),
+  graduation_subject: z.string().max(100).nullable().optional(),
+  graduation_college: z.string().max(150).nullable().optional(),
+  optional_subject:   z.string().max(100).nullable().optional(),
+  // Comma-separated hobbies; we also accept arrays and join them
+  hobbies:            z.union([
+    z.string().max(200),
+    z.array(z.string().max(60)).max(3).transform(arr => arr.join(', ')),
+  ]).nullable().optional(),
+  work_experience:    z.string().max(500).nullable().optional(),
+  extracurriculars:   z.string().max(300).nullable().optional(),
+});
+
+export const CompanyModeSchema = z.object({
+  company_mode: z.enum(['tcs', 'infosys', 'wipro', 'accenture', 'amazon', 'google', 'flipkart']).nullable(),
+});
+
+export type DAFSchema        = z.infer<typeof DAFSchema>;
+export type CompanyModeDTO   = z.infer<typeof CompanyModeSchema>;
+
 export const ResetPasswordSchema = z.object({
   token:        z.string().min(1, 'Token is required'),
   new_password: z.string().min(8, 'Password must be at least 8 characters'),

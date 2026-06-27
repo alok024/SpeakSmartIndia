@@ -35,6 +35,8 @@ import { pushRouter }    from './modules/push/push.routes';
 import interviewRoutes   from './modules/interview/interview.routes';
 import speechRoutes      from './modules/speech/speech.routes';
 import prepPathsRoutes   from './modules/prep-paths/prep-paths.routes';
+import elaraRoutes       from './modules/elara/elara.routes';
+import leaderboardRoutes from './modules/analytics/leaderboard.routes';
 import { registerShutdownFlush } from './modules/analytics/events.service';
 import { initVapid } from './modules/analytics/weekly-card.service';
 
@@ -276,6 +278,8 @@ app.use('/api',          pushRouter);
 app.use('/api/interview',      interviewRoutes);
 app.use('/api/speech-metrics', speechRoutes);
 app.use('/api/prep-paths',    prepPathsRoutes);
+app.use('/api/elara',         elaraRoutes);
+app.use('/api/leaderboard',  leaderboardRoutes);
 
 registerShutdownFlush();
 

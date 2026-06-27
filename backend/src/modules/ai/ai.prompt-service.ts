@@ -19,7 +19,7 @@ import { AIMessage }                                   from './ai.service';
 import { getUserMemoryContext }                        from './ai.memory';
 import { getWeakAreaPromptContext }                    from '../analytics/weak_areas.service';
 import { getAdaptiveBehaviorContext }                  from './ai-adaptive';
-import { getOnboardingPromptContext, getPersonaBucket } from './onboarding-context';
+import { getOnboardingPromptContext, getPersonaBucket, getDAFPromptContext, getCompanyModePromptContext } from './onboarding-context';
 import { env }                                        from '../../core/config/env';
 import { aiLogger }                                   from '../../infra/logger';
 import { trimMessagesToTokenBudget }                  from '../../core/utils/tokens';
@@ -69,6 +69,38 @@ export interface PromptContext {
   trimmedCount:    number;
 }
 
+// Track-scoped personalisation gating
+//
+// DAF (UPSC Detailed Application Form) and company-mode context are tied to
+// specific tracks/professions — DAF only makes sense for UPSC sessions,
+// company mode only for Software Developer / Full Stack Developer / Data
+// Scientist sessions with a company selected. Both are stored on the user's
+// row (persisted once, reused across sessions), so without an explicit check
+// against *this session's* topic they would otherwise leak into unrelated
+// interviews — e.g. a user who once filled their UPSC DAF getting "you
+// mentioned mountaineering as a hobby" questions injected into a Software
+// Developer mock interview, or a stale Amazon company-mode selection
+// bleeding into a UPSC session.
+//
+// Keyword sets mirror the matching already used client-side (DAFSection's
+// isUpscUser check in profile/page.tsx) and the canonical TrackMeta.profession
+// strings in frontend/lib/interview-prompts.ts, so a custom/free-typed
+// profession ("IAS Officer", "Senior Software Developer") still gates the
+// same way a track-picker selection would.
+
+const UPSC_TOPIC_KEYWORDS = ['upsc', 'civil service', 'ias', 'ips', 'ifs', 'irs'];
+const COMPANY_MODE_TOPIC_KEYWORDS = ['software developer', 'full stack developer', 'data scientist'];
+
+function isUpscTopic(topic: string | undefined | null): boolean {
+  const t = (topic || '').toLowerCase();
+  return UPSC_TOPIC_KEYWORDS.some((k) => t.includes(k));
+}
+
+function isCompanyModeEligibleTopic(topic: string | undefined | null): boolean {
+  const t = (topic || '').toLowerCase();
+  return COMPANY_MODE_TOPIC_KEYWORDS.some((k) => t.includes(k));
+}
+
 // Main export
 //
 // Builds a fully personalised message array for a given user + plan + topic.
@@ -100,6 +132,33 @@ export async function buildPromptContext(
   };
   const onboardingContext = getOnboardingPromptContext(onboardingData);
 
+  // DAF context — UPSC sessions only; no-op for all other tracks.
+  // Gated on the CURRENT session's topic (not just "does the user have DAF
+  // data saved"), so a user who filled their DAF for UPSC prep doesn't get
+  // it injected into an unrelated track's session.
+  const dafContext = isUpscTopic(topic)
+    ? getDAFPromptContext({
+        name:               dbUser?.daf_name,
+        home_state:         dbUser?.daf_home_state,
+        graduation_subject: dbUser?.daf_graduation_subject,
+        graduation_college: dbUser?.daf_graduation_college,
+        optional_subject:   dbUser?.daf_optional_subject,
+        hobbies:            dbUser?.daf_hobbies,
+        work_experience:    dbUser?.daf_work_experience,
+        extracurriculars:   dbUser?.daf_extracurriculars,
+      })
+    : '';
+
+  // Company-mode context — injected only when this session's topic is one
+  // of the three tracks that support campus company-mode (Software
+  // Developer / Full Stack Developer / Data Scientist) AND the user has a
+  // company target saved. Without the topic gate, a stale last_company_mode
+  // from a previous SDE session would otherwise leak into e.g. a UPSC or
+  // Bank PO session.
+  const companyModeContext = isCompanyModeEligibleTopic(topic)
+    ? getCompanyModePromptContext(dbUser?.last_company_mode)
+    : '';
+
   // Adaptive coaching layer — Pro/Elite only
   const adaptive = (hasPersonalisation && userStats)
     ? getAdaptiveBehaviorContext({
@@ -120,7 +179,7 @@ export async function buildPromptContext(
   // Assemble the base system prompt from session-invariant context layers.
   // Tone detection is intentionally NOT included here — it is per-turn and
   // is appended after this function returns (see below).
-  const systemPrompt = BASE_SYSTEM_PROMPT + onboardingContext + memoryContext + weakAreaContext + adaptiveContext;
+  const systemPrompt = BASE_SYSTEM_PROMPT + onboardingContext + dafContext + companyModeContext + memoryContext + weakAreaContext + adaptiveContext;
 
   // Tone detection — per-turn, so applied here (not cached).
   // Appends a short coaching-style nudge based on the last user message.
@@ -157,7 +216,7 @@ export async function buildPromptContext(
   // response carries per-user context; the cache layer (ai-cache.ts) uses
   // that to bucket the key by userId and apply a short TTL, so retries are
   // deduplicated without leaking one user's coaching context to another.
-  const personalised = !!(memoryContext || weakAreaContext || adaptiveContext || onboardingContext);
+  const personalised = !!(memoryContext || weakAreaContext || adaptiveContext || onboardingContext || dafContext || companyModeContext);
   const cacheable     = true;
   const personaKey    = getPersonaBucket(onboardingData);
 

@@ -72,6 +72,11 @@ const EnvSchema = z.object({
   // Bulbul v3 supports en-IN natively for Indian-English accent.
   SARVAM_EN_LANG_CODE: z.string().default('en-IN'),
 
+  // Free-tier Web Speech API cap: ~15 min/month at natural speech pace
+  // (~60 chars/s → 54,000 chars/month). Zero cost to us (browser TTS),
+  // capped server-side to create a gap vs paid plans.
+  FREE_TTS_CHAR_CAP: z.coerce.number().int().positive().default(54_000),
+
   // Razorpay — live keys (required)
   RAZORPAY_KEY_ID:         z.string().min(1),
   RAZORPAY_KEY_SECRET:     z.string().min(1),
@@ -132,14 +137,6 @@ const EnvSchema = z.object({
   AI_PROMPT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(1800),
   CB_FAILURE_THRESHOLD:    z.coerce.number().int().positive().default(5),
   CB_RESET_TIMEOUT_MS:     z.coerce.number().int().positive().default(60_000),
-  REFERRAL_BONUS_CALLS:    z.coerce.number().int().nonnegative().default(10),
-  // hard ceiling on accumulated referral_bonus per user. Without
-  // this, a coordinated abuse pattern (disposable accounts all referring one
-  // account, each completing a single session) grants unlimited free AI
-  // calls. Enforced atomically inside the increment_referral_bonus RPC
-  // (see migrations/007_referral_bonus_cap.sql) via LEAST(), not in app
-  // code, so concurrent reward grants can't race past the cap.
-  MAX_REFERRAL_BONUS_CALLS: z.coerce.number().int().positive().default(50),
 
   // Web Push / VAPID (migration 015 — weekly progress cards)
   // Generate a keypair with: npx web-push generate-vapid-keys
@@ -161,8 +158,19 @@ const EnvSchema = z.object({
   // starter: 600 s = 10 min  (enough for ~20 short TTS calls)
   // pro:     3600 s = 60 min
   // elite:   -1   = unlimited
-  VOICE_CAP_STARTER:       z.coerce.number().int().default(600),
-  VOICE_CAP_PRO:           z.coerce.number().int().default(3600),
+  // Sarvam voice balance (Aria questions + Elara corrections share one pool).
+  // Starter: 10 min; Pro/Elite: 40 min. Elara is Pro+ only (gated upstream),
+  // but both voices debit the same pool — one debit type, one reset, one balance shown.
+  VOICE_CAP_STARTER:       z.coerce.number().int().default(600),   // 10 min
+  VOICE_CAP_PRO:           z.coerce.number().int().default(2400),  // 40 min (Pro + Elite share same cap)
+
+  // Avatar (Simli WebRTC) — separate minute pool, billed per-minute of active
+  // connection (fundamentally different from TTS characters). -1 = unlimited.
+  // Starter: 10 min taste (2-3 sessions); Pro: 40 min; Elite: 80 min.
+  // Resets 1st of month IST alongside voice. No streak bonus for avatar.
+  AVATAR_CAP_STARTER:      z.coerce.number().int().default(600),   // 10 min
+  AVATAR_CAP_PRO:          z.coerce.number().int().default(2400),  // 40 min
+  AVATAR_CAP_ELITE:        z.coerce.number().int().default(4800),  // 80 min
   // Hard ceiling on streak-milestone bonus voice seconds a user can
   // accumulate. Enforced via LEAST() inside the RPC (same as referral cap).
   MAX_BONUS_VOICE_SECONDS: z.coerce.number().int().positive().default(3600),
@@ -261,6 +269,33 @@ export const PLAN_LIMITS: Record<PlanType, { ai_calls: number }> = {
  * (session_limit returned from /me drives that UI, so they stay consistent automatically).
  */
 export const SESSION_CAP_FREE = 3;
+
+/**
+ * Monthly session cap for Starter-tier users.
+ * Pro and Elite have no session cap (-1 = unlimited).
+ * The effective cap at enforcement time is SESSION_CAP_STARTER + usage.monthly_session_bonus
+ * (bonus sessions earned via referrals this month).
+ */
+export const SESSION_CAP_STARTER = 30;
+
+/**
+ * Bonus sessions granted to the REFERRER per successful referral
+ * (triggered when the referred user completes their first session).
+ * Amount is plan-keyed on the referrer's current plan at reward time.
+ * Bonus is credited to usage.monthly_session_bonus and does NOT roll over.
+ */
+export const REFERRAL_BONUS_SESSIONS: Record<PlanType, number> = {
+  // Free-plan referrers earn +1 bonus session when their referred friend
+  // completes a first session.  The spec covers Starter/Pro/Elite explicitly;
+  // free is a deliberate defensive default so the map stays total over
+  // PlanType and the reward path never has to handle a missing key.
+  // If the product decision changes (free referrers earn nothing), set this
+  // to 0 — the addBonusSessions RPC is a no-op for a 0-delta.
+  free:    1,
+  starter: 2,
+  pro:     5,
+  elite:   10,
+};
 
 /**
  * In paise (INR × 100).

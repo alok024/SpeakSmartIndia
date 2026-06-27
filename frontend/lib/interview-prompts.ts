@@ -1,5 +1,409 @@
 import { InterviewType } from '@/types';
 
+// ─── Track + Topic bucket registry ───────────────────────────────────────────
+// Each track maps to an ordered list of topic buckets the user can pick on the
+// setup screen. The selected bucket(s) are injected into every Aria system
+// prompt so practice stays targeted instead of random.
+
+export interface TrackMeta {
+  icon: string;
+  hint: string;
+  /** Canonical profession string passed to getProfessionContext */
+  profession: string;
+  topics: string[];
+}
+
+export const TRACKS: Record<string, TrackMeta> = {
+  // ── Existing 10 ──────────────────────────────────────────────────────────
+  'UPSC / Civil Services': {
+    icon: '🏛️',
+    hint: 'IAS, IPS, IFS, IRS — DAF & ethics panel',
+    profession: 'UPSC Civil Services',
+    topics: [
+      'Philosophy / Optional Subject',
+      'Current Affairs',
+      'Ethics & Integrity',
+      'Governance',
+      'International Relations',
+      'DAF-based Personal Questions',
+    ],
+  },
+  'Bank PO': {
+    icon: '🏦',
+    hint: 'IBPS PO format — GK, awareness, motivation',
+    profession: 'Bank PO',
+    topics: [
+      'Banking Awareness',
+      'Current Affairs',
+      'Quantitative Aptitude Concepts',
+      'English Language',
+      'Personality & Motivation',
+      'General Awareness',
+    ],
+  },
+  'SSC CGL': {
+    icon: '📋',
+    hint: 'Tier I & II — reasoning, GK, English',
+    profession: 'SSC CGL',
+    topics: [
+      'General Intelligence & Reasoning',
+      'General Awareness',
+      'Quantitative Aptitude',
+      'English Comprehension',
+      'Personality & Motivation',
+    ],
+  },
+  'Software Developer': {
+    icon: '💻',
+    hint: 'SDE / SWE — DSA, system design, behavioural',
+    profession: 'Software Developer',
+    topics: [
+      'Data Structures & Algorithms',
+      'System Design',
+      'Object-Oriented Programming',
+      'Coding Practices & Code Review',
+      'Behavioural / HR',
+      'Distributed Systems',
+    ],
+  },
+  'Data Scientist': {
+    icon: '📊',
+    hint: 'ML, stats, SQL, case studies',
+    profession: 'Data Scientist',
+    topics: [
+      'Statistics & Probability',
+      'Machine Learning Algorithms',
+      'Deep Learning & NLP',
+      'SQL & Data Engineering',
+      'Model Evaluation & MLOps',
+      'Case Studies',
+    ],
+  },
+  'Doctor / Medical': {
+    icon: '🩺',
+    hint: 'Clinical scenarios, ethics, MBBS HR round',
+    profession: 'Doctor / Medical',
+    topics: [
+      'Clinical Reasoning & Diagnosis',
+      'Medical Ethics',
+      'Patient Communication',
+      'National Health Programmes',
+      'Research & Evidence-Based Medicine',
+      'Behavioural / HR',
+    ],
+  },
+  'Teacher / Educator': {
+    icon: '📚',
+    hint: 'NEP 2020, pedagogy, demo lesson format',
+    profession: 'Teacher',
+    topics: [
+      'Pedagogy & Teaching Methods',
+      'Classroom Management',
+      'NEP 2020 & Education Policy',
+      'Inclusive Education',
+      'EdTech Tools',
+      'Behavioural / HR',
+    ],
+  },
+  'Marketing Manager': {
+    icon: '📣',
+    hint: 'Go-to-market, growth, brand, digital',
+    profession: 'Marketing Manager',
+    topics: [
+      'Go-to-Market Strategy',
+      'Digital Marketing Channels',
+      'Brand & Positioning',
+      'Metrics & Analytics',
+      'Campaign Case Studies',
+      'Behavioural / HR',
+    ],
+  },
+  'Full Stack Developer': {
+    icon: '🖥️',
+    hint: 'Frontend + backend + deployment',
+    profession: 'Full Stack Developer',
+    topics: [
+      'Frontend (React, CSS, Performance)',
+      'Backend (Node, APIs, Auth)',
+      'Databases (SQL & NoSQL)',
+      'System Design & Architecture',
+      'DevOps & CI/CD',
+      'Behavioural / HR',
+    ],
+  },
+  'Police / Defence': {
+    icon: '🪖',
+    hint: 'SSB, GD, personality test, leadership',
+    profession: 'Police / Defence',
+    topics: [
+      'Motivation & Service Values',
+      'Situational Judgement',
+      'Physical & Mental Fitness',
+      'Constitutional & Legal Knowledge',
+      'Leadership Scenarios',
+      'Current Affairs & National Security',
+    ],
+  },
+
+  // ── New 15 ────────────────────────────────────────────────────────────────
+  'RBI Grade B': {
+    icon: '🏧',
+    hint: 'Macro, monetary policy, finance-heavy',
+    profession: 'RBI Grade B Officer',
+    topics: [
+      'Monetary Policy & Macroeconomics',
+      'Financial Markets & Instruments',
+      'Banking Regulation & RBI Functions',
+      'Indian Economy & Budget',
+      'Current Affairs (Finance)',
+      'Personality & Motivation',
+    ],
+  },
+  'IBPS PO': {
+    icon: '💳',
+    hint: 'IBPS PO — awareness, aptitude, HR',
+    profession: 'IBPS PO',
+    topics: [
+      'Banking & Financial Awareness',
+      'Current Affairs',
+      'Quantitative Aptitude Concepts',
+      'Reasoning & Analytical Ability',
+      'English Language',
+      'Personality & Motivation',
+    ],
+  },
+  'IBPS Clerk': {
+    icon: '🗂️',
+    hint: 'Clerk-level — foundational awareness & English',
+    profession: 'IBPS Clerk',
+    topics: [
+      'Numerical Ability',
+      'General English',
+      'General Awareness',
+      'Computer Literacy',
+      'Personality & Motivation',
+    ],
+  },
+  'SBI PO': {
+    icon: '🏦',
+    hint: 'SBI-specific culture, leadership, GD rounds',
+    profession: 'SBI PO',
+    topics: [
+      'SBI & Banking Awareness',
+      'Current Affairs',
+      'Quantitative Aptitude',
+      'Group Discussion Topics',
+      'SBI Culture & Values',
+      'Personality & Motivation',
+    ],
+  },
+  'NABARD': {
+    icon: '🌾',
+    hint: 'Rural development, agriculture finance',
+    profession: 'NABARD Officer',
+    topics: [
+      'Rural Development & Agriculture',
+      'Microfinance & SHGs',
+      'Agricultural Credit & Priority Sector',
+      'Government Rural Schemes',
+      'Economic Geography',
+      'Personality & Motivation',
+    ],
+  },
+  'State PSC (Generic)': {
+    icon: '🗳️',
+    hint: 'State civil services — general GK & ethics',
+    profession: 'State PSC Officer',
+    topics: [
+      'State-specific GK & History',
+      'Indian Polity & Constitution',
+      'Current Affairs',
+      'Ethics & Integrity',
+      'Governance & Rural Administration',
+      'Personality & Motivation',
+    ],
+  },
+  'Maharashtra PSC': {
+    icon: '🟠',
+    hint: 'MPSC — Maharashtra history, geography, GK',
+    profession: 'Maharashtra PSC Officer',
+    topics: [
+      'Maharashtra History & Culture',
+      'Maharashtra Geography & Economy',
+      'State Government Schemes',
+      'Indian Polity & Constitution',
+      'Current Affairs',
+      'Ethics & Personality',
+    ],
+  },
+  'UP PSC': {
+    icon: '🏯',
+    hint: 'UPPSC — UP-specific GK, Awadh, governance',
+    profession: 'UP PSC Officer',
+    topics: [
+      'Uttar Pradesh History & Culture',
+      'UP Geography & Economy',
+      'State Government Schemes',
+      'Indian Polity & Constitution',
+      'Current Affairs',
+      'Ethics & Personality',
+    ],
+  },
+  'Judicial Services': {
+    icon: '⚖️',
+    hint: 'IPC, CPC, legal reasoning, case analysis',
+    profession: 'Judicial Services',
+    topics: [
+      'Indian Penal Code (IPC)',
+      'Code of Civil Procedure (CPC)',
+      'Code of Criminal Procedure (CrPC)',
+      'Constitutional Law',
+      'Legal Reasoning & Case Analysis',
+      'Personality & Motivation',
+    ],
+  },
+  'NDA / CDS': {
+    icon: '🎖️',
+    hint: 'Defence motivation, leadership, SSB scenarios',
+    profession: 'NDA/CDS Officer Cadet',
+    topics: [
+      'Defence Motivation & Values',
+      'Leadership & Teamwork Scenarios',
+      'Current Affairs & National Security',
+      'General Knowledge',
+      'Physical Fitness & Discipline',
+      'Personality Assessment',
+    ],
+  },
+  'Railway NTPC': {
+    icon: '🚂',
+    hint: 'Technical + general awareness, Railway GK',
+    profession: 'Railway NTPC',
+    topics: [
+      'Railway GK & Awareness',
+      'General Science & Technology',
+      'Quantitative Aptitude',
+      'Reasoning Ability',
+      'Current Affairs',
+      'Personality & Motivation',
+    ],
+  },
+  'LIC AAO': {
+    icon: '📄',
+    hint: 'Insurance domain, actuarial basics, GK',
+    profession: 'LIC AAO (Insurance Officer)',
+    topics: [
+      'Insurance & Risk Management',
+      'LIC Products & Policies',
+      'Financial Awareness',
+      'Current Affairs',
+      'English Language',
+      'Personality & Motivation',
+    ],
+  },
+  'MBA Interview (IIM/XLRI)': {
+    icon: '🎓',
+    hint: 'Case-based, fit questions, Why MBA',
+    profession: 'MBA Aspirant (IIM/XLRI)',
+    topics: [
+      'Why MBA & Career Goals',
+      'Case Study Analysis',
+      'Current Affairs & Business',
+      'Leadership & Work Experience',
+      'Academic Background',
+      'Extracurriculars & Achievements',
+    ],
+  },
+  'CA Fresher': {
+    icon: '📑',
+    hint: 'Accounting standards, audit, IND AS',
+    profession: 'Chartered Accountant (Fresher)',
+    topics: [
+      'Financial Accounting & Reporting',
+      'Auditing & Assurance',
+      'Taxation (Direct & Indirect)',
+      'IND AS / IFRS Standards',
+      'Company Law & Compliance',
+      'Behavioural / HR',
+    ],
+  },
+  'NGO / Development Sector': {
+    icon: '🤝',
+    hint: 'Social impact, donor communication, fieldwork',
+    profession: 'NGO and Social Sector',
+    topics: [
+      'Social Impact & Theory of Change',
+      'Donor Relations & Fundraising',
+      'Community Mobilisation',
+      'Monitoring, Evaluation & Learning',
+      'Government Scheme Linkages',
+      'Behavioural / HR',
+    ],
+  },
+  'Startup / Early-Stage': {
+    icon: '🚀',
+    hint: 'Founder mindset, product sense, hustle',
+    profession: 'Startup Professional',
+    topics: [
+      'Founder Mindset & Risk Tolerance',
+      'Product Sense & User Research',
+      'Go-to-Market & Growth Hacking',
+      'Fundraising & Investor Relations',
+      'Team Building & Culture',
+      'Failure & Learning Stories',
+    ],
+  },
+  'Product Manager': {
+    icon: '🗺️',
+    hint: 'PRD, metrics, prioritisation, product sense',
+    profession: 'Product Manager',
+    topics: [
+      'Product Sense & Design',
+      'Metrics & Analytics',
+      'Roadmap Prioritisation',
+      'Technical Collaboration',
+      'User Research',
+      'Behavioural / HR',
+    ],
+  },
+  'DevOps / SRE': {
+    icon: '🛠️',
+    hint: 'Incident management, on-call, reliability',
+    profession: 'DevOps / SRE Engineer',
+    topics: [
+      'CI/CD & Deployment Pipelines',
+      'Incident Management & Post-Mortems',
+      'Infrastructure as Code',
+      'Kubernetes & Container Orchestration',
+      'Monitoring & Observability',
+      'Behavioural / HR',
+    ],
+  },
+  'UI/UX Designer': {
+    icon: '🎨',
+    hint: 'Portfolio walkthrough, design critique, process',
+    profession: 'UI/UX Designer',
+    topics: [
+      'Design Process & UX Research',
+      'Portfolio Walkthrough',
+      'Visual Design & Typography',
+      'Interaction Design & Prototyping',
+      'Accessibility & Inclusive Design',
+      'Behavioural / HR',
+    ],
+  },
+};
+
+/**
+ * Returns a one-line topic constraint injected into every Aria system prompt
+ * so questions stay inside the buckets the user selected.
+ */
+export function getTopicConstraint(selectedTopics: string[]): string {
+  if (!selectedTopics || selectedTopics.length === 0) return '';
+  const list = selectedTopics.map((t) => `"${t}"`).join(', ');
+  return `TOPIC CONSTRAINT: Draw all questions exclusively from these topic bucket(s): ${list}. Do not stray into other areas.`;
+}
+
 /**
  * Full port of getProfessionContext() from session.js.
  * Returns a rich system prompt segment for a given profession + interview type.

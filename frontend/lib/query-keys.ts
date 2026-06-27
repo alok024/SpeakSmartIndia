@@ -21,4 +21,7 @@ export const QK = {
   referral: ['referral'] as const,
   readinessReport: ['readiness-report'] as const,
   speechTrend:     ['speech-trend'] as const,
+  elaraJourney:    ['elara-journey'] as const,
+  elaraVocab:      ['elara-vocab'] as const,
+  leaderboard:     ['leaderboard'] as const,
 };

@@ -58,3 +58,36 @@ export function useReadinessReport(enabled: boolean) {
     staleTime: 5 * 60_000,   // report only regenerates every 5 sessions
   });
 }
+
+// English Journey chart (Pro+ — Elara session history)
+export function useElaraJourney(enabled: boolean) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+
+  return useQuery({
+    queryKey: QK.elaraJourney,
+    queryFn: async () => {
+      const { elaraApi } = await import('@/features/elara/api');
+      const res = await elaraApi.getSessions(60);
+      if (!res.ok) throw new Error('Failed to fetch Elara journey');
+      return res.data.sessions;
+    },
+    enabled: isAuthenticated && enabled,
+    staleTime: 5 * 60_000,
+  });
+}
+
+// Leaderboard (all authenticated users)
+export function useLeaderboard() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+
+  return useQuery({
+    queryKey: QK.leaderboard,
+    queryFn: async () => {
+      const res = await analyticsApi.getLeaderboard();
+      if (!res.ok) throw new Error('Failed to fetch leaderboard');
+      return res.data;
+    },
+    enabled: isAuthenticated,
+    staleTime: 2 * 60_000,  // refresh every 2 min — leaderboard is near-realtime
+  });
+}

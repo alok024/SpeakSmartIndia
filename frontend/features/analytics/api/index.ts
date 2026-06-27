@@ -18,4 +18,18 @@ export const analyticsApi = {
 
   getReadinessCertificateToken: () =>
     apiCall<{ token: string; cert_url: string }>('/sessions/readiness-report/certificate-token'),
+
+  getLeaderboard: () =>
+    apiCall<{
+      entries: Array<{ rank: number; display_name: string; xp_weekly: number; xp_lifetime: number; streak: number }>;
+      me: {
+        rank: number | null;
+        xp_weekly: number;
+        xp_lifetime: number;
+        streak: number;
+        in_top_50: boolean;
+        is_competitive: boolean;   // false for Free/Starter → show blur/upsell
+      };
+      resets_next_sunday: boolean;
+    }>('/leaderboard'),
 };

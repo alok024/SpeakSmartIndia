@@ -1,10 +1,11 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/middleware';
 import { env } from '../../core/config/env';
-import { badRequest, fail } from '../../core/utils/response';
+import { badRequest, fail, ok } from '../../core/utils/response';
 import { getRedis } from '../../infra/queue/redis';
 import { logger } from '../../infra/logger';
-import { debitVoiceSeconds } from './voice.ledger';
+import { debitVoiceSeconds, debitAvatarSeconds } from './voice.ledger';
+import { db } from '../../core/database/client';
 import {
   checkBreaker,
   recordSuccess,
@@ -311,4 +312,202 @@ export const textToSpeechWarmup = asyncHandler(async (req: Request, res: Respons
     }
     throw err;
   }
+});
+
+// ── Migration 019: Voice settings (HD toggle) + Free TTS gate/debit ──────────
+
+// GET /api/voice/settings
+// Returns hd_voice_enabled preference + quota info for the current user.
+// Free users: { plan: 'free', chars_used, chars_cap, hd_voice_enabled: false }
+// Paid users: { plan, hd_voice_enabled, hd_quota_reset? }
+export const getVoiceSettings = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const plan   = req.user!.plan;
+
+  if (plan === 'free') {
+    const charsUsed = await db.getFreeTtsCharsUsed(userId).catch(() => 0);
+    ok(res, {
+      plan,
+      hd_voice_enabled: false,
+      chars_used: charsUsed,
+      chars_cap:  env.FREE_TTS_CHAR_CAP,
+      // ISO date of first day of next IST month — when the cap resets
+      quota_resets_at: (() => {
+        const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+        return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
+      })(),
+    });
+    return;
+  }
+
+  const [hdEnabled, voiceUsage] = await Promise.all([
+    db.getHdVoiceEnabled(userId).catch(() => false),
+    db.getVoiceUsage(userId).catch(() => null),
+  ]);
+
+  // Sarvam voice balance (Aria + Elara share one pool)
+  const planVoiceCaps: Record<string, number> = {
+    starter: env.VOICE_CAP_STARTER,
+    pro:     env.VOICE_CAP_PRO,
+    elite:   env.VOICE_CAP_PRO,
+  };
+  const voiceCapSecs  = planVoiceCaps[plan] ?? env.VOICE_CAP_STARTER;
+  const voiceUsedSecs = voiceUsage?.voice_seconds_used ?? 0;
+  const bonusSecs     = voiceUsage?.bonus_voice_seconds ?? 0;
+  const effectiveVoiceCap = voiceCapSecs + bonusSecs;
+  const hdExhausted   = voiceUsedSecs >= effectiveVoiceCap;
+
+  // Avatar (Simli) balance — separate pool
+  const planAvatarCaps: Record<string, number> = {
+    starter: env.AVATAR_CAP_STARTER,
+    pro:     env.AVATAR_CAP_PRO,
+    elite:   env.AVATAR_CAP_ELITE,
+  };
+  const avatarCapSecs  = planAvatarCaps[plan] ?? 0;
+  const avatarUsedSecs = voiceUsage?.avatar_seconds_used ?? 0;
+  const avatarExhausted = avatarCapSecs > 0 && avatarUsedSecs >= avatarCapSecs;
+
+  const nextMonthReset = (() => {
+    const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+    return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1)).toISOString();
+  })();
+
+  ok(res, {
+    plan,
+    hd_voice_enabled:            hdEnabled,
+    hd_exhausted:                hdExhausted,
+    hd_quota_reset:              hdExhausted ? nextMonthReset : null,
+    // Sarvam voice balance
+    voice_seconds_used:          voiceUsedSecs,
+    voice_cap_seconds:           effectiveVoiceCap,
+    voice_seconds_remaining:     Math.max(0, effectiveVoiceCap - voiceUsedSecs),
+    // Avatar balance — separate pool
+    avatar_seconds_used:         avatarUsedSecs,
+    avatar_cap_seconds:          avatarCapSecs,
+    avatar_seconds_remaining:    avatarCapSecs > 0 ? Math.max(0, avatarCapSecs - avatarUsedSecs) : null,
+    avatar_exhausted:            avatarExhausted,
+    avatar_quota_reset:          avatarExhausted ? nextMonthReset : null,
+  });
+});
+
+// PATCH /api/voice/settings
+// Body: { hd_voice_enabled: boolean }
+// Persists HD voice toggle. Only accessible to paid users (requireVoiceTier on route).
+export const updateVoiceSettings = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { hd_voice_enabled } = req.body as { hd_voice_enabled?: boolean };
+
+  if (typeof hd_voice_enabled !== 'boolean') {
+    badRequest(res, 'hd_voice_enabled must be a boolean', 'invalid_hd_toggle');
+    return;
+  }
+
+  await db.setHdVoiceEnabled(userId, hd_voice_enabled);
+  ok(res, { hd_voice_enabled });
+});
+
+// POST /api/voice/free-tts-gate
+// Body: { chars: number }
+//
+// ⚠ KNOWN ARCHITECTURAL LIMITATION (Bug 2 / intentional design decision):
+// This gate is a SOFT CAP, not a hard server-side enforcement.
+// Web Speech API (window.speechSynthesis) is a browser-native feature —
+// the server has no ability to intercept or prevent a browser TTS call.
+// A determined client can skip this gate call or ignore `allowed: false`
+// and the browser will still speak.
+//
+// The REAL enforcement for free users is requireVoiceTier in voice.routes.ts,
+// which blocks free users from POST /api/voice/tts (Sarvam HD voice) entirely.
+// This gate is a courtesy counter so free users get a clear UI indication when
+// their 15-minute Web Speech warm-up is exhausted, not a security boundary.
+//
+// If a hard cap on free Web Speech is needed in the future, route free users
+// through a dedicated server-side TTS endpoint that debits before streaming
+// audio back (no client-side speech call at all). See audit notes.
+//
+// Returns { allowed: boolean, chars_used: number, chars_cap: number }.
+// Fails open on DB error so a transient outage never silences a session.
+export const freeTtsGate = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { chars } = req.body as { chars?: number };
+
+  if (!chars || typeof chars !== 'number' || chars < 1) {
+    badRequest(res, 'chars must be a positive integer', 'invalid_chars');
+    return;
+  }
+
+  let charsUsed = 0;
+  try {
+    charsUsed = await db.getFreeTtsCharsUsed(userId);
+  } catch {
+    // Fail-open: DB error → allow the TTS call
+    ok(res, { allowed: true, chars_used: 0, chars_cap: env.FREE_TTS_CHAR_CAP });
+    return;
+  }
+
+  const allowed = charsUsed + chars <= env.FREE_TTS_CHAR_CAP;
+  ok(res, {
+    allowed,
+    chars_used: charsUsed,
+    chars_cap:  env.FREE_TTS_CHAR_CAP,
+  });
+});
+
+// POST /api/voice/free-tts-debit
+// Body: { chars: number }
+// Called client-side on utterance.onend — debits chars after speech completes.
+// Fire-and-forget: always returns 200, non-fatal on DB error.
+//
+// Note: this endpoint trusts the client-supplied `chars` value. A client could
+// inflate or deflate the count. This is an accepted trade-off: since the
+// Web Speech API cannot be intercepted server-side (see freeTtsGate above),
+// precise enforcement is not achievable without routing through a server-side
+// TTS endpoint. The counter's purpose is UX (showing remaining quota), not
+// billing — so client-supplied counts are acceptable at this stage.
+export const freeTtsDebit = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user!.id;
+  const { chars } = req.body as { chars?: number };
+
+  if (chars && typeof chars === 'number' && chars > 0) {
+    db.incrementFreeTtsChars(userId, chars).catch((err: Error) => {
+      log.warn('freeTtsDebit: failed to increment chars', { userId, error: err.message });
+    });
+  }
+
+  ok(res, { debited: true });
+});
+
+// ── Avatar (Simli) session gate + debit ─────────────────────────────────────
+
+// POST /api/voice/avatar/start
+// Gate has already passed (requireAvatarQuota). Return the seconds remaining
+// so the client can schedule a self-termination timer and show the balance.
+// When remaining drops to zero mid-session the client receives a
+// `avatar_session_ended` event via its own polling or the server push below.
+export const avatarSessionStart = asyncHandler(async (req: Request, res: Response) => {
+  const remaining = (req as Request & { avatarSecondsRemaining?: number }).avatarSecondsRemaining;
+
+  ok(res, {
+    avatar_seconds_remaining: remaining ?? null,
+    // Client should call /avatar/end after this many seconds (or sooner if
+    // the user closes the avatar manually). Null = unlimited (should not
+    // happen with current plan structure, but safe to surface).
+    auto_end_after_secs: remaining ?? null,
+  });
+});
+
+// POST /api/voice/avatar/end
+// Body: { duration_secs: number }
+// Debits the actual WebRTC session duration. Called by:
+//   1. Client onunload / manual close
+//   2. Client self-termination timer (avatar_seconds_remaining countdown)
+//   3. Any server-push "avatar_session_ended" event handler on the client
+// Always returns 200 — debit is fire-and-forget and must not fail the client.
+export const avatarSessionEnd = asyncHandler(async (req: Request, res: Response) => {
+  const { duration_secs } = req.body as { duration_secs: number };
+  const userId = req.user!.id;
+
+  debitAvatarSeconds(userId, duration_secs);
+
+  ok(res, { debited: true, duration_secs });
 });

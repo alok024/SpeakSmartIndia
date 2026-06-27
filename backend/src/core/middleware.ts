@@ -310,7 +310,9 @@ export async function requireOnboarded(
     // Paid users (pro/elite) and pre-launch accounts are exempt from the
     // onboarding gate — they either predated the feature or paid without
     // completing it. Blocking them from AI calls would break their experience.
-    const isPaid = dbUser?.plan === 'pro' || dbUser?.plan === 'elite' || dbUser?.plan === 'starter';
+    // getEffectivePlan also returns 'elite' for users on an active trial.
+    const effectivePlan = dbUser ? db.getEffectivePlan(dbUser) : 'free';
+    const isPaid = effectivePlan === 'pro' || effectivePlan === 'elite' || effectivePlan === 'starter';
     const onboardingLaunch = new Date('2026-06-16T00:00:00Z');
     const createdAt = dbUser?.created_at ? new Date(dbUser.created_at) : null;
     const isPreLaunchUser = createdAt !== null && createdAt < onboardingLaunch;
@@ -357,7 +359,9 @@ export async function requirePro(
   const user = req.user!;
   try {
     const dbUser = await db.getUserById(user.id);
-    const plan   = (dbUser?.plan ?? 'free') as PlanType;
+    // Use getEffectivePlan so Elite trial users (elite_trial_expires_at set)
+    // are treated as 'elite' and are not blocked from Pro+ features.
+    const plan   = dbUser ? db.getEffectivePlan(dbUser) : 'free';
     if (plan !== 'pro' && plan !== 'elite') {
       // Track the upsell moment so we can measure voice → upgrade conversion.
       // Fire-and-forget — never blocks the rejection.

@@ -64,12 +64,13 @@ function signPayload(payload: string): Buffer {
 
 export type CertificatePayload =
   | { kind: 'session';   sessionId: string }
-  | { kind: 'readiness'; userId: string; sessionCount: number };
+  | { kind: 'readiness'; userId: string; sessionCount: number }
+  | { kind: 'streak60';  userId: string };
 
 function encodePayloadString(payload: CertificatePayload): string {
-  return payload.kind === 'session'
-    ? `session:${payload.sessionId}`
-    : `readiness:${payload.userId}:${payload.sessionCount}`;
+  if (payload.kind === 'session')   return `session:${payload.sessionId}`;
+  if (payload.kind === 'streak60')  return `streak60:${payload.userId}`;
+  return `readiness:${payload.userId}:${payload.sessionCount}`;
 }
 
 function decodePayloadString(raw: string): CertificatePayload | null {
@@ -79,6 +80,14 @@ function decodePayloadString(raw: string): CertificatePayload | null {
       return null;
     }
     return { kind: 'session', sessionId };
+  }
+
+  if (raw.startsWith('streak60:')) {
+    const userId = raw.slice('streak60:'.length);
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+      return null;
+    }
+    return { kind: 'streak60', userId };
   }
 
   if (raw.startsWith('readiness:')) {
@@ -171,6 +180,21 @@ export async function resolveCertificateContent(
       scoreLabel:  formatScore(session.score),
       subtext:     `${capitalize(session.difficulty || '')} · ${session.interview_type || 'Mock Interview'}`,
       issuedAtIso: session.created_at || new Date().toISOString(),
+    };
+  }
+
+  // streak60: 60-day streak milestone certificate
+  if (payload.kind === 'streak60') {
+    const user = await db.getUserById(payload.userId);
+    if (!user) return null;
+
+    return {
+      kind:        'readiness',
+      userName:    user.name || 'Vachix User',
+      headline:    '60-Day Streak Achievement',
+      scoreLabel:  '60',
+      subtext:     'Consistent practice for 60 days · Keep going!',
+      issuedAtIso: new Date().toISOString(),
     };
   }
 

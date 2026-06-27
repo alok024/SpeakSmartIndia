@@ -15,12 +15,11 @@ export default function ReferralPage() {
     ? `${typeof window !== 'undefined' ? window.location.origin : 'https://vachix.in'}/register?ref=${referral.code}`
     : null;
 
-  // use the backend's dynamic copy (accurate to the real
-  // reward mechanic) instead of a hardcoded "+1 free session for each
-  // person who joins" line — the real mechanic only rewards the referrer
-  // after the friend completes their first session.
+  // Use the backend's dynamic reward copy — accurate to the actual mechanic
+  // (bonus sessions credited only after the friend completes their first
+  // interview, not on registration) so no frontend copy drift.
   const rewardLine = referral?.share_context?.reward_line
-    ?? 'Invite friends and earn bonus AI sessions once they complete their first session.';
+    ?? 'Invite friends and earn bonus interview sessions when they complete their first practice.';
 
   function copyLink() {
     const copyText = referral?.share_context?.copy_text ?? referralUrl;
@@ -45,6 +44,8 @@ export default function ReferralPage() {
     );
   }
 
+  const bonusSessions = referral?.bonus_sessions ?? 0;
+
   return (
     <div className="p-4 sm:p-6 max-w-xl mx-auto space-y-5">
 
@@ -64,9 +65,9 @@ export default function ReferralPage() {
         </CardHeader>
         <CardBody className="space-y-4">
           {[
-            { icon: '🔗', title: 'Share your link',       desc: 'Send your unique referral link to friends, batchmates, or classmates.' },
-            { icon: '✅', title: 'They join',              desc: 'They register using your link. No credit card required.' },
-            { icon: '🎁', title: 'You earn a free session',desc: 'For each friend who joins, you get +1 bonus AI interview session.' },
+            { icon: '🔗', title: 'Share your link',        desc: 'Send your unique referral link to friends, batchmates, or classmates.' },
+            { icon: '🎤', title: 'They complete an interview', desc: 'Your friend registers and finishes their first practice session on Vachix.' },
+            { icon: '🎁', title: 'You earn bonus sessions', desc: 'The moment their session ends, bonus sessions are added to your monthly limit — instantly.' },
           ].map((step) => (
             <div key={step.title} className="flex gap-3">
               <span className="text-xl mt-0.5 flex-shrink-0">{step.icon}</span>
@@ -82,9 +83,9 @@ export default function ReferralPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { icon: Users, label: 'Friends joined',  value: isError ? '—' : (referral?.uses ?? 0),        color: 'var(--accent)' },
-          { icon: Star,  label: 'Rewarded',         value: isError ? '—' : (referral?.rewarded ?? 0),    color: 'var(--warn)' },
-          { icon: Zap,   label: 'Bonus sessions',   value: isError ? '—' : (referral?.bonus_calls ?? 0), color: 'var(--success)' },
+          { icon: Users, label: 'Friends joined',      value: isError ? '—' : (referral?.uses     ?? 0), color: 'var(--accent)' },
+          { icon: Star,  label: 'Completed 1st session', value: isError ? '—' : (referral?.rewarded ?? 0), color: 'var(--warn)' },
+          { icon: Zap,   label: 'Bonus this month',    value: isError ? '—' : bonusSessions,              color: 'var(--success)' },
         ].map((s) => (
           <div key={s.label}>
           <Card className="p-4 text-center">
@@ -145,16 +146,16 @@ export default function ReferralPage() {
       )}
 
       {/* Bonus banner */}
-      {(referral?.bonus_calls ?? 0) > 0 && (
+      {bonusSessions > 0 && (
         <div
           className="rounded-2xl p-4 text-center"
           style={{ background: 'var(--success-dim)', border: '1px solid var(--success-border)' }}
         >
           <div className="font-bold" style={{ color: 'var(--success)' }}>
-            🎉 You have {referral!.bonus_calls} bonus session{referral!.bonus_calls !== 1 ? 's' : ''} from referrals!
+            🎉 You have {bonusSessions} bonus session{bonusSessions !== 1 ? 's' : ''} from referrals this month!
           </div>
           <div className="text-xs mt-1 font-medium" style={{ color: 'var(--text-3)' }}>
-            These are added to your free session limit automatically.
+            Added to your monthly session limit automatically. Resets next month.
           </div>
         </div>
       )}

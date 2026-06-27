@@ -70,6 +70,8 @@ interface InterviewStore {
   setLang: (l: 'en' | 'hi' | 'hinglish') => void;
   setJdText: (text: string) => void;
   setAvatarMode: (mode: 'full' | 'voice-only') => void;
+  setSelectedTopics: (topics: string[]) => void;
+  setCompanyMode: (mode: 'tcs' | 'infosys' | 'wipro' | 'accenture' | 'amazon' | 'google' | 'flipkart' | null) => void;
 
   // Session lifecycle — clear entry points, no leaked state
   startSession:  (config?: Partial<LiveSessionConfig>) => void;
@@ -127,6 +129,8 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
   setLang:          (l) => set((s) => ({ config: { ...s.config, lang: l } })),
   setJdText:        (text) => set((s) => ({ config: { ...s.config, jdText: text || undefined } })),
   setAvatarMode:    (mode) => set((s) => ({ config: { ...s.config, avatarMode: mode } })),
+  setSelectedTopics: (topics) => set((s) => ({ config: { ...s.config, selectedTopics: topics } })),
+  setCompanyMode:   (mode) => set((s) => ({ config: { ...s.config, companyMode: mode } })),
 
   // Session lifecycle
 
