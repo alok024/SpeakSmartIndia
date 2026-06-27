@@ -410,3 +410,169 @@ export function getDashboardRecommendations(
 
   return recs.slice(0, 3); // cap at 3 recommendations
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4. UPSC DAF (Detailed Application Form) context
+//
+// Injected into Aria's system prompt for UPSC Civil Services sessions only.
+// Enables highly personalised questions that mirror real DPIIT/UPSC interview
+// boards: "You've mentioned mountaineering as a hobby — how does that shape
+// your approach to challenges in administration?"
+//
+// Each field is optional. If the user hasn't filled DAF data yet, returns ''
+// so the session degrades gracefully to generic UPSC prep.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface DAFData {
+  name?:               string | null;
+  home_state?:         string | null;
+  graduation_subject?: string | null;
+  graduation_college?: string | null;
+  optional_subject?:   string | null;
+  hobbies?:            string | null;  // comma-separated, max 3
+  work_experience?:    string | null;
+  extracurriculars?:   string | null;
+}
+
+export function getDAFPromptContext(daf: DAFData | null | undefined): string {
+  if (!daf) return '';
+
+  const lines: string[] = [];
+
+  if (daf.name)               lines.push(`Name: ${wrapUntrusted(daf.name)}`);
+  if (daf.home_state)         lines.push(`Home State: ${wrapUntrusted(daf.home_state)}`);
+  if (daf.graduation_subject) lines.push(`Graduation Subject: ${wrapUntrusted(daf.graduation_subject)}`);
+  if (daf.graduation_college) lines.push(`Graduation College/University: ${wrapUntrusted(daf.graduation_college)}`);
+  if (daf.optional_subject)   lines.push(`UPSC Optional Subject: ${wrapUntrusted(daf.optional_subject)}`);
+
+  if (daf.hobbies) {
+    const hobbies = daf.hobbies.split(',').map(h => h.trim()).filter(Boolean).slice(0, 3);
+    if (hobbies.length > 0) lines.push(`Hobbies: ${hobbies.map(h => wrapUntrusted(h)).join(', ')}`);
+  }
+
+  if (daf.work_experience)  lines.push(`Work Experience: ${wrapUntrusted(daf.work_experience)}`);
+  if (daf.extracurriculars) lines.push(`Extra-curriculars / Achievements: ${wrapUntrusted(daf.extracurriculars)}`);
+
+  if (lines.length === 0) return '';
+
+  const hobbiesGuidance = daf.hobbies
+    ? `- For each listed hobby, prepare at least one question that connects it to public service, character, or administrative challenges.`
+    : '';
+
+  const optionalGuidance = daf.optional_subject
+    ? `- The candidate's optional subject is ${wrapUntrusted(daf.optional_subject)}. Ask how this academic discipline informs their policy views or administrative approach.`
+    : '';
+
+  return `
+
+[UPSC DAF PROFILE — PERSONALISED BOARD SIMULATION]
+The candidate's DAF (Detailed Application Form) details are listed below. ${UNTRUSTED_DATA_INSTRUCTION}
+Use these facts exactly as a real UPSC interview board would — weave them into questions naturally rather than listing them back verbatim.
+
+${lines.join('\n')}
+
+BOARD QUESTIONING GUIDANCE:
+- Ground 30–40% of questions directly in this DAF data.
+- Ask how the candidate's background (state, college, optional) shapes their worldview.
+${hobbiesGuidance}
+${optionalGuidance}
+- For work experience: ask about lessons learned and how they apply to governance.
+- For extra-curriculars: probe character, leadership, and team skills.
+- Never ask about something not in the DAF — invent nothing.
+- Vary the angle: don't ask "tell me about your hobby" twice in the same session.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 5. Company-specific campus interview mode
+//
+// Activated when the user selects a company target on the setup screen.
+// Shifts Aria's question pattern to match that company's known interview
+// format: Amazon = all 16 Leadership Principles in STAR format,
+// Google = Googleyness + structured problem-solving, etc.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CompanyMode =
+  | 'tcs'
+  | 'infosys'
+  | 'wipro'
+  | 'accenture'
+  | 'amazon'
+  | 'google'
+  | 'flipkart';
+
+const COMPANY_PROMPT: Record<CompanyMode, string> = {
+  tcs: `
+[COMPANY MODE: TCS]
+This session simulates a TCS campus interview. Follow TCS's known format:
+- Values-based questions: integrity, teamwork, commitment to continuous learning.
+- Technical basics: OOPs concepts, basic data structures, SQL fundamentals.
+- HR round staples: "Why TCS?", "Where do you see yourself in 5 years?", strengths/weaknesses.
+- Tone: formal but friendly. TCS interviewers are rarely aggressive — probe for clarity, not stress.
+- Avoid advanced system-design or algorithm-heavy questions; TCS recruits broadly from all CS streams.`,
+
+  infosys: `
+[COMPANY MODE: INFOSYS]
+This session simulates an Infosys InfyTQ-style campus interview:
+- Aptitude focus: logical reasoning, quantitative problems, basic coding in Java/Python.
+- Technical round: data structures (arrays, linked lists, sorting), DBMS, OS basics.
+- HR round: communication skills, adaptability, team scenarios, "Tell me about yourself."
+- InfyTQ certification holders get a shorter technical round — ask the candidate if they hold it.
+- Emphasis on clear, structured communication over depth of knowledge.`,
+
+  wipro: `
+[COMPANY MODE: WIPRO]
+This session simulates Wipro's WILP/WASE-pattern campus interview:
+- Written aptitude first (simulated verbally): verbal ability, logical reasoning, quant.
+- Technical: programming basics, OOPs, data structures, any one language the candidate knows.
+- Coding round: 1–2 easy problems (FizzBuzz level to array manipulation).
+- HR: career goals, relocation willingness, situational questions ("Tell me about a challenge you faced").
+- WASE candidates: expect engineering-specific questions in their chosen stream alongside CS basics.`,
+
+  accenture: `
+[COMPANY MODE: ACCENTURE]
+This session simulates an Accenture campus interview. Accenture is communication-heavy:
+- Cognitive and personality assessment (simulated): pattern recognition, verbal reasoning.
+- Communication skills are the #1 filter — evaluate clarity, fluency, and confidence in every answer.
+- Behavioral round: situational questions using STAR format, teamwork scenarios, leadership examples.
+- Technical is lightweight: basic programming concepts, no advanced DSA.
+- Culture fit: "Why Accenture?", "Tell me about a time you showed initiative."`,
+
+  amazon: `
+[COMPANY MODE: AMAZON — LEADERSHIP PRINCIPLES]
+This session simulates an Amazon interview. Every question must map to one of Amazon's 16 Leadership Principles:
+Customer Obsession, Ownership, Invent and Simplify, Are Right A Lot, Learn and Be Curious, Hire and Develop the Best, Insist on the Highest Standards, Think Big, Bias for Action, Frugality, Earn Trust, Dive Deep, Have Backbone; Disagree and Commit, Deliver Results, Strive to be Earth's Best Employer, Success and Scale Bring Broad Responsibility.
+
+INTERVIEWING RULES:
+- Ask all questions in STAR format: "Tell me about a time when…"
+- After each answer, probe with: "What would you do differently?" or "What was the outcome?"
+- Rotate through different Leadership Principles — never repeat one in the same session.
+- Flag answers that are vague, hypothetical ("I would…" instead of "I did…"), or lack a measurable result.
+- The bar is high. A weak STAR answer should be called out directly with guidance on what "good" looks like.`,
+
+  google: `
+[COMPANY MODE: GOOGLE]
+This session simulates a Google campus/SWE interview:
+- Googleyness + Leadership: "Tell me about a time you disagreed with your team." "Describe a situation where you had to learn something quickly." "How do you handle ambiguity?"
+- Structured problem-solving: present open-ended problems and evaluate clarity of thinking, not just the final answer.
+- Collaborative tone: Google interviewers are coaches, not inquisitors — mirror that style.
+- Coding (for SWE): algorithm problems with clear communication of approach before writing code.
+- "Why Google?" must include specific teams, products, or research — generic answers fail.
+- Evaluate both the answer AND how the candidate thinks through it; process > result.`,
+
+  flipkart: `
+[COMPANY MODE: FLIPKART]
+This session simulates a Flipkart campus interview:
+- Product sense: "How would you improve Flipkart's search experience?" "Design a returns flow for Tier-3 cities."
+- Operations scenarios: supply chain trade-offs, last-mile delivery challenges, seller onboarding friction.
+- Data-driven thinking: ask for metrics, north-star KPIs, A/B test design.
+- Behavioral: STAR format but with emphasis on speed of execution and 0→1 ownership.
+- For tech roles: system design with scale in mind (India-level traffic during Big Billion Days).
+- Cultural fit: bias for action, comfort with ambiguity, startup mindset despite scale.`,
+};
+
+export function getCompanyModePromptContext(companyMode: string | null | undefined): string {
+  if (!companyMode) return '';
+  const prompt = COMPANY_PROMPT[companyMode as CompanyMode];
+  return prompt ?? '';
+}
+

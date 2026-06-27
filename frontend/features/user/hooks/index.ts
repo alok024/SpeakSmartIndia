@@ -76,3 +76,33 @@ export function useReferral() {
     staleTime: 120_000,
   });
 }
+
+// DAF (UPSC Detailed Application Form)
+export function useDAF() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+
+  return useQuery({
+    queryKey: ['daf'],
+    queryFn: async () => {
+      const res = await userApi.getDAF();
+      if (!res.ok) throw new Error('Failed to fetch DAF');
+      return res.data;
+    },
+    enabled: isAuthenticated,
+    staleTime: 300_000, // 5 min — DAF changes rarely
+  });
+}
+
+export function useSaveDAF() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: userApi.saveDAF,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['daf'] }),
+  });
+}
+
+export function useSaveCompanyMode() {
+  return useMutation({
+    mutationFn: (company_mode: string | null) => userApi.saveCompanyMode(company_mode),
+  });
+}

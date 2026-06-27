@@ -88,3 +88,40 @@ export const getWeeklyCardSvg = asyncHandler(async (req: Request, res: Response)
   res.setHeader('Cache-Control', 'public, max-age=3600');
   res.send(user.weekly_card_url);
 });
+
+// GET /api/weekly-card/:userId/voice  (auth required — voiced summary is plan-gated)
+//
+// Serves the Base64-encoded WAV of the Elara voiced weekly summary.
+// Only generated for Pro+ users — returns 404 for free/starter or when
+// synthesis failed (Sarvam unavailable).
+// Auth required: the voiced card belongs to the user; unlike the SVG it
+// is not designed for public sharing.
+export const getWeeklyCardVoice = asyncHandler(async (req: Request, res: Response) => {
+  const requestingUserId = req.user!.id;
+  const { userId }       = req.params;
+
+  // Users may only fetch their own voiced card.
+  if (requestingUserId !== userId) {
+    notFound(res, 'Not found');
+    return;
+  }
+
+  const user = await db.getUserById(userId);
+  if (!user) {
+    notFound(res, 'User not found');
+    return;
+  }
+
+  if (!user.weekly_card_voiced_url) {
+    notFound(res, 'Voiced weekly card not available');
+    return;
+  }
+
+  // Decode the stored Base64 WAV and stream it back as audio.
+  const wavBuffer = Buffer.from(user.weekly_card_voiced_url, 'base64');
+  res.setHeader('Content-Type', 'audio/wav');
+  res.setHeader('Content-Length', String(wavBuffer.byteLength));
+  res.setHeader('Cache-Control', 'private, max-age=86400');  // 24h; regenerated weekly
+  res.end(wavBuffer);
+  log.debug('Served voiced weekly card', { userId });
+});

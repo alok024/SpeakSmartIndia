@@ -23,8 +23,13 @@
  * Plan caps (configurable via env):
  *   free    — no voice (blocked upstream by requireVoiceTier in voice.routes.ts)
  *   starter — VOICE_CAP_STARTER seconds / month  (default 600 = 10 min)
- *   pro     — VOICE_CAP_PRO seconds / month       (default 3600 = 60 min)
- *   elite   — unlimited (-1)
+ *   pro     — VOICE_CAP_PRO seconds / month       (default 2400 = 40 min)
+ *   elite   — same cap as Pro (VOICE_CAP_PRO)
+ *
+ * Avatar (Simli) uses a SEPARATE pool — see requireAvatarQuota below.
+ * avatar_seconds_used is NOT counted against the voice cap here.
+ * Rationale: Sarvam balance (Aria + Elara) is one pool; Simli WebRTC is
+ * billed per-minute of active connection and needs its own gate + termination.
  *
  * Bonus seconds (awarded at streak milestones) are consumed first, before
  * counting toward the plan cap — so loyal users get real breathing room,
@@ -39,13 +44,14 @@ import { logger } from '../../infra/logger';
 
 const log = logger.child({ module: 'voice-ledger' });
 
-// Per-plan monthly voice caps in seconds. -1 = unlimited.
-// free is not included: voice is blocked before this middleware fires
-// (requireVoiceTier gate in voice.routes.ts).
+// Per-plan monthly Sarvam voice caps in seconds.
+// Aria (questions) and Elara (corrections) both draw from this pool —
+// one debit type, one reset, one balance shown to the user.
+// free is blocked before this middleware fires (requireVoiceTier in voice.routes.ts).
 const PLAN_VOICE_CAPS: Record<string, number> = {
-  starter: env.VOICE_CAP_STARTER,  // default 600 s = 10 min
-  pro:     env.VOICE_CAP_PRO,      // default 3600 s = 60 min
-  elite:   -1,                     // unlimited
+  starter: env.VOICE_CAP_STARTER,  // 600 s = 10 min
+  pro:     env.VOICE_CAP_PRO,      // 2400 s = 40 min
+  elite:   env.VOICE_CAP_PRO,      // same 40 min cap as Pro
 };
 
 // Streak days that trigger a voice bonus top-up
@@ -95,11 +101,13 @@ export async function requireVoiceQuota(
     }
 
     // Effective quota = plan cap + bonus seconds earned from streaks
-    const effectiveCap    = cap + ledger.bonus_voice_seconds;
-    // Total consumed = voice + avatar (avatar counts against the same pool)
-    const totalUsed       = ledger.voice_seconds_used + ledger.avatar_seconds_used;
+    const effectiveCap = cap + ledger.bonus_voice_seconds;
+    // Voice-only: avatar seconds are tracked separately in their own pool
+    // (requireAvatarQuota). Counting both here would let heavy avatar use
+    // starve Aria/Elara and vice-versa — they're independent features.
+    const voiceUsed = ledger.voice_seconds_used;
 
-    if (totalUsed >= effectiveCap) {
+    if (voiceUsed >= effectiveCap) {
       const bonusNote = ledger.bonus_voice_seconds > 0
         ? ` (includes ${Math.round(ledger.bonus_voice_seconds / 60)} min streak bonus)`
         : '';
@@ -116,10 +124,8 @@ export async function requireVoiceQuota(
       return;
     }
 
-    // Attach remaining quota to the request object so the controller can
-    // pass it back to the frontend without an extra round-trip.
     (req as Request & { voiceQuotaRemaining?: number }).voiceQuotaRemaining =
-      effectiveCap - totalUsed;
+      effectiveCap - voiceUsed;
 
     next();
   } catch (err) {
@@ -206,5 +212,118 @@ export async function maybeAwardStreakVoiceBonus(
     log.warn('maybeAwardStreakVoiceBonus: top-up failed (non-fatal)', {
       userId, streak, bonusSecs, error: (err as Error).message,
     });
+  }
+}
+
+// ── Avatar (Simli) quota — separate from Sarvam voice balance ───────────────
+
+// Per-plan avatar caps in seconds. Simli is WebRTC streaming: billed per-minute
+// of active connection, not per character. Needs its own gate + termination.
+//   Starter: 600 s = 10 min  (taste — 2-3 sessions before upgrade prompt)
+//   Pro:     2400 s = 40 min
+//   Elite:   4800 s = 80 min
+//   free:    0 (avatar toggle never shown to free users)
+const PLAN_AVATAR_CAPS: Record<string, number> = {
+  starter: env.AVATAR_CAP_STARTER,  // 600 s = 10 min
+  pro:     env.AVATAR_CAP_PRO,      // 2400 s = 40 min
+  elite:   env.AVATAR_CAP_ELITE,    // 4800 s = 80 min
+};
+
+/**
+ * Express middleware — gate before opening a Simli WebRTC session.
+ * Attach after authMiddleware and the tier gate (Starter+).
+ *
+ * Returns 429 'avatar_quota_exhausted' if the user has consumed their monthly
+ * avatar minutes. Falls through if quota remains or on DB error (fail-open).
+ *
+ * Attaches `req.avatarSecondsRemaining` for the route handler to return to
+ * the frontend so the UI can show the correct balance without an extra round-trip.
+ */
+export async function requireAvatarQuota(
+  req:  Request,
+  res:  Response,
+  next: NextFunction,
+): Promise<void> {
+  const user = req.user;
+  if (!user) { next(); return; }
+
+  const dbUser = await db.getUserById(user.id).catch(() => null);
+  const plan   = (dbUser?.plan ?? user.plan ?? 'free') as string;
+  const cap    = PLAN_AVATAR_CAPS[plan] ?? 0;
+
+  // Free users: avatar is blocked upstream (no toggle in UI) — 0 cap is a
+  // safeguard. Elite gets its own cap; no unlimited tier for avatar.
+  if (cap === 0) {
+    fail(res, 403, 'avatar_not_available',
+      'Avatar is not available on your current plan. Upgrade to Starter or above.');
+    return;
+  }
+
+  try {
+    const ledger = await db.getVoiceUsage(user.id);
+    const avatarUsed = ledger?.avatar_seconds_used ?? 0;
+
+    if (avatarUsed >= cap) {
+      fail(res, 429, 'avatar_quota_exhausted',
+        `You've used all ${Math.round(cap / 60)} avatar minutes for this month. Upgrade for more.`,
+        {
+          avatar_seconds_used: avatarUsed,
+          cap_seconds:         cap,
+          plan,
+        }
+      );
+      return;
+    }
+
+    (req as Request & { avatarSecondsRemaining?: number }).avatarSecondsRemaining =
+      cap - avatarUsed;
+
+    next();
+  } catch (err) {
+    log.warn('requireAvatarQuota: DB check failed — allowing request (fail-open)', {
+      userId: user.id, plan, error: (err as Error).message,
+    });
+    next();
+  }
+}
+
+/**
+ * Debits avatar seconds from the user's monthly ledger.
+ * Called server-side at the end of (or during) a Simli WebRTC session.
+ *
+ * Fire-and-forget, same contract as debitVoiceSeconds. Pass `terminate: true`
+ * when this debit is the result of a server-side session kill (balance hit zero).
+ *
+ * @param userId  — authenticated user
+ * @param seconds — WebRTC session duration to debit
+ */
+export function debitAvatarSeconds(userId: string, seconds: number): void {
+  db.incrementVoiceUsage(userId, 0, Math.max(1, Math.round(seconds))).catch(err =>
+    log.error('debitAvatarSeconds: failed to debit avatar ledger', {
+      userId, seconds, error: (err as Error).message,
+    })
+  );
+}
+
+/**
+ * Returns the user's current avatar balance for the billing month.
+ * Used by the avatar session monitor to decide when to send the
+ * graceful "avatar_session_ended" termination event to the client.
+ *
+ * Returns null on DB error (caller should fail-open: let the session continue).
+ */
+export async function getAvatarSecondsRemaining(
+  userId: string,
+  plan:   string,
+): Promise<number | null> {
+  const cap = PLAN_AVATAR_CAPS[plan];
+  if (cap === undefined) return null;  // unknown plan — fail-open
+
+  try {
+    const ledger = await db.getVoiceUsage(userId);
+    const used   = ledger?.avatar_seconds_used ?? 0;
+    return Math.max(0, cap - used);
+  } catch {
+    return null;
   }
 }

@@ -8,7 +8,7 @@
 
 import { db }                      from '../../core/database/client';
 import { AppError }                from '../../core/utils/errors';
-import { PlanType, SESSION_CAP_FREE } from '../../core/config/env';
+import { PlanType, SESSION_CAP_FREE, SESSION_CAP_STARTER } from '../../core/config/env';
 import { logger }                  from '../../infra/logger';
 import { computeScoreBreakdown, FeedbackForScoring } from '../ai/scoring';
 import {
@@ -21,6 +21,7 @@ import type { FeedbackItem } from '../ai/ai.memory';
 import { maybeRewardReferrer } from '../growth/referral.service';
 import { incrementAIUsage }   from '../user/user.service';
 import { maybeAwardStreakVoiceBonus } from '../voice/voice.ledger';
+import { maybeTriggerMilestoneRewards } from '../gamification/milestone-rewards.service';
 
 const log = logger.child({ module: 'sessions' });
 
@@ -62,6 +63,13 @@ export interface SaveSessionResult {
   sessions:        number;
   best_score:      number;
   job_ready_score: number;
+  xp_earned:         number;   // XP gained this session (after multiplier)
+  xp_lifetime:       number;   // running total, never resets
+  xp_monthly:        number;   // resets each IST calendar month (profile)
+  xp_weekly:         number;   // resets every Sunday midnight IST (leaderboard)
+  // Streak freeze notification — set when a freeze was consumed this session
+  streak_freeze_used?:       boolean;
+  streak_freezes_remaining?: number;
   score_breakdown: {
     clarity:   number;
     structure: number;
@@ -70,7 +78,7 @@ export interface SaveSessionResult {
   };
   // Monetization signals
   // Computed from session outcome + user stats so the frontend can fire
-  // the right contextual upsell at exactly the right moment.
+  // the right contextual upsell at exactly the right moment.\
   // Only set when a trigger condition is met — absent otherwise.
   upsell_trigger?: {
     reason:  'post_session'       // every session end for free users → upgrade push
@@ -78,6 +86,15 @@ export interface SaveSessionResult {
            | 'streak_milestone';  // streak 3 / 7 / 14 → momentum upsell
     score?:  number;              // present when reason = high_score
     streak?: number;              // present when reason = streak_milestone
+  };
+  // Streak milestone reward — present when a 7/30/60/90 day milestone fires
+  // this session.  Frontend shows the celebration animation + reward card.
+  milestone_reward?: {
+    milestone:   number;
+    celebration: boolean;
+    title:       string;
+    body:        string;
+    cert_url?:   string;
   };
 }
 
@@ -162,38 +179,48 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     exchanges, duration_secs, hindi_mode, feedbacks,
   } = input;
 
-  // ── P1-A: Monthly session cap for free-tier users ─────────────────────────
+  // ── Monthly session cap (free + starter tiers) ────────────────────────────
   //
-  // Free users are limited to SESSION_CAP_FREE sessions per IST calendar month.
-  // Paid plans (starter / pro / elite) are never gated here.
+  // Free users:    capped at SESSION_CAP_FREE (3) sessions per IST month.
+  // Starter users: capped at SESSION_CAP_STARTER (30) + monthly_session_bonus
+  //                (referral bonus sessions earned this month) per IST month.
+  // Pro / Elite:   no session cap — fall straight through.
   //
   // Flow:
-  //  1. Read the user's plan.
-  //  2. If free, check if the IST month has rolled over since
-  //     monthly_session_reset_at and lazily reset if so.
-  //  3. Call increment_session_count(userId, cap) — a single atomic Postgres
-  //     function that checks AND increments inside one row-locked UPDATE.
-  //     Returns { new_count, blocked }.
-  //  4. If blocked → 429 with a helpful reset-date message.
+  //  1. Read the user's plan and usage row.
+  //  2. If free or starter, check if the IST month has rolled over since
+  //     monthly_session_reset_at and lazily reset if so. Resetting also
+  //     zeros monthly_session_bonus (bonus sessions don't roll over).
+  //  3. Compute effective cap: base cap + current-month bonus.
+  //  4. Call increment_session_count(userId, effectiveCap) — a single atomic
+  //     Postgres function that checks AND increments inside one row-locked
+  //     UPDATE. Returns { new_count, blocked }.
+  //  5. If blocked → 429 with a helpful reset-date message.
   //
   // Why atomic?  A two-step "read count → JS check → increment" has a TOCTOU
-  // race: two concurrent POST /sessions from the same free user both read
-  // count=2, both pass the JS guard, and both increment — yielding count=4.
+  // race: two concurrent POST /sessions from the same user both read count=N,
+  // both pass the JS guard, and both increment — yielding count=N+2.
   // Moving the check inside the Postgres UPDATE eliminates this because
   // Postgres serialises row-level locks on the usage row.
   //
 
+  // Fetch user for plan-gated logic.  Hoisted outside the session-cap block
+  // so the plan value is available later (incrementStats freeze replenishment).
+  const dbUser = await db.getUserById(userId);
+  // Use getEffectivePlan so that Elite trial users (elite_trial_expires_at set
+  // by the 90-day milestone) receive the correct Elite freeze entitlement in
+  // increment_user_stats rather than being treated as their base plan.
+  const userPlan = (db.getEffectivePlan(dbUser ?? { plan: 'free', elite_trial_expires_at: null }) as PlanType) ?? 'free';
+
   {
-    const [dbUser, usage] = await Promise.all([
-      db.getUserById(userId),
-      db.getUsage(userId),
-    ]);
+    const usage = await db.getUsage(userId);
 
-    const plan = (dbUser?.plan as PlanType) ?? 'free';
+    const plan = userPlan;
 
-    if (plan === 'free') {
+    if (plan === 'free' || plan === 'starter') {
       // Lazy monthly reset: if monthly_session_reset_at is in a previous IST
       // month, reset the counter before the cap check. Avoids a background cron.
+      // resetUsage also zeroes monthly_session_bonus — bonuses don't roll over.
       const resetAt = usage?.monthly_session_reset_at
         ? new Date(usage.monthly_session_reset_at)
         : null;
@@ -217,11 +244,22 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
         }
       }
 
+      // Effective cap = plan base + referral bonus sessions earned this month.
+      // For free users the bonus pool is typically 0 (free-plan referrers earn
+      // just +1 session — stored but rarely significant). For Starter the bonus
+      // meaningfully extends the 30-session base.
+      const baseSessionCap = plan === 'free' ? SESSION_CAP_FREE : SESSION_CAP_STARTER;
+      // After a lazy reset the bonus column was just zeroed, so read the
+      // post-reset value (0) rather than the stale pre-reset value from the
+      // usage row we fetched before the reset.
+      const sessionBonus   = isNewMonth ? 0 : (usage?.monthly_session_bonus ?? 0);
+      const effectiveCap   = baseSessionCap + sessionBonus;
+
       // Single atomic RPC — check + increment in one row-locked Postgres UPDATE.
       // No JS pre-check needed; the RPC returns blocked=true if cap is reached.
       let capResult: { new_count: number; blocked: boolean };
       try {
-        capResult = await db.incrementSessionCount(userId, SESSION_CAP_FREE);
+        capResult = await db.incrementSessionCount(userId, effectiveCap);
       } catch (incErr) {
         // RPC failure: log and allow the session to save (under-count is
         // preferable to silently dropping a completed session).
@@ -233,22 +271,26 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
 
       if (capResult.blocked) {
         const nextMonth = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 1);
+        const limitLabel = sessionBonus > 0
+          ? `${baseSessionCap} + ${sessionBonus} bonus`
+          : String(effectiveCap);
         throw new AppError(
           429,
           'session_limit_reached',
-          `You've used all ${SESSION_CAP_FREE} free sessions for this month. ` +
+          `You've used all ${limitLabel} sessions for this month. ` +
           `Your sessions reset on ${nextMonth.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}.`,
           {
             sessions_used:  capResult.new_count,
-            session_limit:  SESSION_CAP_FREE,
+            session_limit:  effectiveCap,
+            session_bonus:  sessionBonus,
             resets_at:      nextMonth.toISOString(),
           },
         );
       }
     }
-    // Paid plans: no session cap — fall straight through.
+    // Pro / Elite: no session cap — fall straight through.
   }
-  // ── end P1-A ──────────────────────────────────────────────────────────────
+  // ── end session cap ────────────────────────────────────────────────────────
 
   // FeedbackInput accepts notes under either `tip` (older clients) or `tips`
   // (newer clients). normalizedFeedbacks resolves the alias once so all
@@ -334,6 +376,56 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     });
   }
 
+  // 3b. Lazy monthly XP reset — fire-and-forget, non-fatal.
+  // The Postgres function reset_monthly_xp() zeroes xp_monthly for all users
+  // at once, which is safe to call concurrently (UPDATE ... WHERE xp_monthly > 0
+  // is idempotent).  We gate on the stats row's xp_reset_at field: if it's null
+  // or in a prior IST calendar month, kick off the reset.  Using the current
+  // user's stats row as the trigger avoids a separate cron job at the cost of
+  // a one-session lag for very early adopters on the first of the month —
+  // perfectly acceptable for a leaderboard that isn't real-time.
+  {
+    const statsForReset = await db.getStats(userId).catch(() => null);
+    const resetAt = statsForReset?.xp_reset_at ? new Date(statsForReset.xp_reset_at) : null;
+    const nowIST  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const xpNeedsReset =
+      !resetAt ||
+      resetAt.getFullYear() < nowIST.getFullYear() ||
+      (resetAt.getFullYear() === nowIST.getFullYear() && resetAt.getMonth() < nowIST.getMonth());
+
+    if (xpNeedsReset) {
+      db.resetMonthlyXp().catch(err =>
+        log.warn('Monthly XP reset failed (non-fatal)', { error: (err as Error).message })
+      );
+    }
+  }
+
+  // 3c. Lazy weekly XP reset — fire-and-forget, non-fatal.
+  // The Postgres function reset_weekly_xp() zeroes xp_weekly for all users
+  // whose last reset was before the most recent Sunday midnight IST.
+  // The SQL function already contains the same guard, but we also call it from
+  // the app layer here to keep the pattern consistent with the monthly reset and
+  // to avoid an unnecessary RPC call on every non-reset session (the SQL gate is
+  // still the authoritative check for the actual UPDATE).
+  {
+    const statsForWeekReset = await db.getStats(userId).catch(() => null);
+    const weekResetAt = statsForWeekReset?.xp_weekly_reset_at
+      ? new Date(statsForWeekReset.xp_weekly_reset_at)
+      : null;
+    const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    // Last Sunday midnight IST
+    const dayOfWeek = nowIST.getDay(); // 0=Sun
+    const lastSunday = new Date(nowIST);
+    lastSunday.setDate(nowIST.getDate() - dayOfWeek);
+    lastSunday.setHours(0, 0, 0, 0);
+    const weekNeedsReset = !weekResetAt || weekResetAt < lastSunday;
+    if (weekNeedsReset) {
+      db.resetWeeklyXp().catch(err =>
+        log.warn('Weekly XP reset failed (non-fatal)', { error: (err as Error).message })
+      );
+    }
+  }
+
   // 4. Atomically increment stats — ALL arithmetic lives in Postgres.
   // No JS read → no race condition.  The SQL function holds a row-level
   // lock (FOR UPDATE) for the duration so concurrent sessions serialize
@@ -345,13 +437,15 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
   // unhandled rejection and crash the process.  Stats under-counting is
   // preferable to dropping the whole session result.  The error is still
   // logged as [err] so it shows up in Railway and Sentry.
-  let updatedStats: { sessions: number; best_score: number; streak: number; avg_job_ready_score: number };
+  let updatedStats: { sessions: number; best_score: number; streak: number; avg_job_ready_score: number; xp_lifetime: number; xp_monthly: number; xp_weekly: number; xp_earned: number; freeze_used: boolean; freezes_remaining: number };
   try {
     updatedStats = await db.incrementStats(
       userId,
       score          || 0,
       breakdown.jobReady,
       score          || 0,   // total_score delta = this session's score
+      profession     || 'General',
+      (userPlan  ?? 'free'),  // passed to SQL for freeze replenishment
     );
   } catch (statsErr) {
     log.error('incrementStats failed (non-fatal) — stats not updated for this session', {
@@ -360,12 +454,61 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     // Return zeroed-out stats so the session result can still be returned
     // to the client.  Streak-gated features (upsell triggers, readiness
     // report, voice bonus) will silently skip for this session only.
-    updatedStats = { sessions: 0, best_score: 0, streak: 0, avg_job_ready_score: 0 };
+    updatedStats = { sessions: 0, best_score: 0, streak: 0, avg_job_ready_score: 0, xp_lifetime: 0, xp_monthly: 0, xp_weekly: 0, xp_earned: 0, freeze_used: false, freezes_remaining: 0 };
   }
 
-  const newSessions = updatedStats.sessions;
-  const newBest     = updatedStats.best_score;
-  const newStreak   = updatedStats.streak;
+  const newSessions        = updatedStats.sessions;
+  const newBest            = updatedStats.best_score;
+  const newStreak          = updatedStats.streak;
+  let   newXpEarned        = updatedStats.xp_earned        ?? 0;
+  let   newXpMonthly       = updatedStats.xp_monthly       ?? 0;
+  let   newXpWeekly        = updatedStats.xp_weekly        ?? 0;
+  let   newXpLife          = updatedStats.xp_lifetime      ?? 0;
+  const freezeUsed         = updatedStats.freeze_used      ?? false;
+  const freezesRemaining   = updatedStats.freezes_remaining ?? 0;
+
+  // ── XP double-day bonus (30-day streak milestone) ────────────────────────
+  // If users.xp_double_day matches today's IST date, award a second XP
+  // credit equal to the XP just earned (net effect: 2× XP for this session).
+  // After crediting, clear xp_double_day to null so it fires only once.
+  // Non-fatal: a failure here must never block the session save response.
+  try {
+    if (dbUser?.xp_double_day && newXpEarned > 0) {
+      const nowIST      = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const todayISTStr = `${nowIST.getFullYear()}-${String(nowIST.getMonth() + 1).padStart(2, '0')}-${String(nowIST.getDate()).padStart(2, '0')}`;
+
+      if (dbUser.xp_double_day === todayISTStr) {
+        // Credit the bonus XP: read current stats, then PATCH with
+        // the incremented totals.  Using the post-increment values from
+        // updatedStats as the base avoids a stale-read race.
+        const bonusXp = newXpEarned;
+        await db.upsertStats(userId, {
+          xp_lifetime: newXpLife    + bonusXp,
+          xp_monthly:  newXpMonthly + bonusXp,
+          xp_weekly:   newXpWeekly  + bonusXp,
+        });
+
+        newXpEarned  = newXpEarned  + bonusXp;
+        newXpMonthly = newXpMonthly + bonusXp;
+        newXpWeekly  = newXpWeekly  + bonusXp;
+        newXpLife    = newXpLife    + bonusXp;
+
+        log.info('XP double-day bonus credited', { userId, bonusXp });
+
+        // Clear xp_double_day so the bonus fires only once per day.
+        db.setXpDoubleDay(userId, null as unknown as string).catch(err =>
+          log.warn('Clearing xp_double_day failed (non-fatal)', {
+            userId, error: (err as Error)?.message,
+          })
+        );
+      }
+    }
+  } catch (doubleDayErr) {
+    log.warn('XP double-day bonus failed (non-fatal)', {
+      userId, error: (doubleDayErr as Error)?.message,
+    });
+  }
+  // ── end XP double-day ─────────────────────────────────────────────────────
 
   // 5. Increment AI usage quota — once per completed session, not per message.
   // Non-fatal: a failed counter must never block the session save result.
@@ -472,12 +615,26 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     log.warn('maybeAwardStreakVoiceBonus failed (non-fatal)', { userId, streak: newStreak, error: err })
   );
 
+  // Streak milestone rewards (7 / 30 / 60 / 90 days).  Idempotent — each
+  // milestone fires at most once per user.  Non-fatal: a failed reward must
+  // never block the session save response.
+  const milestoneReward = await maybeTriggerMilestoneRewards(userId, newStreak).catch(err => {
+    log.warn('maybeTriggerMilestoneRewards failed (non-fatal)', { userId, streak: newStreak, error: err });
+    return null;
+  });
+
   return {
     session_id:      session.id,
     streak:          newStreak,
     sessions:        newSessions,
     best_score:      newBest,
     job_ready_score: breakdown.jobReady,
+    xp_earned:               newXpEarned,
+    xp_monthly:              newXpMonthly,
+    xp_weekly:               newXpWeekly,
+    xp_lifetime:             newXpLife,
+    streak_freeze_used:      freezeUsed || undefined,
+    streak_freezes_remaining: freezeUsed ? freezesRemaining : undefined,
     score_breakdown: {
       clarity:   breakdown.clarity,
       structure: breakdown.structure,
@@ -485,6 +642,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
       grammar:   breakdown.grammar,
     },
     upsell_trigger,
+    milestone_reward: milestoneReward ?? undefined,
   };
 }
 

@@ -9,7 +9,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard, Play, History, User, Gift,
-  MessageSquare, LogOut, Menu, X, CalendarCheck,
+  MessageSquare, LogOut, Menu, X, CalendarCheck, Trophy,
   type LucideIcon,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -31,6 +31,7 @@ const NAV: NavItem[] = [
   { href: '/english',         label: 'English',          icon: MessageSquare,   badge: 'NEW',         mobileNav: true },
   { href: '/history',         label: 'Sessions',         icon: History,         proBadge: true,       mobileNav: true },
   { href: '/prep-paths',      label: 'Prep Paths',       icon: CalendarCheck,   badge: 'NEW' },
+  { href: '/leaderboard',     label: 'Leaderboard',      icon: Trophy },
   { href: '/profile',         label: 'Profile',          icon: User,            section: 'Account',   mobileNav: true },
   { href: '/referral',        label: 'Refer & Earn',     icon: Gift,            freeOnly: true },
 ];

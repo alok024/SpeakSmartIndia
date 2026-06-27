@@ -69,6 +69,35 @@ export interface UserRow {
   job_landed_company?: string | null;
   // P3-B: stores the raw SVG string of the last generated weekly progress card
   weekly_card_url?: string | null;
+  // Migration 026: Base64 WAV of the Elara-voiced weekly summary (Pro+)
+  weekly_card_voiced_url?: string | null;
+  // Migration 019: HD voice preference toggle (paid users only; free always false)
+  hd_voice_enabled?: boolean;
+  // Migration 021: Elara Hindi/Hinglish explanation toggle (Elite only)
+  elara_hindi_pref?: boolean;
+  // Migration 026: streak milestone rewards tracking
+  // jsonb keys: "7" | "30" | "60" | "90" → true once granted
+  milestone_rewards_granted?: Record<string, boolean> | null;
+  // Set to IST calendar date string (YYYY-MM-DD) on 30-day milestone; XP doubled that day
+  xp_double_day?: string | null;
+  // Set to ISO timestamp on 90-day milestone; effective_plan() returns 'elite' until expired
+  elite_trial_expires_at?: string | null;
+  // Shareable certificate URL minted on 60-day milestone
+  streak60_cert_url?: string | null;
+  // Migration 028: UPSC DAF (Detailed Application Form) fields.
+  // Filled once in the profile page; injected into UPSC session prompts
+  // to enable personalised questions ("You mentioned mountaineering…").
+  daf_name?:                string | null;
+  daf_home_state?:          string | null;
+  daf_graduation_subject?:  string | null;
+  daf_graduation_college?:  string | null;
+  daf_optional_subject?:    string | null;
+  daf_hobbies?:             string | null;  // comma-separated, max 3
+  daf_work_experience?:     string | null;
+  daf_extracurriculars?:    string | null;
+  // Migration 028: last company target selected in campus interview mode.
+  // Persisted so preference survives page reloads.
+  last_company_mode?: string | null;
   created_at?:    string;
   updated_at?:    string;
 }
@@ -95,6 +124,9 @@ export interface UsageRow {
   // P1-A: monthly session cap (migration 018)
   monthly_session_count?:    number;     // sessions completed this IST month
   monthly_session_reset_at?: string;     // ISO timestamp of last monthly reset
+  // Migration 025: referral bonus sessions (replaces users.referral_bonus AI-call system)
+  monthly_session_bonus?:          number;  // extra sessions earned via referrals this month
+  monthly_session_bonus_reset_at?: string;  // ISO timestamp of last bonus reset
   updated_at?:  string;
 }
 
@@ -112,6 +144,17 @@ export interface StatsRow {
   relevance_avg?:            number;
   grammar_avg?:              number;
   updated_at?:               string;
+  // Migration 023: XP system
+  xp_lifetime:               number;
+  xp_monthly:                number;
+  xp_reset_at?:              string;
+  // Migration 024: weekly leaderboard
+  xp_weekly:                 number;
+  xp_weekly_reset_at?:       string;
+  // Migration 024: streak freeze
+  streak_freezes:            number;
+  streak_freeze_reset_at?:   string;
+  streak_freeze_unlocked:    boolean;
 }
 
 export interface SessionRow {
@@ -329,12 +372,39 @@ export interface UserPrepEnrollmentRow {
   created_at?:   string;
 }
 
+export interface ElaraSessionRow {
+  id?:               string;
+  user_id:           string;
+  client_session_id: string;
+  grammar_score?:    number | null;
+  fluency_score?:    number | null;
+  vocab_score?:      number | null;
+  message_count:     number;
+  mode:              string;
+  created_at?:       string;
+}
+
+export interface ElaraVocabWordRow {
+  id?:                  string;
+  user_id:              string;
+  wrong_form:           string;
+  correct_form:         string;
+  rule?:                string | null;
+  occurrences:          number;
+  auto_saved:           boolean;
+  manually_saved:       boolean;
+  last_reinforced_at?:  string | null;
+  created_at?:          string;
+  updated_at?:          string;
+}
+
 // Raw Supabase REST helper
 
 async function sb<T = unknown>(
   path: string,
   method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
-  body: unknown = null
+  body: unknown = null,
+  opts_: { extraHeaders?: Record<string, string> } = {},
 ): Promise<{ ok: boolean; status: number; data: T }> {
   const opts: RequestInit = {
     method,
@@ -343,6 +413,7 @@ async function sb<T = unknown>(
       'apikey':        env.SUPABASE_SERVICE_KEY,
       'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       'Prefer':        'return=representation',
+      ...(opts_.extraHeaders ?? {}),
     },
   };
   if (body !== null) opts.body = JSON.stringify(body);
@@ -394,36 +465,35 @@ export const db = {
   },
 
   /**
-   * `maxTotal` is the hard ceiling on accumulated referral_bonus
-   * (env.MAX_REFERRAL_BONUS_CALLS). Passed through to the RPC so the cap is
-   * enforced with LEAST() inside the same atomic UPDATE that does the
-   * increment — a JS-side "check current value, then increment" would have
-   * the same read-then-write race the RPC was built to avoid in the first
-   * place (two concurrent rewards could each pass a pre-cap check and
-   * together blow past the limit).
+   * Atomically credits `amount` bonus sessions to the user's current-month
+   * session bonus pool (usage.monthly_session_bonus) via the
+   * grant_referral_bonus_sessions RPC (migration 025).
+   *
+   * Replaces the old addBonusCalls / increment_referral_bonus system which
+   * wrote to users.referral_bonus (an AI-call counter). Sessions are the
+   * currency users understand; bonus sessions are added to the plan's base
+   * monthly cap at enforcement time. No hard-cap param is needed — the
+   * monthly reset (lazy, same as monthly_session_count) is the natural ceiling.
    */
-  async addBonusCalls(userId: string, amount: number, maxTotal: number): Promise<boolean> {
-    // Use RPC for atomic increment — avoids the read-then-write race condition
-    // where two concurrent referral rewards both read 0 and both write 10 instead of 20.
-    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_referral_bonus`, {
+  async addBonusSessions(userId: string, amount: number): Promise<void> {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/grant_referral_bonus_sessions`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
         'apikey':        env.SUPABASE_SERVICE_KEY,
         'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
       },
-      body: JSON.stringify({ p_user_id: userId, p_amount: amount, p_max: maxTotal }),
+      body: JSON.stringify({ p_user_id: userId, p_amount: amount }),
     });
 
     if (!res.ok) {
       const raw = await res.text().catch(() => '');
       throw new AppError(
         500,
-        'db_bonus_increment_failed',
-        `increment_referral_bonus RPC failed (status ${res.status}): ${raw.slice(0, 500)}`
+        'db_bonus_sessions_failed',
+        `grant_referral_bonus_sessions RPC failed (status ${res.status}): ${raw.slice(0, 500)}`
       );
     }
-    return true;
   },
 
   // Usage
@@ -498,11 +568,15 @@ export const db = {
     nowIST.setHours(0, 0, 0, 0);
 
     await sb(`/usage?user_id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
-      call_count:              0,
-      monthly_session_count:   0,          // P1-A: reset session cap alongside AI-call cap
-      monthly_session_reset_at: nowIST.toISOString(),
-      period_start:            nowIST.toISOString(),
-      updated_at:              new Date().toISOString(),
+      call_count:                      0,
+      monthly_session_count:           0,          // P1-A: reset session cap alongside AI-call cap
+      monthly_session_reset_at:        nowIST.toISOString(),
+      // Migration 025: bonus sessions don't roll over — reset alongside the
+      // rest of the usage counters so each month starts fresh.
+      monthly_session_bonus:           0,
+      monthly_session_bonus_reset_at:  nowIST.toISOString(),
+      period_start:                    nowIST.toISOString(),
+      updated_at:                      new Date().toISOString(),
     });
   },
 
@@ -511,6 +585,55 @@ export const db = {
   async getStats(userId: string): Promise<StatsRow | null> {
     const { data } = await sb<StatsRow[]>(`/stats?user_id=eq.${encodeURIComponent(userId)}&select=*`);
     return data?.[0] ?? null;
+  },
+
+  // Migration 023: XP leaderboard (monthly — profile / all-time ranking)
+  async getLeaderboardMonthly(limit = 50): Promise<Array<{
+    rank: number;
+    display_name: string;
+    xp_monthly: number;
+    xp_lifetime: number;
+    streak: number;
+    user_id: string;
+  }>> {
+    const { data } = await sb<Array<{
+      rank: number;
+      display_name: string;
+      xp_monthly: number;
+      xp_lifetime: number;
+      streak: number;
+      user_id: string;
+    }>>(`/leaderboard_monthly?select=*&limit=${limit}`);
+    return data ?? [];
+  },
+
+  // Migration 024: weekly leaderboard (Pro + Elite only)
+  async getLeaderboard(limit = 50): Promise<Array<{
+    rank: number;
+    display_name: string;
+    xp_weekly: number;
+    xp_lifetime: number;
+    streak: number;
+    user_id: string;
+  }>> {
+    const { data } = await sb<Array<{
+      rank: number;
+      display_name: string;
+      xp_weekly: number;
+      xp_lifetime: number;
+      streak: number;
+      user_id: string;
+    }>>(`/leaderboard_weekly?select=*&limit=${limit}`);
+    return data ?? [];
+  },
+
+  async resetMonthlyXp(): Promise<void> {
+    await sb('/rpc/reset_monthly_xp', 'POST', {});
+  },
+
+  // Migration 024: reset weekly XP (called lazily post-Sunday midnight IST)
+  async resetWeeklyXp(): Promise<void> {
+    await sb('/rpc/reset_weekly_xp', 'POST', {});
   },
 
   /**
@@ -590,7 +713,9 @@ export const db = {
     score:      number,
     jobReady:   number,
     totalScore: number,
-  ): Promise<{ sessions: number; best_score: number; streak: number; avg_job_ready_score: number }> {
+    profession?: string,
+    plan?: string,
+  ): Promise<{ sessions: number; best_score: number; streak: number; avg_job_ready_score: number; xp_lifetime: number; xp_monthly: number; xp_weekly: number; xp_earned: number; freeze_used: boolean; freezes_remaining: number }> {
     // this used to call `res.json()` directly on the fetch
     // response with no `res.ok` check and no try/catch — unlike every
     // other call in this file, which goes through the `sb()` helper that
@@ -622,6 +747,8 @@ export const db = {
           p_score:       score,
           p_job_ready:   jobReady,
           p_total_score: totalScore,
+          p_profession:  profession ?? 'General',
+          p_plan:        plan ?? 'free',
         }),
       });
     } catch (err) {
@@ -656,7 +783,7 @@ export const db = {
       );
     }
 
-    return parsed as { sessions: number; best_score: number; streak: number; avg_job_ready_score: number };
+    return parsed as { sessions: number; best_score: number; streak: number; avg_job_ready_score: number; xp_lifetime: number; xp_monthly: number; xp_weekly: number; xp_earned: number; freeze_used: boolean; freezes_remaining: number };
   },
 
   /** @deprecated — use incrementStats. Kept for admin/backfill paths only. */
@@ -1084,16 +1211,18 @@ export const db = {
     await sb(`/referral_events?id=eq.${encodeURIComponent(eventId)}`, 'PATCH', { rewarded_at: new Date().toISOString() });
   },
 
-  async getReferralStats(referrerId: string): Promise<{ uses: number; rewarded: number; bonus_calls: number }> {
-    const { data } = await sb<ReferralEventRow[]>(
-      `/referral_events?referrer_id=eq.${encodeURIComponent(referrerId)}&select=*`
-    );
-    const events = data ?? [];
-    const user   = await db.getUserById(referrerId);
+  async getReferralStats(referrerId: string): Promise<{ uses: number; rewarded: number; bonus_sessions: number }> {
+    const [eventsRes, usage] = await Promise.all([
+      sb<ReferralEventRow[]>(`/referral_events?referrer_id=eq.${encodeURIComponent(referrerId)}&select=*`),
+      db.getUsage(referrerId),
+    ]);
+    const events = eventsRes.data ?? [];
     return {
-      uses:        events.length,
-      rewarded:    events.filter(e => e.rewarded_at != null).length,
-      bonus_calls: user?.referral_bonus ?? 0,
+      uses:          events.length,
+      rewarded:      events.filter(e => e.rewarded_at != null).length,
+      // Migration 025: bonus is now the current-month session pool, not a
+      // lifetime AI-call accumulator (users.referral_bonus). Resets monthly.
+      bonus_sessions: usage?.monthly_session_bonus ?? 0,
     };
   },
 
@@ -1167,6 +1296,45 @@ export const db = {
       onboarding_profession:   profession,
       onboarding_goal:         goal,
       onboarding_completed_at: new Date().toISOString(),
+    });
+  },
+
+  // DAF (UPSC Detailed Application Form)
+  //
+  // Saves all DAF fields in a single PATCH. Nullable fields are left
+  // null when the user has not filled them yet — the prompt layer skips
+  // any null field rather than injecting an empty string.
+
+  async saveDAF(userId: string, fields: {
+    name?:               string | null;
+    home_state?:         string | null;
+    graduation_subject?: string | null;
+    graduation_college?: string | null;
+    optional_subject?:   string | null;
+    hobbies?:            string | null;
+    work_experience?:    string | null;
+    extracurriculars?:   string | null;
+  }): Promise<void> {
+    await sb(`/users?id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
+      daf_name:               fields.name               ?? null,
+      daf_home_state:         fields.home_state         ?? null,
+      daf_graduation_subject: fields.graduation_subject ?? null,
+      daf_graduation_college: fields.graduation_college ?? null,
+      daf_optional_subject:   fields.optional_subject   ?? null,
+      daf_hobbies:            fields.hobbies            ?? null,
+      daf_work_experience:    fields.work_experience    ?? null,
+      daf_extracurriculars:   fields.extracurriculars   ?? null,
+    });
+  },
+
+  // Company mode persistence
+  //
+  // Saves the user's last-selected company target for campus interview
+  // mode. null clears the preference (generic prep, no company context).
+
+  async saveCompanyMode(userId: string, companyMode: string | null): Promise<void> {
+    await sb(`/users?id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
+      last_company_mode: companyMode,
     });
   },
 
@@ -1771,5 +1939,314 @@ export const db = {
     await sb(`/user_prep_enrollments?id=eq.${encodeURIComponent(enrollmentId)}`, 'PATCH', {
       completed_at: new Date().toISOString(),
     });
+  },
+
+  // ── Migration 019: Free TTS quota + HD voice preference ───────────────────
+
+  /** IST billing month helper — 'YYYY-MM-DD' of the first day of the current IST month. */
+  _istBillingMonth(): string {
+    const now = new Date(Date.now() + 5.5 * 60 * 60 * 1000); // shift to IST
+    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-01`;
+  },
+
+  /** Returns chars consumed by a free user this IST billing month (0 if no row). */
+  async getFreeTtsCharsUsed(userId: string): Promise<number> {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/get_free_tts_chars_used`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ p_user_id: userId }),
+    });
+    if (!res.ok) return 0; // fail-open: let the TTS call proceed
+    const val = await res.json() as number | null;
+    return val ?? 0;
+  },
+
+  /** Atomically increments free TTS char usage. Fire-and-forget (non-fatal on error). */
+  async incrementFreeTtsChars(userId: string, chars: number): Promise<number> {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/increment_free_tts_chars`, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ p_user_id: userId, p_chars: chars }),
+    });
+    if (!res.ok) return chars; // fail-open
+    const val = await res.json() as number | null;
+    return val ?? chars;
+  },
+
+  /** Reads the hd_voice_enabled preference for a user. Defaults false on error. */
+  async getHdVoiceEnabled(userId: string): Promise<boolean> {
+    const user = await db.getUserById(userId);
+    return user?.hd_voice_enabled ?? false;
+  },
+
+  /** Persists the HD voice toggle for a user. */
+  async setHdVoiceEnabled(userId: string, enabled: boolean): Promise<void> {
+    await sb(`/users?id=eq.${encodeURIComponent(userId)}`, 'PATCH', {
+      hd_voice_enabled: enabled,
+    });
+  },
+
+  // ── Elara Sessions ────────────────────────────────────────────────────────
+
+  /**
+   * Saves a completed Elara English conversation session.
+   * Idempotent via (user_id, client_session_id) unique constraint — a client
+   * retry with the same client_session_id is a no-op (ON CONFLICT DO NOTHING).
+   */
+  async saveElaraSession(input: Omit<ElaraSessionRow, 'id' | 'created_at'>): Promise<void> {
+    await sb('/elara_sessions', 'POST', input, {
+      extraHeaders: { Prefer: 'resolution=ignore-duplicates,return=minimal' },
+    });
+  },
+
+  /**
+   * Returns elara sessions for a user ordered newest-first.
+   * Used to build the "English Journey" week-over-week chart.
+   */
+  async getElaraSessions(userId: string, limit: number): Promise<ElaraSessionRow[]> {
+    const { data } = await sb<ElaraSessionRow[]>(
+      `/elara_sessions?user_id=eq.${encodeURIComponent(userId)}&order=created_at.desc&limit=${limit}&select=*`
+    );
+    return data ?? [];
+  },
+
+  // ── Elara Vocabulary Words ────────────────────────────────────────────────
+
+  /**
+   * Upserts a vocab word for a user.
+   * On conflict (user_id, wrong_form): increments occurrences and updates
+   * correct_form/rule in case Elara refines the suggestion. Sets auto_saved
+   * when occurrences reach the 3-strike threshold (done in service layer).
+   */
+  async upsertVocabWord(input: {
+    user_id:       string;
+    wrong_form:    string;
+    correct_form:  string;
+    rule?:         string | null;
+    auto_saved?:   boolean;
+    manually_saved?: boolean;
+  }): Promise<ElaraVocabWordRow | null> {
+    // PostgREST upsert: merge-duplicates updates the conflicting row.
+    const { data } = await sb<ElaraVocabWordRow[]>(
+      '/elara_vocab_words',
+      'POST',
+      {
+        user_id:        input.user_id,
+        wrong_form:     input.wrong_form,
+        correct_form:   input.correct_form,
+        rule:           input.rule ?? null,
+        auto_saved:     input.auto_saved  ?? false,
+        manually_saved: input.manually_saved ?? false,
+        occurrences:    1,   // INSERT value; ON CONFLICT path uses increment_vocab_occurrence RPC
+        updated_at:     new Date().toISOString(),
+      },
+      {
+        extraHeaders: { Prefer: 'resolution=merge-duplicates,return=representation' },
+      }
+    );
+    return data?.[0] ?? null;
+  },
+
+  /**
+   * Increments occurrence count for a (user, wrong_form) pair.
+   * Called every time Elara flags the same error again. Returns updated row.
+   */
+  async incrementVocabOccurrence(
+    userId: string,
+    wrongForm: string,
+  ): Promise<ElaraVocabWordRow | null> {
+    const { data } = await sb<ElaraVocabWordRow[]>(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&wrong_form=eq.${encodeURIComponent(wrongForm)}`,
+      'PATCH',
+      {
+        occurrences: 'occurrences + 1',   // Raw SQL via PostgREST arithmetic expression
+        updated_at:  new Date().toISOString(),
+      },
+      { extraHeaders: { Prefer: 'return=representation' } }
+    );
+    return data?.[0] ?? null;
+  },
+
+  /**
+   * Marks a word as auto_saved=true once it crosses the 3-strike threshold.
+   */
+  async markVocabAutoSaved(userId: string, wrongForm: string): Promise<void> {
+    await sb(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&wrong_form=eq.${encodeURIComponent(wrongForm)}`,
+      'PATCH',
+      { auto_saved: true, updated_at: new Date().toISOString() },
+    );
+  },
+
+  /**
+   * Marks a word as manually_saved=true (user tapped it in the UI).
+   */
+  async markVocabManuallySaved(userId: string, wrongForm: string): Promise<void> {
+    await sb(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&wrong_form=eq.${encodeURIComponent(wrongForm)}`,
+      'PATCH',
+      { manually_saved: true, updated_at: new Date().toISOString() },
+    );
+  },
+
+  /**
+   * Returns a single vocab word entry for (user, wrong_form). Returns null
+   * if the word hasn't been tracked yet for this user.
+   */
+  async getVocabWordByWrongForm(
+    userId:    string,
+    wrongForm: string,
+  ): Promise<ElaraVocabWordRow | null> {
+    const { data } = await sb<ElaraVocabWordRow[]>(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&wrong_form=eq.${encodeURIComponent(wrongForm)}&select=*&limit=1`
+    );
+    return data?.[0] ?? null;
+  },
+
+  /**
+   * Sets occurrences to an explicit value (computed in the service layer
+   * to avoid a raw-expression PATCH which PostgREST v9 does not support).
+   */
+  async patchVocabOccurrences(
+    userId:     string,
+    wrongForm:  string,
+    newCount:   number,
+  ): Promise<void> {
+    await sb(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&wrong_form=eq.${encodeURIComponent(wrongForm)}`,
+      'PATCH',
+      { occurrences: newCount, updated_at: new Date().toISOString() },
+    );
+  },
+
+  /**
+   * Returns all saved vocab words for a user (auto or manual), newest first.
+   * Used for the dashboard vocab list and the /english page sidebar.
+   */
+  async getVocabWords(userId: string): Promise<ElaraVocabWordRow[]> {
+    const { data } = await sb<ElaraVocabWordRow[]>(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&or=(auto_saved.eq.true,manually_saved.eq.true)&order=occurrences.desc,updated_at.desc&select=*`
+    );
+    return data ?? [];
+  },
+
+  /**
+   * Returns the top N weakest words (highest occurrence, not yet reinforced
+   * recently). Used to inject into the Elara system prompt.
+   */
+  async getTopWeakVocabWords(userId: string, limit = 10): Promise<ElaraVocabWordRow[]> {
+    const { data } = await sb<ElaraVocabWordRow[]>(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&or=(auto_saved.eq.true,manually_saved.eq.true)&order=occurrences.desc,updated_at.desc&limit=${limit}&select=*`
+    );
+    return data ?? [];
+  },
+
+  /**
+   * Stamps last_reinforced_at for a set of words after injecting them into
+   * the Elara system prompt, so the scheduler can rotate words over time.
+   */
+  async stampVocabReinforced(userId: string, wrongForms: string[]): Promise<void> {
+    if (!wrongForms.length) return;
+    const inClause = wrongForms.map(w => encodeURIComponent(w)).join(',');
+    await sb(
+      `/elara_vocab_words?user_id=eq.${encodeURIComponent(userId)}&wrong_form=in.(${inClause})`,
+      'PATCH',
+      { last_reinforced_at: new Date().toISOString(), updated_at: new Date().toISOString() },
+    );
+  },
+
+  // ── Milestone rewards (migration 026) ────────────────────────────────────
+
+  /**
+   * Records a milestone as granted in users.milestone_rewards_granted (jsonb).
+   * Uses a Postgres jsonb merge so concurrent grants of different milestones
+   * don't overwrite each other.  Safe to call multiple times for the same
+   * milestone — the flag is simply set to true again.
+   */
+  async grantMilestoneReward(userId: string, milestone: number): Promise<void> {
+    // PostgREST doesn't support jsonb || operator directly, so we use the
+    // RPC approach: updateUser with the merged object fetched first.
+    // For simplicity (and to avoid a round-trip race) we use a raw SQL RPC.
+    const url = `${env.SUPABASE_URL}/rest/v1/rpc/grant_milestone_reward`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        apikey:          env.SUPABASE_SERVICE_KEY,
+        Authorization:   `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+      body: JSON.stringify({ p_user_id: userId, p_milestone: String(milestone) }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`grantMilestoneReward RPC failed (${res.status}): ${body.slice(0, 200)}`);
+    }
+  },
+
+  /**
+   * Sets the XP double-day for the 30-day milestone.
+   * date_str is an IST calendar date string: 'YYYY-MM-DD'.
+   * increment_user_stats checks this column and doubles XP when it matches today (IST).
+   */
+  async setXpDoubleDay(userId: string, dateStr: string): Promise<void> {
+    await this.updateUser(userId, { xp_double_day: dateStr } as Partial<UserRow>);
+  },
+
+  /**
+   * Sets elite_trial_expires_at for the 90-day milestone.
+   * expiresAt is an ISO-8601 timestamp string (NOW() + 7 days).
+   * effective_plan() DB function returns 'elite' until this timestamp passes.
+   */
+  async setEliteTrial(userId: string, expiresAt: string): Promise<void> {
+    await this.updateUser(userId, { elite_trial_expires_at: expiresAt } as Partial<UserRow>);
+  },
+
+  /**
+   * Returns the user's effective plan, respecting an active elite trial.
+   * Falls back to users.plan when the trial is absent or expired.
+   * Resolves locally without a DB round-trip for common cases.
+   */
+  getEffectivePlan(user: Pick<UserRow, 'plan' | 'elite_trial_expires_at'>): string {
+    if (
+      user.elite_trial_expires_at &&
+      new Date(user.elite_trial_expires_at) > new Date()
+    ) {
+      return 'elite';
+    }
+    return user.plan;
+  },
+
+  /**
+   * Returns recent speech metrics rows for a user, newest-first.
+   * Used by the weekly-card service to compute the fluency trend arrow.
+   */
+  async getRecentSpeechMetrics(
+    userId: string,
+    limit = 14,
+  ): Promise<Array<{ created_at: string; wpm: number; filler_count: number; answer_count: number }>> {
+    const url =
+      `${env.SUPABASE_URL}/rest/v1/speech_metrics` +
+      `?user_id=eq.${encodeURIComponent(userId)}` +
+      `&select=created_at,wpm,filler_count,answer_count` +
+      `&order=created_at.desc` +
+      `&limit=${limit}`;
+    const res = await fetch(url, {
+      headers: {
+        'Content-Type':  'application/json',
+        apikey:          env.SUPABASE_SERVICE_KEY,
+        Authorization:   `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+    });
+    if (!res.ok) return [];
+    const rows = await res.json() as Array<{ created_at: string; wpm: number; filler_count: number; answer_count: number }>;
+    return rows ?? [];
   },
 };

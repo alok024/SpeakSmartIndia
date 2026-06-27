@@ -6,7 +6,7 @@ import { getOrCreateReferralCode } from '../growth/referral.service';
 import { trackEvent } from '../analytics/events.service';
 import { getSessionDefaults, getDashboardRecommendations } from '../ai/onboarding-context';
 import { ok, notFound } from '../../core/utils/response';
-import { SESSION_CAP_FREE } from '../../core/config/env';
+import { SESSION_CAP_FREE, SESSION_CAP_STARTER } from '../../core/config/env';
 import { db } from '../../core/database/client';
 
 // GET /api/me
@@ -86,6 +86,8 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
       job_landed_at:            dbUser.job_landed_at      ?? null,
       job_landed_role:          dbUser.job_landed_role    ?? null,
       job_landed_company:       dbUser.job_landed_company ?? null,
+      // Migration 019: HD voice preference. Always false for free users (no paid TTS).
+      hd_voice_enabled:         dbUser.plan === 'free' ? false : (dbUser.hd_voice_enabled ?? false),
     },
     onboarding,
     usage: {
@@ -99,13 +101,19 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
         const nextMonth = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 1);
         return nextMonth.toISOString();
       })(),
-      // P1-A: monthly session cap. Free users are capped at SESSION_CAP_FREE.
-      // All paid plans (starter, pro, elite) have no session cap → null.
-      // Previously used `limit === -1` (ai_calls unlimited) as the proxy for
-      // "paid plan", which was wrong for Starter (ai_calls = 30, not -1) —
-      // Starter users received session_limit: 3 instead of null.
-      session_count: usage?.monthly_session_count ?? 0,
-      session_limit: dbUser.plan === 'free' ? SESSION_CAP_FREE : null,
+      // P1-A + Migration 025: monthly session cap.
+      // Free:    capped at SESSION_CAP_FREE (3).
+      // Starter: capped at SESSION_CAP_STARTER (30) + monthly_session_bonus.
+      // Pro / Elite: no cap → null.
+      // Previously used `limit === -1` (ai_calls unlimited) as proxy for
+      // "paid plan", which wrongly gave Starter a session_limit of 3.
+      session_count:   usage?.monthly_session_count   ?? 0,
+      session_bonus:   usage?.monthly_session_bonus   ?? 0,
+      session_limit:   dbUser.plan === 'free'
+        ? SESSION_CAP_FREE
+        : dbUser.plan === 'starter'
+          ? SESSION_CAP_STARTER + (usage?.monthly_session_bonus ?? 0)
+          : null,
     },
     stats: {
       streak:              stats?.streak     || 0,
@@ -115,6 +123,9 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
         ? Math.round((stats.total_score / stats.sessions) * 10) / 10
         : 0,
       avg_job_ready_score: jobReadyScore,
+      // Migration 023: XP system
+      xp_lifetime:         stats?.xp_lifetime ?? 0,
+      xp_monthly:          stats?.xp_monthly  ?? 0,
     },
     job_readiness: {
       score:   jobReadyScore,
@@ -152,3 +163,59 @@ export const saveOnboarding = asyncHandler(async (req: Request, res: Response) =
   trackEvent({ event: 'onboarding_complete', userId: req.user!.id, plan: req.user!.plan, properties: { profession, goal } });
   ok(res, {});
 });
+
+// POST /api/daf
+//
+// Saves (or updates) the user's UPSC DAF profile. All fields are optional
+// so the frontend can auto-save partial forms without waiting for completion.
+// The AI prompt layer skips null fields, so a partial DAF still improves
+// question personalisation for whichever fields are populated.
+
+export const saveDAF = asyncHandler(async (req: Request, res: Response) => {
+  const fields = req.body as {
+    name?:               string | null;
+    home_state?:         string | null;
+    graduation_subject?: string | null;
+    graduation_college?: string | null;
+    optional_subject?:   string | null;
+    hobbies?:            string | null;
+    work_experience?:    string | null;
+    extracurriculars?:   string | null;
+  };
+  await db.saveDAF(req.user!.id, fields);
+  trackEvent({ event: 'daf_saved', userId: req.user!.id, plan: req.user!.plan, properties: {} });
+  ok(res, {});
+});
+
+// GET /api/daf
+//
+// Returns the user's current DAF profile so the profile page can pre-fill
+// the form on load.
+
+export const getDAF = asyncHandler(async (req: Request, res: Response) => {
+  const user = await db.getUserById(req.user!.id);
+  if (!user) { notFound(res, 'User not found'); return; }
+  ok(res, {
+    name:               user.daf_name               ?? null,
+    home_state:         user.daf_home_state         ?? null,
+    graduation_subject: user.daf_graduation_subject ?? null,
+    graduation_college: user.daf_graduation_college ?? null,
+    optional_subject:   user.daf_optional_subject   ?? null,
+    hobbies:            user.daf_hobbies            ?? null,
+    work_experience:    user.daf_work_experience    ?? null,
+    extracurriculars:   user.daf_extracurriculars   ?? null,
+  });
+});
+
+// POST /api/company-mode
+//
+// Persists the user's last-selected company target. Null clears it.
+// The frontend also stores this in the interview config store for the
+// current session — this endpoint is just for cross-session persistence.
+
+export const saveCompanyMode = asyncHandler(async (req: Request, res: Response) => {
+  const { company_mode } = req.body as { company_mode: string | null };
+  await db.saveCompanyMode(req.user!.id, company_mode);
+  ok(res, {});
+});
+

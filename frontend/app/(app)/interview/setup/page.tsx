@@ -6,24 +6,37 @@ import { useInterviewStore } from '@/store/interview';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { useMe } from '@/hooks/queries';
+import { useSaveCompanyMode } from '@/features/user/hooks';
 import { Button, Card, ChipGroup, Input } from '@/components/ui';
 import { Difficulty, InterviewType, SessionMode } from '@/types';
 import { voiceApi } from '@/features/voice/api';
-import { FLAG } from '@/lib/feature-flags'; // P2-A: humanized coaching UI indicator
+import { FLAG } from '@/lib/feature-flags';
+import { TRACKS } from '@/lib/interview-prompts';
 
-// ─── F27: Profession picker cards data ────────────────────────────────────────
-const PROFESSION_CARDS = [
-  { prof: 'Bank PO',          icon: '🏦', hint: 'IBPS & SBI format questions' },
-  { prof: 'SSC CGL',          icon: '📋', hint: 'Tier I & II interview rounds' },
-  { prof: 'Government Job (SSC/UPSC)', icon: '🏛️', hint: 'Civil services personality test' },
-  { prof: 'Software Developer',icon: '💻', hint: 'Behavioural + system design' },
-  { prof: 'Data Scientist',   icon: '📊', hint: 'Case study & technical rounds' },
-  { prof: 'Doctor / Medical', icon: '🩺', hint: 'Clinical & HR interview rounds' },
-  { prof: 'Teacher',          icon: '📚', hint: 'Demo lesson & aptitude format' },
-  { prof: 'Marketing Manager',icon: '📣', hint: 'Campaign case & leadership rounds' },
-  { prof: 'Full Stack Developer', icon: '🖥️', hint: 'Coding + system design' },
-  { prof: 'Police / Defence', icon: '🪖', hint: 'SSB personality & GD rounds' },
+// Tracks that support company-specific campus mode
+const COMPANY_MODE_TRACKS = new Set([
+  'Software Developer',
+  'Full Stack Developer',
+  'Data Scientist',
+]);
+
+const COMPANY_MODES: {
+  id: 'tcs' | 'infosys' | 'wipro' | 'accenture' | 'amazon' | 'google' | 'flipkart';
+  label: string;
+  icon: string;
+  hint: string;
+}[] = [
+  { id: 'tcs',       label: 'TCS',       icon: '🔷', hint: 'Values-based + technical basics' },
+  { id: 'infosys',   label: 'Infosys',   icon: '🔵', hint: 'InfyTQ style — aptitude + OOP' },
+  { id: 'wipro',     label: 'Wipro',     icon: '💡', hint: 'WILP/WASE pattern' },
+  { id: 'accenture', label: 'Accenture', icon: '🟣', hint: 'Communication + behavioral heavy' },
+  { id: 'amazon',    label: 'Amazon',    icon: '📦', hint: 'All 16 Leadership Principles — STAR' },
+  { id: 'google',    label: 'Google',    icon: '🔴', hint: 'Googleyness + structured problem-solving' },
+  { id: 'flipkart',  label: 'Flipkart',  icon: '🛒', hint: 'Product sense + ops scenarios' },
 ];
+
+// Derive a flat ordered list of track names for the picker
+const TRACK_NAMES = Object.keys(TRACKS);
 
 const DIFFICULTIES: { label: string; value: Difficulty }[] = [
   { label: 'Beginner', value: 'beginner' },
@@ -129,14 +142,24 @@ function InterviewSetupPageInner() {
   const { showUpgradeModal } = useUIStore();
   const { data: meData } = useMe();
   const store = useInterviewStore();
+  const saveCompanyMode = useSaveCompanyMode();
 
   // ─── F28: Multi-step state ───────────────────────────────────────────────
-  const [step, setStep] = useState(0); // 0=profession, 1=style, 2=review+start
+  const [step, setStep] = useState(0); // 0=track, 1=topics, 2=style, 3=review+start
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
 
   function goToStep(n: number) {
     setSlideDir(n > step ? 'forward' : 'back');
     setStep(n);
+  }
+
+  // Local topic selection — synced to store on each navigation forward
+  const [localTopics, setLocalTopics] = useState<string[]>([]);
+
+  function toggleTopic(topic: string) {
+    setLocalTopics((prev) =>
+      prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
+    );
   }
 
   const [customProfession, setCustomProfession] = useState('');
@@ -206,10 +229,28 @@ function InterviewSetupPageInner() {
   const isLocked = isFree && (aiCallsLeft <= 0 || isFreeSessionCapReached);
   const selectedProfession = store.config.profession;
 
-  function selectProfession(p: string) {
-    store.setProfession(p);
+  function selectTrack(trackName: string) {
+    const track = TRACKS[trackName];
+    if (!track) return;
+    store.setProfession(track.profession);
     setCustomProfession('');
+    // Reset topics when track changes — topics are track-specific
+    setLocalTopics([]);
+    store.setSelectedTopics([]);
+    // Company mode only applies to SDE/Full Stack/Data Scientist tracks.
+    // Clear any previously-selected company so it doesn't silently persist
+    // (in local state AND on the server) into an unrelated track's
+    // sessions — e.g. an Amazon LP selection bleeding into a UPSC session.
+    if (!COMPANY_MODE_TRACKS.has(trackName) && store.config.companyMode) {
+      store.setCompanyMode(null);
+      saveCompanyMode.mutate(null);
+    }
   }
+
+  // The track name the user picked (reverse-lookup by profession string)
+  const selectedTrackName =
+    TRACK_NAMES.find((name) => TRACKS[name].profession === selectedProfession) ?? null;
+
 
   async function playVoicePreview() {
     if (previewLoading) return;
@@ -263,10 +304,14 @@ function InterviewSetupPageInner() {
   async function handleStart() {
     if (isLocked) { showUpgradeModal('limit_hit'); return; }
     const profession = customProfession.trim() || selectedProfession;
-    if (!profession) { setError('Please select or type a profession / field.'); return; }
+    if (!profession) { setError('Please select a track or type a profession / field.'); return; }
     setError('');
     setStarting(true);
     store.setProfession(profession);
+    // Ensure the latest topic selection is committed to the store before the
+    // session page reads config. (User may have edited topics then gone straight
+    // to Start without triggering the Topics → Style forward navigation.)
+    store.setSelectedTopics(localTopics);
     store.startSession();
     router.push('/interview/session');
     setStarting(false);
@@ -280,10 +325,14 @@ function InterviewSetupPageInner() {
     store.config.totalQ ?? null,
   );
 
-  // Step 1 is complete when profession is picked
-  const step1Complete = !!(customProfession.trim() || selectedProfession);
-  // Step 2 is complete when difficulty + type + count are set
+  // Step 0 complete: a track is picked (via card) or custom text entered
+  const step0Complete = !!(customProfession.trim() || selectedProfession);
+  // Step 1 (topics) complete: at least one topic selected, or user typed a custom profession
+  const step1Complete = localTopics.length > 0 || !!customProfession.trim() || !selectedTrackName;
+  // Step 2 complete when difficulty + type + count are set
   const step2Complete = !!(store.config.difficulty && store.config.interviewType && store.config.totalQ);
+  // Legacy alias used by CTA / review step
+  const allStepsComplete = step0Complete && step2Complete;
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
@@ -317,9 +366,9 @@ function InterviewSetupPageInner() {
       </div>
 
       {/* ─── F28: Step indicator ─────────────────────────────────────────── */}
-      <StepIndicator current={step} total={3} />
+      <StepIndicator current={step} total={4} />
 
-      {/* ─── Step 0: Profession ──────────────────────────────────────────── */}
+      {/* ─── Step 0: Track picker ────────────────────────────────────────── */}
       {step === 0 && (
         <div
           key={step}
@@ -330,20 +379,20 @@ function InterviewSetupPageInner() {
               : 'slideInLeft 0.28s cubic-bezier(.22,.68,0,1.2) both',
           }}
         >
-          {/* ─── F27: Profession picker cards ─────────────────────────── */}
           <Card className="p-5">
-            <SectionLabel>Profession / Field</SectionLabel>
+            <SectionLabel>Choose Your Track (25 available)</SectionLabel>
             <div
               className="grid gap-3 mb-4"
-              style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}
+              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))' }}
             >
-              {PROFESSION_CARDS.map((card) => {
-                const isSelected = selectedProfession === card.prof && !customProfession;
+              {TRACK_NAMES.map((trackName) => {
+                const track = TRACKS[trackName];
+                const isSelected = selectedTrackName === trackName && !customProfession;
                 return (
                   <button
-                    key={card.prof}
-                    onClick={() => selectProfession(card.prof)}
-                    className="relative rounded-2xl p-4 flex flex-col items-center gap-2 text-center cursor-pointer transition-all duration-200 border"
+                    key={trackName}
+                    onClick={() => selectTrack(trackName)}
+                    className="relative rounded-2xl p-3 flex flex-col items-center gap-1 text-center cursor-pointer transition-all duration-200 border"
                     style={{
                       background: isSelected ? 'var(--accent-dim)' : 'var(--surface-2)',
                       borderColor: isSelected ? 'var(--accent-border)' : 'var(--border2)',
@@ -351,11 +400,10 @@ function InterviewSetupPageInner() {
                       boxShadow: isSelected ? '0 4px 16px rgba(var(--accent-rgb, 99,102,241),.18)' : 'none',
                     }}
                   >
-                    {/* Checkmark */}
                     <span
-                      className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all duration-200"
+                      className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold transition-all duration-200"
                       style={{
-                        background: isSelected ? 'var(--accent)' : 'var(--border)',
+                        background: isSelected ? 'var(--accent)' : 'transparent',
                         color: '#fff',
                         opacity: isSelected ? 1 : 0,
                         transform: isSelected ? 'scale(1)' : 'scale(0)',
@@ -363,9 +411,9 @@ function InterviewSetupPageInner() {
                     >
                       ✓
                     </span>
-                    <div className="text-2xl">{card.icon}</div>
-                    <div className="text-xs font-semibold leading-tight" style={{ color: 'var(--text-1)' }}>{card.prof}</div>
-                    <div className="text-xs font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{card.hint}</div>
+                    <div className="text-xl">{track.icon}</div>
+                    <div className="text-[11px] font-semibold leading-tight" style={{ color: 'var(--text-1)' }}>{trackName}</div>
+                    <div className="text-[10px] font-medium leading-snug" style={{ color: 'var(--text-3)' }}>{track.hint}</div>
                   </button>
                 );
               })}
@@ -373,7 +421,21 @@ function InterviewSetupPageInner() {
             <Input
               placeholder="Or type any field — MBA, Nurse, IAS Officer, CA…"
               value={customProfession}
-              onChange={(e) => { setCustomProfession(e.target.value); if (e.target.value) store.setProfession(''); }}
+              onChange={(e) => {
+                setCustomProfession(e.target.value);
+                if (e.target.value) {
+                  store.setProfession(e.target.value.trim());
+                  setLocalTopics([]);
+                  store.setSelectedTopics([]);
+                  // Custom/free-typed profession is never a company-mode
+                  // track in the UI — clear any stale selection so it
+                  // doesn't persist into this (or a later) session.
+                  if (store.config.companyMode) {
+                    store.setCompanyMode(null);
+                    saveCompanyMode.mutate(null);
+                  }
+                }
+              }}
             />
           </Card>
 
@@ -404,23 +466,159 @@ function InterviewSetupPageInner() {
             </div>
           </Card>
 
-          {/* F28: Next button */}
+          {/* Company Mode — campus-specific interview pattern */}
+          {selectedTrackName && COMPANY_MODE_TRACKS.has(selectedTrackName) && (
+            <Card className="p-5">
+              <SectionLabel>
+                Company Mode{' '}
+                <span
+                  className="ml-1 text-[9px] rounded px-1.5 py-0.5 normal-case tracking-normal"
+                  style={{ background: 'var(--blue-dim)', color: 'var(--accent)', border: '1px solid var(--blue-border)' }}
+                >
+                  OPTIONAL
+                </span>
+              </SectionLabel>
+              <p className="text-xs mb-3 font-medium" style={{ color: 'var(--text-3)' }}>
+                Select a company to simulate their exact interview format. Aria's questions shift to match — Amazon LP rounds, Google Googleyness, TCS values, and more.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {COMPANY_MODES.map((c) => {
+                  const isActive = store.config.companyMode === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        const next = isActive ? null : c.id;
+                        store.setCompanyMode(next);
+                        saveCompanyMode.mutate(next);
+                      }}
+                      className="p-3 rounded-xl border text-left transition-all duration-200"
+                      style={isActive
+                        ? { borderColor: 'var(--accent-border)', background: 'var(--accent-dim)' }
+                        : { borderColor: 'var(--border)', background: 'var(--surface-2)' }}
+                    >
+                      <div className="text-lg">{c.icon}</div>
+                      <div className="text-xs font-bold mt-1" style={{ color: 'var(--text-1)' }}>{c.label}</div>
+                      <div className="text-[10px] font-medium leading-snug mt-0.5" style={{ color: 'var(--text-3)' }}>{c.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {store.config.companyMode && (
+                <button
+                  className="text-xs mt-3 underline transition-colors"
+                  style={{ color: 'var(--text-3)' }}
+                  onClick={() => { store.setCompanyMode(null); saveCompanyMode.mutate(null); }}
+                >
+                  Clear — use generic prep
+                </button>
+              )}
+            </Card>
+          )}
+
+          {/* Step 0 → Step 1 (Topics) */}
           <div className="flex justify-end">
             <Button
-              disabled={!step1Complete}
+              disabled={!step0Complete}
               onClick={() => goToStep(1)}
             >
-              Choose Style →
+              Pick Topics →
             </Button>
           </div>
         </div>
       )}
 
-      {/* ─── Step 1: Style ───────────────────────────────────────────────── */}
-      {step === 1 && (
+      {/* ─── Step 1: Topic Buckets ──────────────────────────────────────── */}
+      {step === 1 && (() => {
+        const activeBuckets = selectedTrackName ? TRACKS[selectedTrackName].topics : [];
+        return (
+          <div
+            key={step}
+            className="space-y-4"
+            style={{
+              animation: slideDir === 'forward'
+                ? 'slideInRight 0.28s cubic-bezier(.22,.68,0,1.2) both'
+                : 'slideInLeft 0.28s cubic-bezier(.22,.68,0,1.2) both',
+            }}
+          >
+            <Card className="p-5">
+              <SectionLabel>
+                {selectedTrackName ? `Pick Topic Buckets — ${selectedTrackName}` : 'Topic Focus'}
+              </SectionLabel>
+              {activeBuckets.length > 0 ? (
+                <>
+                  <p className="text-xs mb-4" style={{ color: 'var(--text-3)' }}>
+                    Select one or more to keep your practice targeted. Aria will only draw questions from these areas.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {activeBuckets.map((topic) => {
+                      const picked = localTopics.includes(topic);
+                      return (
+                        <button
+                          key={topic}
+                          onClick={() => toggleTopic(topic)}
+                          className="px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200"
+                          style={{
+                            background: picked ? 'var(--accent)' : 'var(--surface-2)',
+                            borderColor: picked ? 'var(--accent)' : 'var(--border2)',
+                            color: picked ? '#fff' : 'var(--text-2)',
+                          }}
+                        >
+                          {picked ? '✓ ' : ''}{topic}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="text-xs font-medium underline"
+                      style={{ color: 'var(--accent)' }}
+                      onClick={() => setLocalTopics([...activeBuckets])}
+                    >
+                      Select all
+                    </button>
+                    <button
+                      className="text-xs font-medium underline"
+                      style={{ color: 'var(--text-3)' }}
+                      onClick={() => setLocalTopics([])}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm" style={{ color: 'var(--text-3)' }}>
+                  You entered a custom profession — Aria will cover all relevant topics automatically.
+                </p>
+              )}
+            </Card>
+
+            <div className="flex gap-3">
+              <Button variant="ghost" onClick={() => goToStep(0)}>← Back</Button>
+              <Button
+                className="flex-1"
+                onClick={() => {
+                  store.setSelectedTopics(localTopics);
+                  goToStep(2);
+                }}
+              >
+                {localTopics.length > 0 ? `${localTopics.length} topic${localTopics.length > 1 ? 's' : ''} selected → Style` : 'Skip (all topics) → Style'}
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ─── Step 2: Style ───────────────────────────────────────────────── */}
+      {step === 2 && (
         <div
           key={step}
           className="space-y-4"
+          style={{
+            animation: slideDir === 'forward'
+              ? 'slideInRight 0.28s cubic-bezier(.22,.68,0,1.2) both'
+              : 'slideInLeft 0.28s cubic-bezier(.22,.68,0,1.2) both',
+          }}
         >
           <Card className="p-5">
             <SectionLabel>Difficulty</SectionLabel>
@@ -564,14 +762,14 @@ function InterviewSetupPageInner() {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => goToStep(0)}>← Back</Button>
-            <Button className="flex-1" disabled={!step2Complete} onClick={() => goToStep(2)}>Review →</Button>
+            <Button variant="secondary" onClick={() => goToStep(1)}>← Back</Button>
+            <Button className="flex-1" disabled={!step2Complete} onClick={() => goToStep(3)}>Review →</Button>
           </div>
         </div>
       )}
 
-      {/* ─── Step 2: Review + Start ──────────────────────────────────────── */}
-      {step === 2 && (
+      {/* ─── Step 3: Review + Start ──────────────────────────────────────── */}
+      {step === 3 && (
         <div
           key={step}
           className="space-y-4"
@@ -596,7 +794,8 @@ function InterviewSetupPageInner() {
               <p className="text-sm font-medium leading-relaxed mb-1" style={{ color: 'var(--text-1)' }}>
                 {livePreview.line1.split(' ').map((word, i) => {
                   // Highlight profession, difficulty, type tokens
-                  const isProfession = word === (customProfession.trim() || selectedProfession);
+                  const profLabel = selectedTrackName || customProfession.trim() || selectedProfession;
+                  const isProfession = profLabel ? livePreview.line1.indexOf(profLabel) !== -1 && word !== '' && profLabel.includes(word) && word.length > 2 : false;
                   const isDiff = store.config.difficulty && word.includes(store.config.difficulty);
                   const isType = store.config.interviewType && word.includes(store.config.interviewType);
                   if (isProfession || isDiff || isType) {
@@ -620,10 +819,14 @@ function InterviewSetupPageInner() {
           <Card className="p-5 space-y-3">
             <SectionLabel>Your Setup</SectionLabel>
             {[
-              { label: 'Profession', value: customProfession.trim() || selectedProfession || '—' },
-              { label: 'Mode', value: store.config.mode === 'chat' ? 'AI Chat Mode' : 'Classic Mode' },
+              { label: 'Track',      value: selectedTrackName || customProfession.trim() || '—' },
+              { label: 'Topics',     value: localTopics.length > 0 ? localTopics.join(', ') : 'All topics' },
+              { label: 'Mode',       value: store.config.mode === 'chat' ? 'AI Chat Mode' : 'Classic Mode' },
               { label: 'Difficulty', value: store.config.difficulty || '—' },
-              { label: 'Type', value: store.config.interviewType || '—' },
+              { label: 'Type',       value: store.config.interviewType || '—' },
+              ...(selectedTrackName && COMPANY_MODE_TRACKS.has(selectedTrackName) ? [
+                { label: 'Company Mode', value: store.config.companyMode ? store.config.companyMode.charAt(0).toUpperCase() + store.config.companyMode.slice(1) : 'Generic prep' },
+              ] : []),
               ...(store.config.mode === 'classic' ? [
                 { label: 'Questions', value: `${store.config.totalQ}` },
                 { label: 'Timer', value: store.config.timerSecs ? `${store.config.timerSecs / 60} min` : 'No Timer' },
@@ -640,11 +843,11 @@ function InterviewSetupPageInner() {
               className="text-xs mt-2 transition-colors"
               style={{ color: 'var(--accent)' }}
             >
-              ✏ Edit profession / mode
+              ✏ Edit track / mode
             </button>
             {' · '}
             <button
-              onClick={() => goToStep(1)}
+              onClick={() => goToStep(2)}
               className="text-xs transition-colors"
               style={{ color: 'var(--accent)' }}
             >
@@ -669,14 +872,14 @@ function InterviewSetupPageInner() {
           )}
 
           <div className="flex gap-3">
-            <Button variant="secondary" onClick={() => goToStep(1)}>← Back</Button>
+            <Button variant="secondary" onClick={() => goToStep(2)}>← Back</Button>
             <Button
               size="lg"
               className="flex-1"
               loading={starting}
-              disabled={isLocked || (!customProfession.trim() && !selectedProfession)}
+              disabled={isLocked || !step0Complete}
               onClick={handleStart}
-              style={step1Complete && step2Complete ? {
+              style={allStepsComplete ? {
                 boxShadow: '0 0 0 3px var(--accent-dim), 0 4px 20px rgba(99,102,241,.3)',
               } : undefined}
             >

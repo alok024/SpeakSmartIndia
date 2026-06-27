@@ -29,6 +29,8 @@ export interface User {
   job_landed_at?:      string | null;
   job_landed_role?:    string | null;
   job_landed_company?: string | null;
+  // Migration 019: HD voice preference (paid users; always false for free)
+  hd_voice_enabled?: boolean;
 }
 
 export interface Usage {
@@ -51,6 +53,9 @@ export interface UserStats {
   best_score: number;
   last_session?: string;
   avg_job_ready_score?: number;
+  // Migration 023: XP system
+  xp_lifetime?: number;
+  xp_monthly?:  number;
 }
 
 export interface Session {
@@ -133,9 +138,10 @@ export interface ReferralData {
   code: string;
   uses: number;
   rewarded: number;
-  bonus_calls: number;
+  /** This month's bonus sessions earned via successful referrals. Resets monthly. */
+  bonus_sessions: number;
   // backend computes ready-to-use share copy (accurate to the
-  // actual reward mechanic — bonus calls only land after the referred
+  // actual reward mechanic — bonus sessions only land after the referred
   // friend completes their first session, not on registration) so the
   // frontend doesn't need to duplicate that logic in a hardcoded string.
   share_context?: {
@@ -189,6 +195,18 @@ export interface LiveSessionConfig {
    * this and either initialises SimliClient or skips it entirely.
    */
   avatarMode?: 'full' | 'voice-only';
+  /**
+   * Topic buckets the user picked on the setup screen (Step 1 of the new
+   * multi-step flow).  When set, every Aria system prompt includes a
+   * directive to only draw questions from these areas.
+   */
+  selectedTopics?: string[];
+  /**
+   * Company-specific campus interview mode. When set, Aria's question
+   * pattern shifts to match that company's known interview format.
+   * null / undefined = generic prep (no company context injected).
+   */
+  companyMode?: 'tcs' | 'infosys' | 'wipro' | 'accenture' | 'amazon' | 'google' | 'flipkart' | null;
 }
 
 // Within-session memory — built up as answers come in, injected into
