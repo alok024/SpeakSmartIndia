@@ -55,7 +55,7 @@ export const handleDebrief = asyncHandler(async (req: Request, res: Response) =>
 
   const parsed = BodySchema.safeParse(req.body);
   if (!parsed.success) {
-    badRequest(res, 'Invalid request body', parsed.error.flatten());
+    badRequest(res, 'Invalid request body', 'validation_error', parsed.error.flatten());
     return;
   }
 
@@ -80,7 +80,7 @@ export const handleAudit = asyncHandler(async (req: Request, res: Response) => {
 
   const parsed = BodySchema.safeParse(req.body);
   if (!parsed.success) {
-    badRequest(res, 'Invalid request body', parsed.error.flatten());
+    badRequest(res, 'Invalid request body', 'validation_error', parsed.error.flatten());
     return;
   }
 
@@ -136,7 +136,7 @@ export const handleSaveSession = asyncHandler(async (req: Request, res: Response
 
   const parsed = BodySchema.safeParse(req.body);
   if (!parsed.success) {
-    badRequest(res, 'Invalid session body', parsed.error.flatten());
+    badRequest(res, 'Invalid session body', 'validation_error', parsed.error.flatten());
     return;
   }
 
@@ -186,7 +186,7 @@ export const handleSaveVocabWord = asyncHandler(async (req: Request, res: Respon
 
   const parsed = BodySchema.safeParse(req.body);
   if (!parsed.success) {
-    badRequest(res, 'Invalid word body', parsed.error.flatten());
+    badRequest(res, 'Invalid word body', 'validation_error', parsed.error.flatten());
     return;
   }
 
@@ -241,4 +241,3 @@ export const handleVocabPrompt = asyncHandler(async (req: Request, res: Response
   const block = await buildVocabSystemPrompt(req.user!.id);
   ok(res, { prompt_block: block });
 });
-

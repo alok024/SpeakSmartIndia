@@ -141,7 +141,7 @@ export const handleJdQuestions = asyncHandler(async (req: Request, res: Response
     // Groq returned something but we couldn't parse a question list from it.
     // Return a 422 so the client knows to fall back to default generation
     // (not the same as a 502 network error — the AI responded, just badly).
-    fail(res, 422, 'Could not parse questions from AI response. The JD may be too short or unstructured.', 'parse_failed');
+    fail(res, 422, 'parse_failed', 'Could not parse questions from AI response. The JD may be too short or unstructured.');
     return;
   }
 
