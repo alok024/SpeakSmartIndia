@@ -88,7 +88,7 @@ export async function flush(): Promise<void> {
       error: (err as Error).message,
     });
 
-    const q = getBackgroundQueue();
+    const q = await getBackgroundQueue();
     if (q) {
       try {
         await q.add('persist-analytics-events', { events: batch });

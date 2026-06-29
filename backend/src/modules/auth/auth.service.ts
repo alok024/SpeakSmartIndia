@@ -226,31 +226,27 @@ export async function loginUser(
     throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
   }
 
-  const valid = await bcrypt.compare(dto.password, user.password_hash);
+  // Run bcrypt and getUsage in parallel — getUsage is informational
+  // (ai_calls in the response) and has no dependency on password validity.
+  // bcrypt at cost 12 takes ~80–150ms; starting the DB fetch alongside it
+  // means getUsage resolves during that window at zero extra wall-clock cost.
+  // getUsage failure is non-fatal — defaults to 0.
+  const [valid, usage] = await Promise.all([
+    bcrypt.compare(dto.password, user.password_hash),
+    db.getUsage(user.id).catch((err: Error) => {
+      authLogger.warn('getUsage failed during login (non-fatal)', {
+        userId: user.id, error: err.message,
+      });
+      return null;
+    }),
+  ]);
+
   if (!valid) {
     throw new AppError(401, 'invalid_credentials', 'Invalid email or password');
   }
 
   if (!user.email_verified) {
     throw new AppError(403, 'email_not_verified', 'Please verify your email before logging in.');
-  }
-
-  // db.getUsage was called unguarded — if it throws (transient
-  // Supabase network blip, malformed response body, etc.) a user with
-  // fully valid credentials and a verified email got a 500 instead of a
-  // successful login, because the throw propagated straight out of this
-  // function with nothing here to catch it. Usage count is informational
-  // (`ai_calls` in the response, used for client-side display only) — it
-  // must never be able to block the actual login outcome. Same non-fatal
-  // treatment as incrementAIUsage/maybeRewardReferrer elsewhere in this
-  // codebase: log and degrade to 0 rather than fail the request.
-  let usage: Awaited<ReturnType<typeof db.getUsage>> = null;
-  try {
-    usage = await db.getUsage(user.id);
-  } catch (err) {
-    authLogger.warn('getUsage failed during login (non-fatal, defaulting ai_calls to 0)', {
-      userId: user.id, error: (err as Error).message,
-    });
   }
 
   authLogger.info('User logged in', { userId: user.id });

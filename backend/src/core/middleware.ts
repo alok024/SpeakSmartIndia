@@ -86,52 +86,43 @@ export async function authMiddleware(
   try {
     const payload = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
 
-    if (payload.jti) {
-      try {
-        const blacklisted = await db.isTokenBlacklisted(payload.jti);
-        if (blacklisted) {
-          unauthorized(res, 'Token has been revoked. Please log in again.', 'token_revoked');
-          return;
-        }
-      } catch {
-        log.warn('Token blacklist check failed (non-fatal)', { jti: payload.jti });
-      }
-    }
-
-    // Reject tokens issued before a password reset.
-    // When a user resets their password, tokens_invalidated_at is stamped on
-    // their DB row. Any token with iat < tokens_invalidated_at was issued
-    // before the reset and must be treated as revoked — even if it hasn't
-    // expired yet and isn't individually blacklisted. This closes the window
-    // where a compromised session token remains valid after a password change.
+    // Run blacklist check and user fetch in parallel — independent reads
+    // with no ordering dependency. Saves one sequential round-trip (~15–25ms)
+    // on every authenticated request.
     //
-    // We only do this DB lookup when the JWT carries an iat claim (always true
-    // for tokens we issue). The check is a fast indexed column read on the
-    // users table — same table already read by checkUsageLimit downstream,
-    // so it doesn't add a new DB round-trip for protected routes that already
-    // run checkUsageLimit. For auth-only routes (logout, refresh) it's one
-    // extra read, which is acceptable for the security guarantee.
-    if (payload.iat) {
-      try {
-        const dbUser = await db.getUserById(payload.id);
-        if (dbUser?.tokens_invalidated_at) {
-          const invalidatedAt = new Date(dbUser.tokens_invalidated_at).getTime() / 1000;
-          if (payload.iat < invalidatedAt) {
-            unauthorized(res, 'Session invalidated. Please log in again.', 'session_invalidated');
-            return;
-          }
-        }
-      } catch {
-        // Non-fatal: if the DB check fails, let the request through rather
-        // than blocking all authenticated users during a DB hiccup.
-        log.warn('tokens_invalidated_at check failed (non-fatal)', { userId: payload.id });
+    // Populating req.dbUser here means requireVerified, requireOnboarded,
+    // requirePro, and requireVoiceTier all hit req.dbUser directly and cost
+    // zero additional DB calls.
+    const [blacklisted, dbUser] = await Promise.all([
+      payload.jti
+        ? db.isTokenBlacklisted(payload.jti).catch(() => {
+            log.warn('Token blacklist check failed (non-fatal)', { jti: payload.jti });
+            return false;
+          })
+        : Promise.resolve(false),
+      payload.iat
+        ? db.getUserById(payload.id).catch(() => {
+            log.warn('getUserById check failed (non-fatal)', { userId: payload.id });
+            return null;
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (blacklisted) {
+      unauthorized(res, 'Token has been revoked. Please log in again.', 'token_revoked');
+      return;
+    }
+
+    if (payload.iat && dbUser?.tokens_invalidated_at) {
+      const invalidatedAt = new Date(dbUser.tokens_invalidated_at).getTime() / 1000;
+      if (payload.iat < invalidatedAt) {
+        unauthorized(res, 'Session invalidated. Please log in again.', 'session_invalidated');
+        return;
       }
     }
 
-    req.user = payload;
-    // Propagate userId into the AsyncLocalStorage request context so
-    // every downstream log call (services, ledgers) includes userId
-    // automatically — no manual threading required.
+    req.user   = payload;
+    req.dbUser = dbUser ?? undefined;
     setContextUserId(payload.id);
     next();
   } catch {
