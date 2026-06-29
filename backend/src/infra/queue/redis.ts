@@ -1,12 +1,11 @@
 import { env } from '../../core/config/env';
 import { logger } from '../logger';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Redis = require('ioredis');
+import Redis from 'ioredis';
 
-let _client: ReturnType<typeof Redis> | null = null;
+let _client: InstanceType<typeof Redis> | null = null;
 
-export function getRedis(): ReturnType<typeof Redis> | null {
+export function getRedis(): InstanceType<typeof Redis> | null {
   if (!env.REDIS_URL) return null;
 
   if (!_client) {

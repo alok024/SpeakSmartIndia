@@ -5,8 +5,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { useEffect } from 'react';
 import { ApiError } from '@/lib/api';
 import { UpgradeModal } from '@/components/shared/UpgradeModal';
-import { ToastStack } from '@/components/shared/ToastStack';
-import { CookieConsent } from '@/components/shared/CookieConsent';
+import { ToastStack } from '@/components/layout/ToastStack';
+import { CookieConsent } from '@/components/layout/CookieConsent';
 import posthog from 'posthog-js';
 
 const COOKIE_CONSENT_KEY = 'vachix-cookie-consent';
@@ -70,7 +70,7 @@ function PostHogInit() {
       if (consent !== 'accepted') return;
 
       // Guard against calling init twice (e.g. if the effect re-runs in dev).
-      if (posthog.__loaded) return;
+      if (posthog.config) return;
 
       posthog.init(key!, {
         api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://app.posthog.com',

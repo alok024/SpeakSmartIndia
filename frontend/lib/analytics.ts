@@ -85,7 +85,7 @@ export function track(
   scheduleFlush();
 }
 
-// ─── Named event helpers ────────────────────────────────────────────────────
+// Named event helpers
 // Keeps call sites terse and event names consistent across the codebase.
 
 export const analytics = {

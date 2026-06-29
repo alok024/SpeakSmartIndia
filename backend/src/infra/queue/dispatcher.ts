@@ -13,7 +13,7 @@
 
 import { getBackgroundQueue } from './queues';
 import { logger } from '../logger';
-import type { FeedbackItem } from '../../modules/ai/ai.memory';
+import type { FeedbackItem } from '../../modules/ai/memory/memory.service';
 import { db } from '../../core/database/client';
 
 const log = logger.child({ module: 'dispatcher' });
@@ -30,7 +30,7 @@ export async function dispatchPersistMistakes(
   if (!q) {
     // No Redis — run inline (dev / degraded mode)
     const { persistMistakesFromFeedback } =
-      await import('../../modules/ai/ai.memory');
+      await import('../../modules/ai/memory/memory.service');
     persistMistakesFromFeedback(userId, topic, feedbacks).catch(() => {/* logged inside */});
     return;
   }
@@ -42,7 +42,7 @@ export async function dispatchPersistMistakes(
     // Queue failure must never break the session save response
     log.error('Failed to queue persist-mistakes — running inline', { userId, error: err });
     const { persistMistakesFromFeedback } =
-      await import('../../modules/ai/ai.memory');
+      await import('../../modules/ai/memory/memory.service');
     persistMistakesFromFeedback(userId, topic, feedbacks).catch(() => {});
   }
 }
@@ -54,7 +54,7 @@ export async function dispatchRecomputeWeakAreas(userId: string): Promise<void> 
 
   if (!q) {
     const { recomputeWeakAreas } =
-      await import('../../modules/analytics/weak_areas.service');
+      await import('../../modules/analytics/reports/weak-areas.service');
     recomputeWeakAreas(userId).catch(() => {/* logged inside */});
     return;
   }
@@ -66,7 +66,7 @@ export async function dispatchRecomputeWeakAreas(userId: string): Promise<void> 
   } catch (err) {
     log.error('Failed to queue recompute-weak-areas — running inline', { userId, error: err });
     const { recomputeWeakAreas } =
-      await import('../../modules/analytics/weak_areas.service');
+      await import('../../modules/analytics/reports/weak-areas.service');
     recomputeWeakAreas(userId).catch(() => {});
   }
 }
@@ -83,7 +83,7 @@ export async function dispatchGenerateInterviewerNotes(
 
   if (!q) {
     const { generateInterviewerNotes } =
-      await import('../../modules/analytics/interviewer-notes.service');
+      await import('../../modules/analytics/reports/interviewer-notes.service');
     generateInterviewerNotes(sessionId, profession, score, feedbacks).catch(() => {/* logged inside */});
     return;
   }
@@ -94,7 +94,7 @@ export async function dispatchGenerateInterviewerNotes(
   } catch (err) {
     log.error('Failed to queue generate-interviewer-notes — running inline', { sessionId, error: err });
     const { generateInterviewerNotes } =
-      await import('../../modules/analytics/interviewer-notes.service');
+      await import('../../modules/analytics/reports/interviewer-notes.service');
     generateInterviewerNotes(sessionId, profession, score, feedbacks).catch(() => {});
   }
 }
@@ -113,7 +113,7 @@ export async function dispatchGenerateReadinessReport(
 
   if (!q) {
     const { generateReadinessReport } =
-      await import('../../modules/analytics/readiness-report.service');
+      await import('../../modules/analytics/reports/readiness-report.service');
     generateReadinessReport(userId, sessionCount).catch(() => {/* logged inside */});
     return;
   }
@@ -124,7 +124,7 @@ export async function dispatchGenerateReadinessReport(
   } catch (err) {
     log.error('Failed to queue generate-readiness-report — running inline', { userId, sessionCount, error: err });
     const { generateReadinessReport } =
-      await import('../../modules/analytics/readiness-report.service');
+      await import('../../modules/analytics/reports/readiness-report.service');
     generateReadinessReport(userId, sessionCount).catch(() => {});
   }
 }
@@ -218,7 +218,7 @@ export async function scheduleSessionExpiry(): Promise<void> {
 
   if (!q) {
     const { expireStaleSessions } =
-      await import('../../modules/analytics/sessions.service');
+      await import('../../modules/analytics/sessions/sessions.service');
 
     expireStaleSessions().catch(err =>
       log.error('Session expiry failed on startup', { error: err })

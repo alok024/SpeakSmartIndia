@@ -42,7 +42,7 @@ export function startBackgroundWorker(): Worker | null {
         // Persist AI memory mistakes
         case 'persist-mistakes': {
           const { persistMistakesFromFeedback } =
-            await import('../../modules/ai/ai.memory');
+            await import('../../modules/ai/memory/memory.service');
           await persistMistakesFromFeedback(
             job.data.userId,
             job.data.topic,
@@ -54,7 +54,7 @@ export function startBackgroundWorker(): Worker | null {
         // Recompute weak areas
         case 'recompute-weak-areas': {
           const { recomputeWeakAreas } =
-            await import('../../modules/analytics/weak_areas.service');
+            await import('../../modules/analytics/reports/weak-areas.service');
           await recomputeWeakAreas(job.data.userId);
           break;
         }
@@ -62,7 +62,7 @@ export function startBackgroundWorker(): Worker | null {
         // Interviewer's Notes — 2-3 sentence narrative summary
         case 'generate-interviewer-notes': {
           const { generateInterviewerNotes } =
-            await import('../../modules/analytics/interviewer-notes.service');
+            await import('../../modules/analytics/reports/interviewer-notes.service');
           await generateInterviewerNotes(
             job.data.sessionId,
             job.data.profession,
@@ -75,7 +75,7 @@ export function startBackgroundWorker(): Worker | null {
         // Interview Readiness Report — every-5-sessions rollup summary
         case 'generate-readiness-report': {
           const { generateReadinessReport } =
-            await import('../../modules/analytics/readiness-report.service');
+            await import('../../modules/analytics/reports/readiness-report.service');
           await generateReadinessReport(
             job.data.userId,
             job.data.sessionCount
@@ -101,7 +101,7 @@ export function startBackgroundWorker(): Worker | null {
         // Expire stale 'scoring' sessions (every 15 min)
         case 'expire-stale-sessions': {
           const { expireStaleSessions } =
-            await import('../../modules/analytics/sessions.service');
+            await import('../../modules/analytics/sessions/sessions.service');
           await expireStaleSessions();
           break;
         }
@@ -143,7 +143,7 @@ export function startBackgroundWorker(): Worker | null {
         // Weekly progress cards + push notifications (Sunday 08:00 IST)
         case 'weekly-progress-cards': {
           const { generateWeeklyProgressCards } =
-            await import('../../modules/analytics/weekly-card.service');
+            await import('../../modules/analytics/reports/weekly-card.service');
           await generateWeeklyProgressCards();
           break;
         }

@@ -38,6 +38,8 @@ const PROTECTED_PREFIXES = [
   '/interview',
   '/english',
   '/referral',
+  '/leaderboard',
+  '/prep-paths',
   '/admin',
 ];
 
@@ -77,7 +79,7 @@ export async function middleware(req: NextRequest) {
 
   const valid = await isValidAccessToken(accessToken);
 
- // /login, /register
+  // /login, /register
   if (isAuthPage) {
     // Only auto-redirect away from /login when already authenticated.
     // /register stays reachable even with a valid session, since this app
@@ -123,6 +125,8 @@ export const config = {
     '/interview/:path*',
     '/english/:path*',
     '/referral/:path*',
+    '/leaderboard/:path*',
+    '/prep-paths/:path*',
     '/admin',
     '/admin/:path*',
     '/login',

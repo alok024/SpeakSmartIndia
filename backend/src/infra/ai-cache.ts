@@ -22,13 +22,13 @@
  *   feedback  → 15 min  (semi-stable)
  *   tip       → 60 min  (generic advice — very cache-friendly)
  *   general   → 10 min
- *   personalised (any type, M2) → 3 min, bucketed per-user
+ *   personalised (per-user context injected) → 3 min, bucketed per-user
  *
  * System prompt excluded from hash
  *   The system prompt contains injected memory/weak-area context that
  *   is unique per user. Hashing it would make every key unique even
- *   for identical user questions. M2: personalised responses are now
- *   cached too, just bucketed by userId (via ctx.userId) with a short
+ *   for identical user questions. Personalised responses are cached too,
+ *   just bucketed by userId (via ctx.userId) with a short
  *   TTL — see PERSONALISED_TTL — instead of being skipped entirely.
  *
  * Config (env):
@@ -79,15 +79,8 @@ export interface CacheContext {
    */
   personaKey?: string;
   /**
-   * M2: true when the system prompt was personalised (memory / weak-area /
-   * adaptive / onboarding context injected). Previously such responses were
-   * never cached at all — meaning paying (Pro/Elite) users, who are the
-   * ones most likely to have this context, got zero cache benefit.
-   *
-   * Now personalised responses ARE cached, but bucketed per-user (see
-   * `userId` below) with a short TTL — see PERSONALISED_TTL — so a quick
-   * retry/reconnect is deduplicated without serving one user's coaching
-   * context to another, and without context going stale for long.
+   * true when the system prompt carries per-user context (memory, weak-area,
+   * adaptive, or onboarding data injected). Cached per-user with a short TTL.
    */
   personalised?: boolean;
   /** Required when personalised=true — scopes the cache key to this user. */
@@ -127,18 +120,8 @@ function buildKey(
   const topic  = slugify(ctx.topic ?? 'general');
   const persona = ctx.personaKey ? `:${slugify(ctx.personaKey)}` : '';
 
-  // personalised responses are bucketed per-user so cached coaching
-  // context for one user is never served to another. Every current call
-  // site always passes userId alongside personalised:true (see
-  // ai.controller.ts), but that's a convention, not something the type
-  // system enforces — a future call site could set personalised:true and
-  // simply forget userId. Silently falling through to a key with no user
-  // segment in that case would mean two different users' personalised
-  // (memory/weak-area/adaptive-context) responses end up on the exact
-  // same cache key, and a cache hit serves user A's coaching context to
-  // user B. Fail loudly instead: this is a programming error at the call
-  // site, not a degraded-but-safe condition, so callers must fix it
-  // rather than silently caching wrong data.
+  // personalised=true without a userId is a call-site programming error —
+  // an unscoped key would serve one user's coaching context to another.
   const personalised = !!ctx.personalised;
   if (personalised && !ctx.userId) {
     throw new Error(

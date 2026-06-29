@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
-import { useSessions } from '@/hooks/queries';
+import { useSessions } from '@/features/analytics/hooks';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
 import { Card, Badge, Button, EmptyState, Spinner, ScoreRing } from '@/components/ui';

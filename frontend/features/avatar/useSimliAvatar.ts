@@ -62,27 +62,14 @@ export interface SimliAvatarOptions {
   onAvatarSessionEnded?: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Stub — replace with real SimliClient when @simli/client is installed.
-// Real implementation connects to Simli WebRTC and returns a handle with
-// stopSpeaking() (used by useBargeIn). The stub returns null so the hook
-// falls through to voice-only mode, which is the live product until Simli
-// is wired (Phase 0.4 / P7-B).
-// ---------------------------------------------------------------------------
-async function simulateSimliInit(
+async function initSimliClient(
   _containerEl: HTMLElement | null,
 ): Promise<SimliHandle | null> {
-  // Replace with:
-  //   const { SimliClient } = await import('@simli/client');
-  //   const client = new SimliClient({ apiKey, faceId, container });
-  //   await client.connect();
-  //   return { stopSpeaking: () => client.stopSpeaking() };
+  // Not yet wired — returns null so the hook falls through to voice-only mode.
   return null;
 }
 
-// ---------------------------------------------------------------------------
 // Hook
-// ---------------------------------------------------------------------------
 
 export function useSimliAvatar(
   containerRef: React.RefObject<HTMLElement | null>,
@@ -142,7 +129,7 @@ export function useSimliAvatar(
     didInit.current = true;
 
     (async () => {
-      // ── Gate check ──────────────────────────────────────────────────────
+      // Gate check
       let autoEndAfterSecs: number | null = null;
       try {
         const gate = await avatarApi.start();
@@ -162,14 +149,13 @@ export function useSimliAvatar(
         // known balance. If the stub returns null below, voice-only path fires.
       }
 
-      // ── Simli init ──────────────────────────────────────────────────────
+      // Simli init
       try {
-        const handle = await simulateSimliInit(containerRef.current);
+        const handle = await initSimliClient(containerRef.current);
 
         if (handle === null) {
           // Stub or real init returned null — no SDK yet; fall back to voice-only.
-          // Call /avatar/end with 0 duration (we never actually connected).
-          avatarApi.end(1);
+          avatarApi.end(0); // 0 s — Simli never connected; ledger clamps to 1 s minimum
           store.setAvatarMode('voice-only');
           setVoiceOnly(true);
           return;

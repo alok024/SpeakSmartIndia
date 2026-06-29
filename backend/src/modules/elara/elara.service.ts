@@ -20,7 +20,10 @@
  * failover, circuit breaking, and the burst limiter automatically.
  */
 
-import { callAI } from '../ai/ai.service';
+import { callAI } from '../ai/chat/chat.service';
+import { logger } from '../../infra/logger';
+
+const log = logger.child({ module: 'elara.service' });
 
 export interface AnswerEntry {
   question: string;
@@ -211,8 +214,11 @@ Patterns:\n${parsed.top_patterns.map((p, i) => `${i + 1}. ${p.pattern}`).join('\
         ...p,
         hindi_explanation: hindiLines[i] ?? undefined,
       }));
-    } catch {
-      // Hindi explanations are additive — never block the English audit
+    } catch (err) {
+      // Hindi explanations are additive — a parse failure must never block the audit.
+      log.warn('generateAudit: Hindi explanation parse failed (non-fatal)', {
+        error: (err as Error).message,
+      });
     }
   }
 

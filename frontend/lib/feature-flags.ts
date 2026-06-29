@@ -14,13 +14,11 @@
  *   if (FLAG.SPEECH_ANALYTICS_CARD) { ... }
  */
 
-// ---------------------------------------------------------------------------
 // Flag registry
-// ---------------------------------------------------------------------------
 
 export const FLAG = {
   /**
-   * Phase 2 — Speech analytics card shown on the session summary screen.
+   * Speech analytics card on the session summary screen.
    * Shows WPM, filler-word count, and clarity breakdown.
    * Env: NEXT_PUBLIC_FF_SPEECH_ANALYTICS_CARD=true
    */
@@ -28,12 +26,10 @@ export const FLAG = {
     process.env.NEXT_PUBLIC_FF_SPEECH_ANALYTICS_CARD === 'true',
 
   /**
-   * Phase 1 — UI flag: show "Humanised Coach" badge or copy in the frontend.
-   * NOTE (Bug #3 fix): this flag is UI-display-only. The actual backend
-   * behaviour (warm tone detection + prompt rewrite in ai.prompt-service.ts)
-   * is gated by the BACKEND env var `HUMANIZE_COACH=true/false` in
-   * backend/.env — NOT by this NEXT_PUBLIC_ var (which only exists in the
-   * browser bundle and is never read by the Node.js backend process).
+   * UI-only flag: show "Humanised Coach" badge or copy in the frontend.
+   * The actual backend behaviour (warm tone detection + prompt rewrite) is
+   * gated by the server env var `HUMANIZE_COACH=true/false` — this
+   * NEXT_PUBLIC_ var only exists in the browser bundle.
    * Env: NEXT_PUBLIC_FF_HUMANIZED_COACH_PROMPT=true
    */
   HUMANIZED_COACH_PROMPT:

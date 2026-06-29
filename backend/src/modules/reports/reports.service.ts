@@ -15,7 +15,7 @@
 import crypto from 'crypto';
 import { env } from '../../core/config/env';
 import { db } from '../../core/database/client';
-import { getWeakAreasForUser, WeakAreaEntry } from '../analytics/weak_areas.service';
+import { getWeakAreasForUser, WeakAreaEntry } from '../analytics/reports/weak-areas.service';
 import { getOrCreateReferralCode } from '../growth/referral.service';
 import { getRedis } from '../../infra/queue/redis';
 import { logger } from '../../infra/logger';

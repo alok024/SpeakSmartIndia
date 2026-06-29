@@ -68,7 +68,7 @@ function AdminDashboard() {
     setLoading(true);
     const [ovRes, usersRes] = await Promise.all([
       apiCall<OverviewStats>('/admin/overview'),
-      apiCall<{ users: AdminUser[] }>('/admin/users'),
+      apiCall<{ users: AdminUser[] }>('/admin/users?limit=200'),
     ]);
     if (ovRes.ok)    setOverview(ovRes.data);
     if (usersRes.ok) setUsers(usersRes.data.users);

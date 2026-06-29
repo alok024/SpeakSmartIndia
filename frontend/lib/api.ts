@@ -200,11 +200,15 @@ export function getErrorRequestId(error: ApiErrorShape): string | undefined {
   return error.request_id;
 }
 
-export function extractErrorMessage(error: ApiErrorShape): string {
+export function extractErrorMessage(error: unknown): string {
   if (!error) return 'Something went wrong.';
   if (typeof error === 'string') return error;
-  const base = error.message || 'Something went wrong.';
-  return error.request_id ? `${base} (Error ref: ${error.request_id})` : base;
+  if (typeof error === 'object' && error !== null) {
+    const e = error as Record<string, unknown>;
+    const base = typeof e.message === 'string' ? e.message : 'Something went wrong.';
+    return typeof e.request_id === 'string' ? `${base} (Error ref: ${e.request_id})` : base;
+  }
+  return 'Something went wrong.';
 }
 
 /**

@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/middleware';
 import { getPublicReport, encodeShareToken } from './reports.service';
 import { getOrCreateReferralCode } from '../growth/referral.service';
-import { trackEvent } from '../analytics/events.service';
+import { trackEvent } from '../analytics/events/events.service';
 import { db } from '../../core/database/client';
 import { ok, notFound } from '../../core/utils/response';
 import { env }          from '../../core/config/env';

@@ -30,7 +30,7 @@ const log = logger.child({ module: 'elara-sessions' });
 /** Auto-save a word after this many cross-session occurrences. */
 const AUTO_SAVE_THRESHOLD = 3;
 
-// ── Session-level vocab dedup (Bug 5 fix) ─────────────────────────────────
+// ── Session-level vocab dedup ──────────────────────────────────────────────
 //
 // The spec says "same mistake in ≥3 *sessions*" but the original code
 // incremented the global counter on every message, so a word could hit the
@@ -158,10 +158,9 @@ export async function trackVocabErrors(
         const wrongForm = e.wrong.toLowerCase().trim();
         if (!wrongForm) return;
 
-        // Bug 5 fix: only count the first occurrence per session.
-        // If this (userId, sessionId, wrongForm) triple has already been
-        // processed in this session, skip the global counter increment so
-        // the 3-strike threshold truly means "3 sessions", not "3 messages".
+        // Only count the first occurrence per (user, session, word) — the threshold
+        // means "3 separate sessions", not "3 messages in one session". Skip the
+        // global counter increment if this triple was already processed.
         const isFirstInSession = _dedupVocabError(userId, sessionId, wrongForm);
 
         // Check if the word already exists

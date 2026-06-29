@@ -24,12 +24,10 @@ export interface User {
   onboarding_completed_at?: string | null;
   is_admin?: boolean;
   created_at?: string;
-  // P3-A: set once user submits job-landed form; null until then.
-  // Drives dashboard card visibility without unsafe casts.
+
   job_landed_at?:      string | null;
   job_landed_role?:    string | null;
   job_landed_company?: string | null;
-  // Migration 019: HD voice preference (paid users; always false for free)
   hd_voice_enabled?: boolean;
 }
 
@@ -41,9 +39,9 @@ export interface Usage {
   remaining?: number | null;
   /** ISO timestamp of when the monthly cap resets; null for unlimited plans */
   resets_at?: string | null;
-  /** P1-A: sessions completed this IST month (free tier only) */
+  /** Sessions completed this IST month (free tier only). */
   session_count?: number;
-  /** P1-A: monthly session cap; null = no cap (paid plans) */
+  /** Monthly session cap; null = no cap (paid plans). */
   session_limit?: number | null;
 }
 
@@ -53,7 +51,6 @@ export interface UserStats {
   best_score: number;
   last_session?: string;
   avg_job_ready_score?: number;
-  // Migration 023: XP system
   xp_lifetime?: number;
   xp_monthly?:  number;
 }

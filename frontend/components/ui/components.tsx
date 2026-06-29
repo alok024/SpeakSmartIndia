@@ -275,7 +275,7 @@ export function ProgressBar({ value, max = 100, color, className, label, showVal
 
 // ScoreRing
 //
-// Feature 44 — one "score visual grammar": every score in the app
+
 // (per-answer 0-10, job-readiness 0-100, history list, summary feedback,
 // public results board) renders as the same ring-with-number shape.
 //

@@ -11,15 +11,15 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Trophy, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
-import { resultsBoardApi } from '@/features/user/api/results-board';
-import type { ResultsBoardEntry } from '@/features/user/types/results-board';
+import { resultsBoardApi } from '@/features/user/api';
+import type { ResultsBoardEntry } from '@/features/user/types';
 import { formatDate } from '@/lib/utils';
 import { ScoreRing } from '@/components/ui';
 import Link from 'next/link';
 
 const PAGE_SIZE = 20;
 
-// ── Card ─────────────────────────────────────────────────────────────────────
+// Card
 
 function BoardCard({ entry }: { entry: ResultsBoardEntry }) {
   return (
@@ -77,7 +77,7 @@ function BoardCard({ entry }: { entry: ResultsBoardEntry }) {
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
+// Page
 
 export default function ResultsPage() {
   const [entries, setEntries] = useState<ResultsBoardEntry[]>([]);

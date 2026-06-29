@@ -32,14 +32,19 @@ function CertificatePageInner() {
       return;
     }
 
-    certificatesApi.getCertificate(token).then((res) => {
-      if (!res.ok) {
-        setError('Certificate not found or link has expired.');
-      } else {
-        setData(res.data);
-      }
-      setLoading(false);
-    });
+    certificatesApi.getCertificate(token)
+      .then((res) => {
+        if (!res.ok) {
+          setError('Certificate not found or link has expired.');
+        } else {
+          setData(res.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Something went wrong. Please try again.');
+        setLoading(false);
+      });
   }, [token]);
 
   // Same-origin proxy path (next.config.ts rewrites /api/:path* to the

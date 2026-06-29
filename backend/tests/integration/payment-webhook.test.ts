@@ -41,7 +41,7 @@ jest.mock('../../src/infra/observability', () => ({
   captureException:        jest.fn(),
   capturePaymentException: jest.fn(),
   getMetrics:              jest.fn().mockReturnValue({}),
-}));;
+}));
 
 jest.mock('../../src/infra/load-monitor', () => ({
   startLoadMonitor:   jest.fn(),
@@ -67,12 +67,12 @@ jest.mock('../../src/infra/queue/dispatcher', () => ({
 }));
 
 // Silence VAPID init (uses web-push which errors without real keys)
-jest.mock('../../src/modules/analytics/weekly-card.service', () => ({
+jest.mock('../../src/modules/analytics/reports/weekly-card.service', () => ({
   initVapid: jest.fn(),
 }));
 
 // Silence event flush registration
-jest.mock('../../src/modules/analytics/events.service', () => ({
+jest.mock('../../src/modules/analytics/events/events.service', () => ({
   registerShutdownFlush: jest.fn(),
   trackEvent:            jest.fn(),
 }));

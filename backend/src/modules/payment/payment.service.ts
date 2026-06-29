@@ -109,20 +109,30 @@ export function verifySignature(
   return false;
 }
 
-// Fetch order from Razorpay (for ownership verification)
+// Razorpay throws a plain object, not an Error subclass.
+type RazorpayErrorObject = { statusCode?: number; error?: { code?: string } };
+
+function isOrderNotFound(err: unknown): boolean {
+  const e = err as RazorpayErrorObject;
+  return e?.statusCode === 404 || e?.error?.code === 'BAD_REQUEST_ERROR';
+}
+
+// Fetch order from Razorpay (for ownership verification).
 // Used by the payment verify endpoint to confirm that the supplied
 // razorpay_order_id was actually created for the requesting user.
-// Tries live keys first, then test keys if configured.
-
+// Falls through to test keys only when the order is genuinely not found
+// on live — any other failure (auth error, network) is re-thrown so a
+// misconfigured live key surfaces immediately rather than silently
+// appearing as an ownership mismatch.
 export async function fetchRazorpayOrder(
   orderId: string
 ): Promise<{ id: string; notes?: Record<string, string> } | null> {
-  // Try live keys
   try {
     const order = await getRazorpay(false).orders.fetch(orderId);
     return order as { id: string; notes?: Record<string, string> };
-  } catch {
-    // If live key fails and test keys are configured, try those
+  } catch (err) {
+    if (!isOrderNotFound(err)) throw err;
+
     if (env.RAZORPAY_TEST_KEY_ID && env.RAZORPAY_TEST_KEY_SECRET) {
       try {
         const order = await getRazorpay(true).orders.fetch(orderId);
@@ -131,6 +141,7 @@ export async function fetchRazorpayOrder(
         return null;
       }
     }
+
     return null;
   }
 }

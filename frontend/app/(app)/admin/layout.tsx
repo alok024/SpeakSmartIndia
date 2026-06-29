@@ -13,7 +13,7 @@
  * focused on the dashboard UI instead of auth plumbing.
  */
 
-import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
+import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return <ProtectedRoute requireAdmin>{children}</ProtectedRoute>;

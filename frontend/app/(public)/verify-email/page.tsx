@@ -1,12 +1,5 @@
 'use client';
 
-/**
- * app/(public)/verify-email/page.tsx
- *
- * Migrated from backend/public/verify-email.html.
- * Route: /verify-email?token=<token>&signup=1
- */
-
 import { useEffect, useRef, useState , Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { authApi } from '@/features/auth/api';
@@ -23,12 +16,10 @@ function VerifyEmailPageInner() {
   const [message, setMessage] = useState('');
   const [email,   setEmail]   = useState('');
   const [sending, setSending] = useState(false);
-  // Bug 5 fix: expose a cancel function so user can dismiss the auto-redirect
+  // cancellation state — lets user abort the 3s auto-redirect after email verification
   const [cancelled, setCancelled] = useState(false);
-  // Bug 10 fix: the timer id needs to be reachable from the "Cancel redirect"
-  // button's click handler, which runs long after this effect has settled —
-  // a ref (not a `let` in the effect closure) is the only thing that stays
-  // up to date for both the effect's cleanup and the button handler.
+  // ref keeps the timer id reachable from both the effect cleanup and the
+  // "Cancel redirect" button's click handler, which runs after this effect settles
   const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -38,22 +29,26 @@ function VerifyEmailPageInner() {
       return;
     }
 
-    authApi.verifyEmail(token).then((res) => {
-      if (res.ok) {
-        setStatus('success');
-        // Bug 10 fix: store the timeout id on the ref (not a local closure
-        // variable) so "Cancel redirect" can clearTimeout it directly.
-        redirectTimerRef.current = setTimeout(() => {
-          router.push('/login');
-        }, 3000);
-      } else {
+    authApi.verifyEmail(token)
+      .then((res) => {
+        if (res.ok) {
+          setStatus('success');
+          // store on ref, not a closure variable — both cleanup and button handler need access
+          redirectTimerRef.current = setTimeout(() => {
+            router.push('/login');
+          }, 3000);
+        } else {
+          setStatus('error');
+          setMessage('Verification failed. The link may have expired.');
+        }
+      })
+      .catch(() => {
         setStatus('error');
-        setMessage('Verification failed. The link may have expired.');
-      }
-    });
+        setMessage('Something went wrong. Please try again.');
+      });
 
-    // Bug 10 fix: cleanup — cancel the redirect if the component unmounts
-    // before the 3 s fires (e.g. user navigates away manually)
+    // cleanup: cancel redirect if component unmounts before the 3s fires
+    // (e.g. user navigates away manually)
     return () => {
       if (redirectTimerRef.current !== null) clearTimeout(redirectTimerRef.current);
     };

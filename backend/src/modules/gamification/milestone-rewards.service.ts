@@ -60,18 +60,9 @@ export async function maybeTriggerMilestoneRewards(
   userId: string,
   streak: number,
 ): Promise<MilestoneRewardResult | null> {
-  // Use a range check (m <= streak) rather than an exact match (m === streak)
-  // so that a streak correction that jumps over a threshold — e.g. 6 → 8 skipping
-  // 7 — still fires the missed milestone.  The granted-flag guard below ensures
-  // each milestone fires at most once regardless of how many sessions trigger this.
-  // We pick the highest ungranted milestone at or below the current streak so that
-  // only one reward fires per session (the most significant one earned so far).
-  // Lower milestones that were also skipped will fire on subsequent sessions as
-  // the streak continues to climb through them — they remain ungranted and will
-  // be picked up by the `m <= streak` filter on the next call.
-  //
-  // Load user first so we can filter by already-granted milestones before
-  // deciding which milestone (if any) to fire.
+  // Pick the highest ungranted milestone at or below the current streak —
+  // this also handles a streak correction jumping over a threshold (e.g. 6 → 8
+  // skips 7). Lower skipped milestones remain ungranted and fire on a later call.
   const user = await db.getUserById(userId);
   if (!user) return null;
 
@@ -161,23 +152,14 @@ async function award30Day(userId: string, name: string): Promise<MilestoneReward
 // ── 60-day: auto-generate readiness certificate ───────────────────────────────
 
 async function award60Day(userId: string, name: string): Promise<MilestoneRewardResult> {
-  // Mint a certificate token for this user's streak milestone.
-  // We use a dedicated 'streak60' certificate kind encoded as a readiness
-  // payload with sessionCount = 0 as a sentinel — the certificates.service
-  // resolver handles it via a special case (added below in this PR) that
-  // renders a streak certificate rather than a session-count certificate.
-  //
-  // Simpler alternative (chosen here to avoid modifying certificates.service):
-  // use the user's latest readiness report if they have one, falling back to
-  // a streak-specific token with sessionCount = -60 as sentinel.
-  //
-  // We encode a readiness payload with sessionCount = -60 as a sentinel that
-  // certificates.service.ts will intercept and render as a streak certificate.
+  // Mints a streak-specific certificate token; certificates.service.ts
+  // recognizes the 'streak60' kind and renders it as a streak certificate
+  // rather than a session-count one.
   const token   = encodeCertificateToken({ kind: 'streak60', userId });
   const certUrl = `${env.FRONTEND_URL}/certificate/${token}`;
 
   // Store the cert URL on the user row so the dashboard can surface it.
-  await db.updateUser(userId, { streak60_cert_url: certUrl } as never);
+  await db.updateUser(userId, { streak60_cert_url: certUrl });
 
   await sendPush(userId, {
     title: '🏆 60-Day Streak! Your certificate is ready',

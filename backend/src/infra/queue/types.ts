@@ -5,7 +5,7 @@
  * These are the `data` objects stored in Redis per job.
  */
 
-import type { FeedbackItem } from '../../modules/ai/ai.memory';
+import type { FeedbackItem } from '../../modules/ai/memory/memory.service';
 
 // persist-mistakes
 export interface PersistMistakesData {

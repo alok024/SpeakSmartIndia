@@ -1,20 +1,6 @@
 'use client';
 
-/**
- * app/(app)/interview/session/page.tsx
- *
- * Runs both classic and chat interview modes.
- *
- * Bug fixes addressed here:
- *   1. Session was never saved — useSaveSession().mutate() is now called
- *      at session end before routing to /interview/summary.
- *   2. Score was hardcoded to 7 — AI response is parsed for a numeric
- *      score via parseScoreFromAI(); classic mode averages per-answer
- *      scores; chat mode parses the final evaluation JSON.
- *   4. Stale closure on empty-[] useEffect — generateClassicQuestions and
- *      startChatSession read config/session via store snapshots taken at
- *      call time (not mount time), so Zustand hydration timing is safe.
- */
+// Runs both classic and chat interview modes.
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
@@ -24,7 +10,7 @@ import { useUIStore } from '@/store/ui';
 import { useSaveSession } from '@/features/interview/hooks';
 import { aiApi } from '@/features/ai/api';
 import { interviewApi }  from '@/features/interview/api';
-import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
+import { ErrorBoundary } from '@/components/layout/ErrorBoundary';
 import { Button, Card, Spinner, ScoreRing } from '@/components/ui';
 import { parseJsonArray } from '@/lib/utils';
 import { withErrorRef } from '@/lib/api';
@@ -33,11 +19,13 @@ import { speechApi } from '@/features/speech/api';
 import {
   getProfessionContext,
   getTopicConstraint,
+} from '@/lib/interview-prompts';
+import {
   getLiveFeedback,
   type LiveFeedbackChip,
-} from '@/lib/interview-prompts';
+} from '@/features/elara/prompts';
 import type { Feedback, ErrorCorrection } from '@/types';
-// Bug #1 fix: wire avatar + barge-in hooks (P7-B / P7-C)
+
 import { useSimliAvatar } from '@/features/avatar/useSimliAvatar';
 import { useBargeIn }     from '@/features/avatar/useBargeIn';
 import { useAriaVoice }  from '@/features/voice/useAriaVoice';
@@ -45,8 +33,7 @@ import { useElaraVoice } from '@/features/elara/useElaraVoice';
 import { elaraApi }      from '@/features/elara/api';
 import type { DebriefResult, AuditResult } from '@/features/elara/api';
 
-// Score parsing
-// Looks for patterns like "score: 7", "7/10", "rating: 6.5", etc.
+// Matches patterns like "score: 7", "7/10", "rating: 6.5"
 function parseScoreFromAI(text: string): number {
   const patterns = [
     /["']?score["']?\s*[:=]\s*([0-9]+(?:\.[0-9]+)?)/i,
@@ -68,7 +55,6 @@ function parseScoreFromAI(text: string): number {
 // Matches the backend AIMessageSchema content cap (2,000).
 const MAX_ANSWER_LENGTH = 2_000;
 
-// F33: Animated score badge — counts up from 0 to target over 500ms
 function AnimatedScore({ score, max = 10 }: { score: number; max?: number }) {
   const [displayed, setDisplayed] = useState(0);
   const [settled, setSettled] = useState(false);
@@ -112,9 +98,7 @@ function AnimatedScore({ score, max = 10 }: { score: number; max?: number }) {
   );
 }
 
-// Feedback JSON parsing
-// Parse and validate AI feedback output with Zod so malformed
-// responses degrade safely instead of silently corrupting session data.
+// Validate AI feedback output with Zod; malformed responses degrade to a bare score.
 import { z } from 'zod';
 import { analytics } from '@/lib/analytics';
 
@@ -168,8 +152,6 @@ function parseFeedbackJson(text: string): Partial<Feedback> {
     return { score: parseScoreFromAI(text) };
   }
 }
-
-// Prompt builders
 
 // Shared language instruction so question generation, feedback, and chat
 // mode all describe each language option the same way.
@@ -270,10 +252,8 @@ function buildChatSystemPrompt(config: ReturnType<typeof useInterviewStore.getSt
   ].filter(Boolean).join('\n');
 }
 
-// "Stuck? Get a hint" — Easy build item. One short, unmetered Groq call
-// (see aiApi.hint) that nudges the candidate toward STAR structure
-// without giving away a model answer. Kept deliberately terse: this is
-// a nudge mid-thought, not a feedback report.
+// Hint — one short, unmetered call that nudges toward STAR structure without
+// revealing a model answer. Deliberately terse: a nudge, not a feedback report.
 function buildHintPrompt(
   question: string,
   partialAnswer: string,
@@ -372,7 +352,7 @@ function InterviewSessionPageInner() {
   const [currentFeedback, setCurrentFeedback] = useState<Partial<Feedback> | null>(null);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
-  // F30: Immersive session mode
+
   const [immersive, setImmersive] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [liveChips, setLiveChips] = useState<LiveFeedbackChip[]>([]);
@@ -386,7 +366,7 @@ function InterviewSessionPageInner() {
   // user knows their speech was detected (avoids the confusing "avatar stopped
   // talking but nothing happened" experience when STT is not yet wired).
   const [isListening, setIsListening] = useState(false);
-  // F34: Word count quality bar
+
   const wcWords = answer.trim() === '' ? 0 : answer.trim().split(/\s+/).filter(Boolean).length;
   const wcColor: 'red' | 'amber' | 'green' = wcWords >= 40 ? 'green' : wcWords >= 20 ? 'amber' : 'red';
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -402,19 +382,16 @@ function InterviewSessionPageInner() {
   answerRef.current       = answer;          // sync on every render
   // submitAnswerRef is populated after submitAnswer is defined (below).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const submitAnswerRef   = useRef<() => Promise<void>>(null as any);
+  const submitAnswerRef   = useRef<(() => Promise<void>) | null>(null);
 
-  // ── Bug #1 fix: Avatar + Barge-In (P7-B / P7-C) ──────────────────────────
   // avatarContainerRef  → <div> that Simli streams video into
   // simliAudioRef       → <audio> element Simli plays TTS through (barge-in pauses it)
   // simliClientRef      → SimliClient handle (barge-in calls stopSpeaking())
   //
   // Both hooks are no-ops when avatarMode === 'voice-only' (auto-detected or
-  // user-toggled in setup page) — so they are safe to call unconditionally here.
+  // user-toggled in setup page) — safe to call unconditionally.
   const avatarContainerRef = useRef<HTMLDivElement>(null);
   const simliAudioRef      = useRef<HTMLAudioElement>(null);
-  // SimliHandle ref — populated by useSimliAvatar once the client connects.
-  // Typed as `{ stopSpeaking(): void } | null` to match UseBargeInOptions.
   const simliClientRef     = useRef<{ stopSpeaking(): void } | null>(null);
 
   const { ready: avatarReady, voiceOnly: isVoiceOnly } = useSimliAvatar(avatarContainerRef, simliClientRef);
@@ -428,7 +405,7 @@ function InterviewSessionPageInner() {
   });
 
   // Elara voice — separate hook so Elara and Aria can run concurrently
-  // (shared speakingRef would cause them to interrupt each other during a session).
+  // (shared speakingRef would cause them to interrupt each other).
   const { speakAsync: elaraSpeak, canSpeak: elaraCanSpeak } = useElaraVoice({ user });
 
   // active / disable exposed for future use (e.g. a "mute mic" button, end-session cleanup).
@@ -437,25 +414,14 @@ function InterviewSessionPageInner() {
     audioElRef:    simliAudioRef,
     simliRef:      simliClientRef,
     onUtterance:   (/* audio: Float32Array */) => {
-      // TODO (Phase 9 full wiring): send audio Float32Array to STT, then
-      // append the transcript to chatInput so the user can review before submit.
-      // For now the barge-in correctly silences the avatar on speech start
-      // (interrupt() fires immediately), and this callback is a no-op pending
-      // STT integration.
+      // STT integration not implemented — audio is discarded.
     },
-    onSpeechStart: () => {
-      // Show listening badge so the user knows their speech was detected.
-      // The badge disappears when speech ends (onSpeechEnd below).
-      setIsListening(true);
-    },
-    onSpeechEnd: () => {
-      setIsListening(false);
-    },
+    onSpeechStart: () => setIsListening(true),
+    onSpeechEnd:   () => setIsListening(false),
   });
 
   // Enable barge-in once the avatar is ready (full mode only).
-  // Runs once when avatarReady flips true; disable on unmount handled
-  // automatically inside useBargeIn's own cleanup effect.
+  // Disable on unmount is handled inside useBargeIn's cleanup effect.
   useEffect(() => {
     if (avatarReady && !isVoiceOnly) {
       enableBargeIn().catch((err) => {
@@ -463,10 +429,7 @@ function InterviewSessionPageInner() {
       });
     }
   }, [avatarReady, isVoiceOnly, enableBargeIn]);
-  // ── end Bug #1 fix ────────────────────────────────────────────────────────
 
-  // Read config/session once Zustand has hydrated — // we defer inside useEffect but read state at call-time via getState(),
-  // not via a stale closure capture from mount.
   const mode = store.config.mode;
 
   // Classic: load questions
@@ -486,7 +449,7 @@ function InterviewSessionPageInner() {
     // gets questions — just generic ones. A console.warn is emitted so it is
     // visible in devtools without alarming the user.
 
-    // ── Path 1: JD-tailored questions ────────────────────────────────────
+    // Path 1: JD-tailored questions
     if (config.jdText) {
       const jdRes = await interviewApi.getJdQuestions({
         jd_text:        config.jdText,
@@ -512,7 +475,7 @@ function InterviewSessionPageInner() {
       console.warn('[session] JD question generation failed; falling back to default prompt.', jdRes);
     }
 
-    // ── Path 2: Default question generation ──────────────────────────────
+    // Path 2: Default question generation
     const prompt = buildQuestionPrompt(config);
 
     const res = await aiApi.call({
@@ -663,7 +626,7 @@ function InterviewSessionPageInner() {
         showToast('⏱ Time\'s up! Moving to next question…');
         nextQuestion();
       } else {
-        submitAnswerRef.current();
+        submitAnswerRef.current?.();
       }
     }
   }, [store.session.timerRemaining, phase]);
@@ -751,7 +714,7 @@ function InterviewSessionPageInner() {
       session_id: session.clientSessionId ?? '',
       question,
       answer,
-      score: parsed.score ?? 5,  // Bug 2 fixed: score comes from AI, not hardcoded
+      score: parsed.score ?? 5,  // Defensive fallback — AI occasionally omits score on malformed responses
       tips: parsed.tips ?? '',
       corrections: parsed.corrections ?? [],
       model_answer: parsed.model_answer,
@@ -886,7 +849,7 @@ function InterviewSessionPageInner() {
 
       if (replyPart) store.addChatMessage('assistant', replyPart);
 
-      // Parse final score — Bug 2 fix: never hardcoded
+      // score field is AI-sourced; fallback to 5 only on parse failure
       const finalParsed = parseFeedbackJson(jsonPart);
       const finalScore = finalParsed.score ?? parseScoreFromAI(aiText);
 
@@ -945,13 +908,14 @@ function InterviewSessionPageInner() {
       ? Math.round((Date.now() - session.sessionStartTime) / 1000)
       : 0;
 
-
-    // P1-A: saveSession.mutateAsync calls apiCall(), which NEVER throws —
     // it always resolves to ApiResult<T>. The old try/catch was unreachable,
     // so session_limit_reached (429) silently fell through to a generic toast
     // and the upgrade modal never fired.
     // Correct pattern: inspect result.ok and result.error directly.
     const { showUpgradeModal } = useUIStore.getState();
+
+    const exchanges = config.mode === 'chat' ? session.chatExchanges : feedbacks.length;
+    const sessionId = session.clientSessionId ?? 'unknown';
 
     const result = await saveSession.mutateAsync({
       client_session_id: (() => {
@@ -978,7 +942,7 @@ function InterviewSessionPageInner() {
     });
 
     if (!result.ok) {
-      // P1-A: monthly session cap reached — show upgrade modal with reset date,
+
       // then route to in-memory summary so the user doesn't lose their feedback.
       const errObj = typeof result.error === 'string' ? null : result.error;
       if (errObj?.code === 'session_limit_reached') {
@@ -992,16 +956,18 @@ function InterviewSessionPageInner() {
         return;
       }
       // Any other error — fall through to in-memory summary with warning toast.
+      analytics.sessionAbandoned({
+        session_id:     sessionId,
+        profession:     config.profession,
+        mode:           config.mode,
+        questions_seen: exchanges,
+      });
       showToast('⚠️ Could not save session to server. Your feedback is still shown below.');
       router.push('/interview/summary');
       return;
     }
 
-
-    const exchanges = config.mode === 'chat' ? session.chatExchanges : feedbacks.length;
-    const sessionId = session.clientSessionId ?? 'unknown';
-
-    // ── Speech Metrics (P5) ───────────────────────────────────────────────
+    // Speech Metrics (P5)
     // Fire-and-forget: computed from the in-memory feedbacks, never blocks
     // navigation. Only meaningful for classic mode (chat has no discrete
     // per-answer texts to analyse). Skipped when there are no feedbacks
@@ -1028,16 +994,15 @@ function InterviewSessionPageInner() {
       });
     }
 
-    if (result.ok) {
-      analytics.sessionCompleted({
-        session_id:    sessionId,
-        score:         avgScore,
-        exchanges,
-        duration_secs: durationSecs,
-        profession:    config.profession,
-        mode:          config.mode,
-      });
-      store.setLastSessionId(result.data.session_id);
+    analytics.sessionCompleted({
+      session_id:    sessionId,
+      score:         avgScore,
+      exchanges,
+      duration_secs: durationSecs,
+      profession:    config.profession,
+      mode:          config.mode,
+    });
+    store.setLastSessionId(result.data.session_id);
 
       // XP earned toast — show multiplier context when active
       const xpEarned = result.data.xp_earned ?? 0;
@@ -1051,7 +1016,7 @@ function InterviewSessionPageInner() {
         showToast(`⚡ +${xpEarned} XP earned${multiplierNote}`);
       }
 
-      // ── Streak freeze notification ────────────────────────────────────────
+      // Streak freeze notification
       // If the backend consumed a freeze to protect the user's streak,
       // show a toast so they know it happened. The streak number in the
       // toast comes from the live result (already updated by SQL).
@@ -1066,7 +1031,7 @@ function InterviewSessionPageInner() {
         showToast(`🧊 Streak freeze used! Your ${streak}-day streak is safe${leftNote}.`);
       }
 
-      // ── Elara post-session (Pro+ debrief / Elite audit) ─────────────────
+      // Elara post-session (Pro+ debrief / Elite audit)
       // Only fires for classic mode (chat has no discrete per-answer texts).
       // Elite gets the batch audit; Pro+ gets the spoken debrief.
       // Both run after save() so the session row exists before any FK ops.
@@ -1113,18 +1078,7 @@ function InterviewSessionPageInner() {
       }
 
       router.push(`/interview/summary?session=${result.data.session_id}`);
-    } else {
-      // Still go to summary — show in-memory data even if save failed.
-      // Track as abandoned since the server didn't record a completed session.
-      analytics.sessionAbandoned({
-        session_id:     sessionId,
-        profession:     config.profession,
-        mode:           config.mode,
-        questions_seen: exchanges,
-      });
-      showToast('⚠️ Could not save session to server. Your feedback is still shown below.');
-      router.push('/interview/summary');
-    }
+
   }
 
   // Classic UI
@@ -1160,7 +1114,7 @@ function InterviewSessionPageInner() {
     );
   }
 
-  // ── Debrief phase — Pro+ spoken summary / Elite audit loading ──────────────
+  // Debrief phase — Pro+ spoken summary / Elite audit loading
   if (phase === 'debrief') {
     const isElite = user?.plan === 'elite';
     return (
@@ -1300,7 +1254,7 @@ function InterviewSessionPageInner() {
         {/* Input */}
         <div className="px-4 pt-2 border-t border-[var(--border)] bg-[var(--surface)]" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))' }}>
           <div className="max-w-3xl mx-auto">
-            {/* "Stuck? Get a hint" — Easy build item. Unmetered. */}
+            {/* "Stuck? Get a hint" Unmetered. */}
             {hintText ? (
               <div
                 className="rounded-xl p-3 mb-2 text-sm leading-relaxed flex items-start gap-2 border"
@@ -1363,7 +1317,7 @@ function InterviewSessionPageInner() {
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-5">
 
-      {/* F31 fix: Keyframes hoisted out of conditional branches so they are
+      {/* fix: Keyframes hoisted out of conditional branches so they are
           always available — both immersive and non-immersive modes reference them. */}
       <style>{`
         @keyframes at31OrbPulse {
@@ -1376,13 +1330,9 @@ function InterviewSessionPageInner() {
         }
       `}</style>
 
-      {/* ── Bug #1 fix: Avatar container (P7-B) ──────────────────────────────
-           Rendered in both modes so the ref is always attached. Hidden in
-           voice-only mode (avatarMode === 'voice-only' or Simli init failed).
-           The <audio> element is hidden always — Simli streams into it but
-           the user hears it through speakers, not through a visible player.
-           simliClientRef is populated by useSimliAvatar once SimliClient
-           connects; barge-in reads it via the ref without re-renders. */}
+      {/* Avatar container — rendered in both modes so the ref is always attached.
+           Hidden in voice-only mode or if Simli init failed. The <audio> element
+           is hidden but Simli streams TTS into it; barge-in pauses it on speech start. */}
       <div
         ref={avatarContainerRef}
         aria-hidden={isVoiceOnly || !avatarReady}
@@ -1396,8 +1346,7 @@ function InterviewSessionPageInner() {
       <audio ref={simliAudioRef} style={{ display: 'none' }} />
 
       {/* Barge-in listening badge — visible only when VAD detects speech.
-           Gives the user immediate feedback that the avatar heard them, even
-           before the STT path is wired in Phase 9. Keeps the confusion
+           Gives the user immediate feedback that the avatar heard them, even. Keeps the confusion
            ("avatar stopped but nothing happened") away. */}
       {isListening && (
         <div
@@ -1421,7 +1370,7 @@ function InterviewSessionPageInner() {
         </div>
       )}
 
-      {/* F30: Immersive mode — minimal progress bar when active */}
+      {/* Immersive mode — minimal progress bar when active */}
       {immersive ? (
         <div
           className="fixed top-0 left-0 right-0 z-50 flex flex-col"
@@ -1485,7 +1434,7 @@ function InterviewSessionPageInner() {
                   autoFocus
                   className="w-full px-4 py-3 rounded-xl bg-[var(--surface-2)] border border-[var(--border)] text-white placeholder:text-[#555A6A] text-sm resize-none focus:outline-none focus:border-[var(--accent-border)] transition-colors"
                 />
-                {/* F34 in immersive */}
+                {/* in immersive */}
                 <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,.06)' }}>
                   <div className="h-full rounded-full transition-all duration-200"
                     style={{
@@ -1582,7 +1531,7 @@ function InterviewSessionPageInner() {
               className="w-full px-4 py-3 rounded-xl bg-[var(--surface-2)] border text-white placeholder:text-[#555A6A] text-sm resize-none focus:outline-none transition-colors"
               style={{ borderColor: wcColor === 'green' ? 'var(--success-border, #22c55e)' : wcColor === 'amber' ? '#f59e0b' : 'var(--border)' }}
             />
-            {/* F34: Word count + quality bar */}
+            {/* Word count + quality bar */}
             <div className="mt-1.5">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[11px] font-medium" style={{
@@ -1627,7 +1576,7 @@ function InterviewSessionPageInner() {
             </div>
           )}
 
-          {/* "Stuck? Get a hint" — Easy build item. Unmetered, available
+          {/* "Stuck? Get a hint" Unmetered, available
               regardless of plan or remaining quota. */}
           {hintText ? (
             <div
@@ -1679,7 +1628,7 @@ function InterviewSessionPageInner() {
       {/* Loading feedback */}
       {!immersive && phase === 'loading_feedback' && (
         <div className="flex flex-col items-center py-8 gap-3 at31-thinking-state">
-          {/* F31: AI thinking state — orb + pulsing dots */}
+          {/* AI thinking state — orb + pulsing dots */}
           <div className="relative flex items-center justify-center w-14 h-14">
             <div
               className="absolute inset-0 rounded-full"
@@ -1704,7 +1653,7 @@ function InterviewSessionPageInner() {
       {/* Feedback phase (normal mode — immersive shows inline above) */}
       {!immersive && phase === 'feedback' && currentFeedback && (
         <div className="space-y-4">
-          {/* F33: Score roll-up */}
+          {/* Score roll-up */}
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-white">Your Score</span>
             <AnimatedScore score={currentFeedback.score ?? 0} />
@@ -1718,7 +1667,7 @@ function InterviewSessionPageInner() {
             </Card>
           )}
 
-          {/* F32: Correction reveal stagger */}
+          {/* Correction reveal stagger */}
           {/* Elite users see no inline corrections mid-session — they receive a full
               batch audit at the end, which shows patterns across all answers rather
               than isolated per-answer interruptions. */}

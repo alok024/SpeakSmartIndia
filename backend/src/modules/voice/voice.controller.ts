@@ -409,12 +409,9 @@ export const updateVoiceSettings = asyncHandler(async (req: Request, res: Respon
 // POST /api/voice/free-tts-gate
 // Body: { chars: number }
 //
-// ⚠ KNOWN ARCHITECTURAL LIMITATION (Bug 2 / intentional design decision):
-// This gate is a SOFT CAP, not a hard server-side enforcement.
-// Web Speech API (window.speechSynthesis) is a browser-native feature —
-// the server has no ability to intercept or prevent a browser TTS call.
-// A determined client can skip this gate call or ignore `allowed: false`
-// and the browser will still speak.
+// SOFT CAP — not server-enforced. Web Speech API is browser-native; the server
+// cannot intercept or block browser TTS calls. A determined client can skip
+// this gate call or ignore `allowed: false` and the browser will still speak.
 //
 // The REAL enforcement for free users is requireVoiceTier in voice.routes.ts,
 // which blocks free users from POST /api/voice/tts (Sarvam HD voice) entirely.

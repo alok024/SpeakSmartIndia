@@ -1,9 +1,6 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-/**
- * app/(app)/dashboard/page.tsx — fully CSS-var themed, no hardcoded hex.
- */
 
 import { useRouter } from 'next/navigation';
 import { useMe } from '@/features/user/hooks';
@@ -17,15 +14,15 @@ import { ProgressBar, Spinner, ScoreRing } from '@/components/ui';
 import { formatDate, scoreColor } from '@/lib/utils';
 import { Target, Zap, TrendingUp, Lightbulb, FileText, ExternalLink, Trophy, CalendarCheck } from 'lucide-react';
 import { analytics } from '@/lib/analytics';
-import { FLAG } from '@/lib/feature-flags'; // Bug #5 fix
+import { FLAG } from '@/lib/feature-flags';
 import dynamic from 'next/dynamic';
 import type { Session, WeakArea } from '@/types';
 
-// ── Dynamic imports — defers the ~120 kB recharts bundle and the modal chunk
-// until they are actually needed, keeping first-load JS lean. ─────────────
+// Dynamic imports — defers the ~120 kB recharts bundle and the modal chunk
+// until they are actually needed, keeping first-load JS lean.
 
 const ScoreHistoryChart = dynamic(
-  () => import('@/components/shared/ScoreHistoryChart'),
+  () => import('@/components/charts/ScoreHistoryChart'),
   {
     ssr: false,
     loading: () => (
@@ -45,7 +42,7 @@ const ScoreHistoryChart = dynamic(
 );
 
 const SpeechTrendsChart = dynamic(
-  () => import('@/components/shared/SpeechTrendsChart'),
+  () => import('@/components/charts/SpeechTrendsChart'),
   {
     ssr: false,
     loading: () => (
@@ -65,7 +62,7 @@ const SpeechTrendsChart = dynamic(
 );
 
 const EnglishJourneyChart = dynamic(
-  () => import('@/components/shared/EnglishJourneyChart').then(m => ({ default: m.EnglishJourneyChart })),
+  () => import('@/components/charts/EnglishJourneyChart').then(m => ({ default: m.EnglishJourneyChart })),
   {
     ssr: false,
     loading: () => (
@@ -95,7 +92,7 @@ const QUICK_STARTS = [
   { label: 'Govt / SSC / UPSC', desc: 'Classic · Behavioral', emoji: '🏛️', profession: 'Government Job (SSC/UPSC)', mode: 'classic' },
 ];
 
-// ── Feature 23 — Time-aware greeting helper ───────────────────────────────
+// Time-aware greeting helper
 // IST = UTC + 5:30
 function getISTHour(): number {
   const now = new Date();
@@ -138,7 +135,7 @@ function buildGreeting(name: string, streak: number, practicedToday: boolean): G
   return { headline, subline, accentColor, period };
 }
 
-// ── Feature 22 — useCountUp hook ─────────────────────────────────────────
+// useCountUp hook
 // Counts from 0 → target over `duration`ms with ease-out cubic, fires once
 // after a stagger delay. Returns current display value as a string.
 function useCountUp(target: number, options?: { duration?: number; delay?: number; decimals?: number }): string {
@@ -200,7 +197,6 @@ export default function DashboardPage() {
   const name         = user?.name?.split(' ')[0] || 'there';
   const hasData      = (stats?.sessions ?? 0) > 0;
 
-  // Feature 23 — practicedToday: last_session date in IST === today in IST
   const practicedToday = useMemo(() => {
     const lastSession = stats?.last_session;
     if (!lastSession) return false;
@@ -213,17 +209,13 @@ export default function DashboardPage() {
 
   const greeting = buildGreeting(name, stats?.streak ?? 0, practicedToday);
 
-  // Feature 22 — count-up values (0 while loading, real values after meData arrives)
   const streakCount   = useCountUp(stats?.streak   ?? 0, { delay: 0,   duration: 700 });
   const sessionsCount = useCountUp(stats?.sessions  ?? 0, { delay: 120, duration: 750 });
-  // best_score is x/10; store it ×10 as integer, display with .toFixed(1)
   const bestScoreRaw  = stats?.best_score != null ? Math.round(stats.best_score * 10) : 0;
   const bestScoreCount= useCountUp(bestScoreRaw,          { delay: 240, duration: 800, decimals: 0 });
   const aiUsedCount   = useCountUp(aiUsed,                { delay: 360, duration: 700 });
-  // XP — monthly for leaderboard motivation, lifetime on profile
   const xpMonthlyCount = useCountUp(stats?.xp_monthly ?? 0, { delay: 480, duration: 900 });
 
-  // Feature 24 — score history ordered oldest→newest for the chart
   const chartData = useMemo(() => {
     if (!history?.length) return [];
     return [...history].reverse(); // history comes newest-first from API
@@ -282,7 +274,7 @@ export default function DashboardPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
 
-      {/* Feature 23 — Time-aware greeting */}
+      {/* Time-aware greeting */}
       <div
         className="rounded-2xl px-5 py-4 border relative overflow-hidden"
         style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}
@@ -310,7 +302,7 @@ export default function DashboardPage() {
         <p className="text-xs font-medium" style={{ color: 'var(--text-3)' }}>{greeting.subline}</p>
       </div>
 
-      {/* Daily Question Drop — Easy build item. Renders nothing while
+      {/* Daily Question Drop — renders nothing while
           loading or if generation failed server-side (no fake fallback). */}
       {dailyQ?.question && (
         <div
@@ -332,7 +324,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Guided Prep Path — Phase 8 (P6-A). Shows the user's active enrollment
+      {/* Guided Prep Path — Shows the user's active enrollment
           ("Day 3 of 7 — Bank PO Prep") with a Continue button that pre-fills
           the setup page from today's day's session_config. Renders nothing
           if the user isn't enrolled in a path or it's still loading. */}
@@ -362,7 +354,6 @@ export default function DashboardPage() {
           </button>
         </div>
       )}
-
 
       {!hasData && (
         <div className="rounded-2xl border text-center overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
@@ -445,7 +436,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stats row — Feature 22: values count up on mount */}
+      {/* Stats row — values count up on mount */}
       {hasData && (() => {
         const bestScoreDisplay = stats?.best_score != null
           ? `${(parseInt(bestScoreCount) / 10).toFixed(1)}/10`
@@ -531,7 +522,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Quick Start — Feature 25: hover arrow + icon scale + left bar */}
+          {/* Quick Start */}
           <div className="rounded-2xl border overflow-hidden" style={{ background: 'var(--surface)', borderColor: 'var(--border)' }}>
             <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
               <Zap className="w-3.5 h-3.5" style={{ color: 'var(--accent)' }} />
@@ -598,7 +589,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Feature 24 — Score chart: gradient fill + custom dot + polished tooltip */}
+      {/* Score chart: gradient fill + custom dot + polished tooltip */}
       {hasData && chartData.length >= 2 && (
         <ScoreHistoryChart chartData={chartData} chartScores={chartScores} />
       )}
@@ -752,8 +743,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Speech Trends card — Beta (P5)
-           Gated by FLAG.SPEECH_ANALYTICS_CARD (Bug #5 fix) AND requires 3+
+      {/* Speech Trends card — Beta
+           Gated by FLAG.SPEECH_ANALYTICS_CARD AND requires 3+
            sessions with recorded metrics so the chart has a meaningful trend
            line rather than a single dot. Set NEXT_PUBLIC_FF_SPEECH_ANALYTICS_CARD=true
            to enable. Labelled "Beta" because WPM is an estimate (typed, not spoken)

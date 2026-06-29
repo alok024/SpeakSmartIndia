@@ -15,7 +15,9 @@ function RankBadge({ rank }: { rank: number }) {
 
 function getNextSunday(): string {
   const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-  const daysUntilSunday = (7 - now.getDay()) % 7 || 7;
+  const dayOfWeek = now.getDay();
+  const daysUntilSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+  if (daysUntilSunday === 0) return 'tonight at midnight IST';
   const next = new Date(now);
   next.setDate(now.getDate() + daysUntilSunday);
   return next.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
@@ -109,7 +111,7 @@ export default function LeaderboardPage() {
         <Card>
           <CardBody className="p-0">
             {data.entries.map((entry, i) => {
-              const isMe = entry.display_name === myName && myName !== '';
+              const isMe = data.me.in_top_50 && entry.rank === data.me.rank;
               return (
                 <div
                   key={i}
@@ -157,7 +159,7 @@ export default function LeaderboardPage() {
               </div>
             </div>
             <p className="text-xs mt-2" style={{ color: 'var(--text-3)' }}>
-              Keep going — top 50 resets every Monday morning!
+              Keep going — top 50 resets every Sunday at midnight IST!
             </p>
           </CardBody>
         </Card>

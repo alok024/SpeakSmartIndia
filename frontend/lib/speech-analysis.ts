@@ -21,7 +21,7 @@
  *     never need to null-guard.
  */
 
-// ─── Filler word list ────────────────────────────────────────────────────────
+// Filler word list
 
 // Word-boundary-aware: each entry is matched as a whole word (not a substring).
 // Keep sorted alphabetically for easy auditing / diffing.

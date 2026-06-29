@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../../core/middleware';
 import { db } from '../../core/database/client';
-import { trackEvent } from '../analytics/events.service';
+import { trackEvent } from '../analytics/events/events.service';
 import { ok, notFound, badRequest } from '../../core/utils/response';
 import { env } from '../../core/config/env';
 import {

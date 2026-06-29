@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import { X, Trophy, Share2, ExternalLink, CheckCircle2 } from 'lucide-react';
-import { resultsBoardApi } from '@/features/user/api/results-board';
+import { resultsBoardApi } from '@/features/user/api';
 import { extractErrorMessage } from '@/lib/api';
 import { analytics } from '@/lib/analytics';
 

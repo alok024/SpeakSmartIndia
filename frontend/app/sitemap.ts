@@ -7,7 +7,6 @@
  * Rules:
  *  - Only public, indexable routes. Never include /dashboard, /admin, /api/*.
  *  - The landing page (/) gets weekly frequency + priority 1.0.
- *  - Marketing/pricing pages get monthly + 0.8.
  *  - Legal pages get yearly + 0.3 (Google still needs them, but they're low-value).
  *
  * After deploying, go to Google Search Console → Sitemaps → submit:
@@ -29,10 +28,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1.0,
     },
     {
-      url: `${BASE_URL}/pricing`,
+      url: `${BASE_URL}/b2b`,
       lastModified: now,
-      changeFrequency: 'monthly',
-      priority: 0.8,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
     },
     {
       url: `${BASE_URL}/compare`,

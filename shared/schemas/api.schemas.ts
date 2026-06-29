@@ -15,15 +15,6 @@ import { z } from 'zod';
 
 export const PlanSchema       = z.enum(['free', 'starter', 'pro', 'elite']);
 export const SessionModeSchema = z.enum(['classic', 'chat']);
-// this schema previously drifted from what the rest of the
-// codebase actually uses. Verified against frontend/types/index.ts,
-// the interview setup page's difficulty selector, and
-// features/interview/schemas/index.ts — all consistently use 'expert',
-// not 'advanced'. NOTE: this shared schemas file is not currently
-// imported by either the frontend or backend (each maintains its own
-// local schemas/types), so this fix does not change runtime behavior
-// anywhere yet — it just stops this file from documenting a value that
-// doesn't match the real one if/when it's wired up.
 export const DifficultySchema  = z.enum(['beginner', 'intermediate', 'expert']);
 export const InterviewTypeSchema = z.enum(['Technical', 'Behavioral', 'Mixed']);
 export const PersonaSchema    = z.enum(['friendly', 'strict', 'encouraging']);

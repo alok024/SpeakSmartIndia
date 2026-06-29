@@ -156,8 +156,8 @@ export const handleSaveSession = asyncHandler(async (req: Request, res: Response
     mode,
   );
 
-  // Prune the in-memory session vocab dedup set now that this session is done.
-  // Prevents unbounded growth in long-running processes (Bug 5 fix companion).
+  // Prune the in-memory dedup set for this session to prevent unbounded growth
+  // in long-running processes.
   clearSessionVocabDedup(userId, client_session_id);
 
   ok(res, { saved: true });
@@ -205,9 +205,8 @@ export const handleSaveVocabWord = asyncHandler(async (req: Request, res: Respon
 // Fire-and-forget on the client side — 200 always returns even if tracking fails.
 export const handleTrackVocabErrors = asyncHandler(async (req: Request, res: Response) => {
   const BodySchema = z.object({
-    // session_id ties this tracking call to a conversation for the per-session
-    // dedup (Bug 5 fix). Clients should pass the same UUID they use for
-    // client_session_id throughout a conversation. Falls back to a per-request
+    // Clients must pass the same UUID they use for client_session_id
+    // throughout a conversation. Falls back to a per-request
     // UUID if omitted (preserves 200 response — tracking never breaks chat).
     session_id: z.string().uuid().optional(),
     errors: z.array(z.object({
@@ -226,8 +225,8 @@ export const handleTrackVocabErrors = asyncHandler(async (req: Request, res: Res
 
   const sessionId = parsed.data.session_id ?? crypto.randomUUID();
 
-  // Non-blocking. Cast needed: Zod infers string fields as optional in object
-  // types, but min(1) guarantees presence — same pattern as pre-existing handlers.
+  // Zod infers { wrong?: string; correct?: string } even with min(1) — the
+  // runtime shape is guaranteed by the schema; the cast reflects that.
   trackVocabErrors(req.user!.id, parsed.data.errors as VocabError[], sessionId)
     .catch(err => log.warn('trackVocabErrors fire-and-forget failed', { error: String(err) }));
 

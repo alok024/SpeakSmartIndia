@@ -18,7 +18,7 @@ import React from 'react';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useRegister } from '@/hooks/queries';
+import { useRegister } from '@/features/auth/hooks';
 import { extractErrorMessage } from '@/lib/api';
 import { RegisterFormSchema } from '@/features/auth/schemas';
 import { Eye, EyeOff } from 'lucide-react';
@@ -146,7 +146,7 @@ export default function RegisterPage() {
 
           {register.isError && (
             <div style={{ background: 'var(--error-dim)', border: '1px solid var(--error-border)', borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13, color: 'var(--error)' }}>
-              {extractErrorMessage(register.error as any)}
+              {extractErrorMessage(register.error)}
             </div>
           )}
 

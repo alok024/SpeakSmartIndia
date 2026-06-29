@@ -1,11 +1,4 @@
-/**
- * Push Notification Routes
- *
- * Mounted in app.ts:
- *   /api/push/*       — subscription management (subscribe / unsubscribe / vapid key)
- *   /api/weekly-card  — weekly progress card SVG (public)
- */
-
+// Mounted in app.ts under both /api/push/* and /api/weekly-card.
 import { Router } from 'express';
 import { z } from 'zod';
 import { authMiddleware, validate } from '../../core/middleware';

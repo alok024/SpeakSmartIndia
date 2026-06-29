@@ -42,9 +42,8 @@ export function useElaraVoice({ user }: UseElaraVoiceOptions): UseElaraVoiceResu
   const audioRef     = useRef<HTMLAudioElement | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Elara voice (HD) is a Pro/Elite feature — Starter users who happen to
-  // have hd_voice_enabled should not get spoken corrections on /english.
-  // See Bug 3: previously canSpeak only checked isHd, not the plan tier.
+  // canSpeak requires both a Pro/Elite plan AND hd_voice_enabled — Starter users
+  // with the toggle set should not receive spoken corrections on /english
   const isPro    = user?.plan === 'pro' || user?.plan === 'elite';
   const isHd     = isPro && (user?.hd_voice_enabled ?? false);
   const canSpeak = isHd && !hdExhausted;
@@ -64,7 +63,7 @@ export function useElaraVoice({ user }: UseElaraVoiceOptions): UseElaraVoiceResu
     if (!text.trim() || typeof window === 'undefined') return;
     if (speakingRef.current) stop();
 
-    // ── HD Sarvam path ──────────────────────────────────────────────────────
+    // HD Sarvam path
     if (isHd) {
       speakingRef.current = true;
       try {
@@ -102,7 +101,7 @@ export function useElaraVoice({ user }: UseElaraVoiceOptions): UseElaraVoiceResu
       }
     }
 
-    // ── Web Speech fallback ─────────────────────────────────────────────────
+    // Web Speech fallback
     speakingRef.current = true;
     return _webSpeechAsync(text, () => { speakingRef.current = false; });
   }, [isHd, stop]);

@@ -104,14 +104,8 @@ export async function sendVerificationEmail(to: string, rawToken: string): Promi
 // Both are fire-and-forget from the controller — a failed email never
 // rolls back the DB insert.
 
-export interface LeadEmailPayload {
-  name:    string;
-  email:   string;
-  org:     string;
-  size:    string;
-  orgType?: string;
-  message?: string;
-}
+import type { LeadDTO } from '../../core/utils/schemas';
+export type LeadEmailPayload = LeadDTO;
 
 export async function sendLeadEmails(lead: LeadEmailPayload): Promise<void> {
   const { name, email, org, size, orgType, message } = lead;
