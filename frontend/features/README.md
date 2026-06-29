@@ -1,58 +1,74 @@
 # `features/` — module layout
 
-Each feature is a vertical slice that owns its own API calls, types, React
-Query hooks, validation schemas, and components. The rule of thumb: **if
-you're adding a new endpoint, it gets a typed wrapper in the matching
-feature's `api/index.ts` — never a new method on a shared `api` object.**
+Each feature is a vertical slice owning its API calls, types, React Query
+hooks, and validation schemas. Files sit flat inside the feature directory —
+no subdirectories per concern.
 
 ```
 features/<feature>/
-  api/index.ts       — typed HTTP calls, built on apiCall() from @/lib/api
-  types/index.ts      — request/response shapes for this feature's endpoints
-  hooks/index.ts      — React Query hooks (useXyz) that call the api module
-  schemas/index.ts    — Zod schemas for client-side form validation (if any)
-  components/         — feature-specific UI
+  api.ts       — typed HTTP calls, built on apiCall() from @/lib/api
+  types.ts     — request/response shapes for this feature's endpoints
+  hooks.ts     — React Query hooks (useQuery/useMutation wrappers)
+  schemas.ts   — Zod schemas for client-side form validation (if any)
 ```
 
-## Shared infrastructure (not feature-specific)
+Special cases that deviate from the pattern:
+
+| Feature | Shape | Reason |
+|---|---|---|
+| `avatar` | `useBargeIn.ts`, `useSimliAvatar.ts` | Pure hooks, no HTTP layer |
+| `voice` | `api.ts`, `useAriaVoice.ts` | Hook owns TTS routing logic across Web Speech + Sarvam |
+| `elara` | `api.ts`, `prompts.ts`, `useElaraVoice.ts` | System prompts live close to the AI feature |
+| `ai` | `api.ts`, `types.ts` | No hooks — callers call `aiApi` directly inside effects |
+
+## Shared infrastructure
 
 | Path | Purpose |
 |---|---|
-| `lib/api.ts` | `apiCall()` core fetch wrapper (auth refresh, error shape), `extractErrorMessage`, `BACKEND_URL`. Nothing else belongs here. |
-| `lib/query-keys.ts` | `QK` — shared React Query key registry, so one feature can invalidate another's cache (e.g. saving a session invalidates `/me` and the sessions list) without a circular import. |
-| `types/index.ts` (root) | Core domain primitives shared across features: `User`, `Session`, `Feedback`, `ApiResult`, etc. |
+| `lib/api.ts` | `apiCall()` fetch wrapper — auth refresh, error shape, BACKEND_URL |
+| `lib/query-keys.ts` | Shared React Query key registry (`QK`) |
+| `lib/interview-prompts.ts` | Aria system prompts and prompt builders |
+| `lib/utils.ts` | Pure client-side utilities — class merging, date formatting, score colours |
+| `lib/speech-analysis.ts` | WPM estimation and filler-word detection |
+| `types/index.ts` | Core domain primitives: `User`, `Session`, `Feedback`, `ApiResult` |
+| `store/` | Zustand stores — `auth`, `interview`, `ui` |
 
-## Feature ownership map
+## Component layout
 
-| Feature | Endpoints | Notes |
-|---|---|---|
-| `auth` | `/login`, `/register`, `/logout`, `/verify-email`, `/verify-email/resend`, `/password-reset/request` | |
-| `user` | `/me`, `/onboarding`, `/referral` | Profile, onboarding status, referral stats |
-| `interview` | `/sessions` (POST), `/sessions/:id`, `/sessions/:id/share-token` | Creating + reading a single session |
-| `analytics` | `/sessions` (GET, list), `/sessions/score-history` | History page + dashboard chart |
-| `payment` | `/payment/order`, `/payment/verify` | Razorpay checkout |
-| `ai` | `/ai`, `/ai/stream` | Chat proxy — shared by interview chat mode and English practice |
-| `voice` | `/voice/tts` | Text-to-speech during live sessions |
-| `reports` | `/report/:shareToken` | Public, unauthenticated shared-report page |
+```
+components/
+  layout/    — AppShell, ProtectedRoute, ErrorBoundary, ToastStack, CookieConsent
+  charts/    — ScoreHistoryChart, SpeechTrendsChart, EnglishJourneyChart
+  shared/    — UpgradeModal, JobLandedModal, VoiceSettingsPanel, ElaraSettingsPanel
+  landing/   — LandingPage
+  ui/        — Button, Card, Spinner, ScoreRing, Badge, and other primitives
+```
 
 ## Adding a new endpoint
 
-1. Decide which feature owns it (or create a new `features/<name>/` if it's
-   a genuinely new domain).
-2. Add the response/request shape to that feature's `types/index.ts`.
-3. Add the call to that feature's `api/index.ts`, using `apiCall<T>(...)`
-   from `@/lib/api`.
-4. If it needs caching/mutation state, add a hook in `hooks/index.ts`. Add
-   any new query key to `lib/query-keys.ts` only if another feature will
-   need to invalidate it — otherwise keep it local to the hook.
-5. Import the hook (or the `*Api` object directly for one-off calls) from
-   the page/component.
+1. Decide which feature owns it (or create `features/<name>/` for a new domain).
+2. Add request/response shapes to `features/<name>/types.ts`.
+3. Add the call to `features/<name>/api.ts` using `apiCall<T>(...)`.
+4. Add a hook in `hooks.ts` if the call needs React Query caching.
+   Add a new key to `lib/query-keys.ts` only if another feature will need to
+   invalidate it — otherwise keep it local to the hook.
 
-## Pages that bypass hooks
+## Feature ownership map
 
-`app/(public)/admin/page.tsx` and `app/(public)/b2b/page.tsx` call
-`apiCall` directly for one-off admin/lead endpoints rather than going
-through a feature `api/` module. That's an acceptable shortcut for
-isolated public pages with no shared state — if either grows
-React-Query-worthy caching needs, give it its own `features/admin` or
-`features/leads` slice following the pattern above.
+| Feature | Endpoints |
+|---|---|
+| `auth` | `/login`, `/register`, `/logout`, `/verify-email`, `/password-reset/*` |
+| `user` | `/me`, `/onboarding`, `/referral`, `/daf`, `/company-mode`, `/user/job-landed`, `/user/results-board` |
+| `interview` | `/sessions` POST, `/sessions/:id`, `/sessions/:id/share-token`, `/interview/jd-questions` |
+| `analytics` | `/sessions` GET, `/sessions/score-history`, `/sessions/readiness-report`, `/leaderboard` |
+| `payment` | `/payment/order`, `/payment/verify` |
+| `ai` | `/ai`, `/ai/stream`, `/ai/hint` |
+| `elara` | `/elara/*` — English coaching sessions, vocab, debrief |
+| `voice` | `/voice/tts`, `/voice/settings`, `/voice/free-tts-*`, `/voice/avatar/*` |
+| `speech` | `/speech/metrics` — WPM/filler counts saved post-session |
+| `certificates` | `/sessions/readiness-report/certificate-token` |
+| `comparison` | `/compare/*` — peer score comparison links |
+| `prep-paths` | `/prep-paths/*` — guided study track enrollment |
+| `push` | `/push/*` — web push notification subscription |
+| `reports` | `/report/:shareToken` — public shared-report page |
+| `daily-question` | `/daily-question` — today's practice question |

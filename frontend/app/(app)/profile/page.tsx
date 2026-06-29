@@ -3,7 +3,8 @@
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMe, useLogout } from '@/hooks/queries';
+import { useMe } from '@/features/user/hooks';
+import { useLogout } from '@/features/auth/hooks';
 import { useCompleteOnboarding, useDAF, useSaveDAF } from '@/features/user/hooks';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
@@ -24,7 +25,7 @@ const GOALS = [
   'Get my first job', 'Switch companies', 'Get promoted', 'Improve confidence', 'Practice regularly',
 ];
 
-// ─── DAF Section ──────────────────────────────────────────────────────────────
+// DAF Section
 // UPSC Detailed Application Form. Only shown when the user's onboarding
 // profession is in the Civil Services track. Saves on every explicit submit.
 

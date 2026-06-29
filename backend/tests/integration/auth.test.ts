@@ -52,11 +52,11 @@ jest.mock('../../src/infra/queue/dispatcher', () => ({
   scheduleWeeklyProgressCards: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../src/modules/analytics/weekly-card.service', () => ({
+jest.mock('../../src/modules/analytics/reports/weekly-card.service', () => ({
   initVapid: jest.fn(),
 }));
 
-jest.mock('../../src/modules/analytics/events.service', () => ({
+jest.mock('../../src/modules/analytics/events/events.service', () => ({
   registerShutdownFlush: jest.fn(),
   trackEvent:            jest.fn(),
 }));
@@ -249,8 +249,8 @@ describe('POST /api/login', () => {
       jest.mock('../../src/infra/ai-limiter', () => ({ getAILimiterStats: jest.fn().mockReturnValue({}) }));
       jest.mock('../../src/infra/circuit-breaker', () => ({ groqBreaker: { getState: jest.fn().mockReturnValue({ state: 'CLOSED', failures: 0 }) }, openaiBreaker: { getState: jest.fn().mockReturnValue({ state: 'CLOSED', failures: 0 }) }, CircuitBreaker: jest.fn() }));
       jest.mock('../../src/infra/queue/dispatcher', () => ({ scheduleSubscriptionExpiry: jest.fn().mockResolvedValue(undefined), scheduleSessionExpiry: jest.fn().mockResolvedValue(undefined), scheduleBlacklistCleanup: jest.fn(), scheduleComparisonCleanup: jest.fn(), scheduleWeeklyProgressCards: jest.fn().mockResolvedValue(undefined) }));
-      jest.mock('../../src/modules/analytics/weekly-card.service', () => ({ initVapid: jest.fn() }));
-      jest.mock('../../src/modules/analytics/events.service', () => ({ registerShutdownFlush: jest.fn(), trackEvent: jest.fn() }));
+      jest.mock('../../src/modules/analytics/reports/weekly-card.service', () => ({ initVapid: jest.fn() }));
+      jest.mock('../../src/modules/analytics/events/events.service', () => ({ registerShutdownFlush: jest.fn(), trackEvent: jest.fn() }));
       jest.mock('../../src/modules/growth/referral.service', () => ({ getOrCreateReferralCode: jest.fn() }));
       jest.mock('../../src/core/database/client', () => ({ db: { getUserByEmail: jest.fn().mockResolvedValue(null), getUserById: jest.fn(), createUser: jest.fn(), getUsage: jest.fn().mockResolvedValue({ call_count: 0 }), isTokenBlacklisted: jest.fn().mockResolvedValue(false), createUsage: jest.fn() } }));
 

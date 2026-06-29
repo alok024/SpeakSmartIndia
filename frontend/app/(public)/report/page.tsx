@@ -32,14 +32,19 @@ function ReportPageInner() {
       return;
     }
 
-    reportsApi.getReport(shareToken).then((res) => {
-      if (!res.ok) {
-        setError('Report not found or link has expired.');
-      } else {
-        setData(res.data);
-      }
-      setLoading(false);
-    });
+    reportsApi.getReport(shareToken)
+      .then((res) => {
+        if (!res.ok) {
+          setError('Report not found or link has expired.');
+        } else {
+          setData(res.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Something went wrong. Please try again.');
+        setLoading(false);
+      });
   }, [shareToken]);
 
   if (loading) {

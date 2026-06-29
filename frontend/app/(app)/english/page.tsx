@@ -1,5 +1,29 @@
 'use client';
 
+// Minimal Web Speech API surface — not part of the standard DOM lib.
+interface SpeechRecognitionResultEvent {
+  results: { [index: number]: { [index: number]: { transcript: string } } };
+}
+interface SpeechRecognition {
+  lang: string;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onresult: ((e: SpeechRecognitionResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  start(): void;
+  stop(): void;
+}
+declare const SpeechRecognition: { new (): SpeechRecognition };
+
+declare global {
+  interface Window {
+    SpeechRecognition?: typeof SpeechRecognition;
+    webkitSpeechRecognition?: typeof SpeechRecognition;
+  }
+}
+
+
 /**
  * app/(app)/english/page.tsx — Elara English Coach
  *
@@ -37,7 +61,7 @@ import { useAuthStore } from '@/store/auth';
 import { aiApi } from '@/features/ai/api';
 import { elaraApi, type VocabWord, type VocabError, type DebriefResult } from '@/features/elara/api';
 import { useElaraVoice } from '@/features/elara/useElaraVoice';
-import { getElaraSystemPrompt, parseElaraResponse, getLiveFeedback, type ElaraMode } from '@/lib/interview-prompts';
+import { getElaraSystemPrompt, parseElaraResponse, getLiveFeedback, type ElaraMode } from '@/features/elara/prompts';
 import { Send, RotateCcw, Mic, MicOff, BookMarked, Plus, X } from 'lucide-react';
 
 const MODE_OPTIONS: { label: string; value: ElaraMode }[] = [
@@ -75,7 +99,7 @@ function buildCorrectionScript(errors: Array<{ wrong: string; correct: string; r
     .join(' ');
 }
 
-// ── Vocab sidebar ─────────────────────────────────────────────────────────
+// Vocab sidebar
 
 function VocabSidebar({
   words,
@@ -140,7 +164,7 @@ function VocabSidebar({
   );
 }
 
-// ── Debrief report ────────────────────────────────────────────────────────
+// Debrief report
 
 function DebriefReport({
   result,
@@ -274,7 +298,7 @@ function DebriefReport({
   );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────
+// Main page
 
 export default function EnglishPage() {
   const { user } = useAuthStore();
@@ -372,7 +396,7 @@ export default function EnglishPage() {
     }).catch(() => {/* non-fatal */});
   }, [isPro]);
 
-  // ── Toggle Hindi pref (Elite) ──────────────────────────────────────────
+  // Toggle Hindi pref (Elite)
 
   const toggleHindi = async () => {
     if (hindiLoading) return;
@@ -384,8 +408,8 @@ export default function EnglishPage() {
     setHindiLoading(false);
   };
 
-  // ── Core send logic — accepts text directly so both the button and STS
-  //    can call it without going through the input state. ─────────────────
+  // Core send logic — accepts text directly so both the button and STS
+  // can call it without going through the input state.
 
   // Use a ref to always have the latest messages/loading in the STS closure
   // without stale captures.
@@ -407,16 +431,6 @@ export default function EnglishPage() {
     // Build prior turns snapshot — capture from state at call time via
     // functional updater pattern not possible here, so we accept a slight
     // race on rapid fire. For a coached conversation this is fine.
-    setMessages(prev => {
-      // We need the history before the user message was appended —
-      // but we already appended above. So slice to exclude the last item
-      // (the one we just added) when building priorTurns.
-      // We do this inside the updater so we read the committed state.
-      // Return prev unchanged — this is a read-only side-effect call.
-      // (We'll use a separate ref for priorTurns below instead.)
-      return prev;
-    });
-
     // Capture messages for the API call — include the message we just added
     // by reading from the functional snapshot pattern below.
     // Since setState is async, we pass the text directly and reconstruct.
@@ -487,7 +501,7 @@ export default function EnglishPage() {
     handleSendText(input);
   }, [handleSendText, input]);
 
-  // ── STT / STS ──────────────────────────────────────────────────────────
+  // STT / STS
 
   // Keep a stable ref to handleSendText so startListening's closure is never
   // stale — avoids putting handleSendText in startListening's dep array which
@@ -497,8 +511,7 @@ export default function EnglishPage() {
 
   const startListening = useCallback(() => {
     if (typeof window === 'undefined') return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!SR) return;
     const rec = new SR();
     rec.lang = 'en-IN';
@@ -525,7 +538,7 @@ export default function EnglishPage() {
     setIsListening(false);
   }, []);
 
-  // ── Manual vocab save ──────────────────────────────────────────────────
+  // Manual vocab save
 
   const handleManualSave = async (wrong: string, correct: string, rule?: string) => {
     if (!isPro || savingWord) return;
@@ -536,7 +549,7 @@ export default function EnglishPage() {
     setSavingWord(null);
   };
 
-  // ── Reset (no report) ──────────────────────────────────────────────────
+  // Reset (no report)
 
   const resetChat = useCallback(() => {
     flushSession(sessionId, avgGrammar, avgFluency, avgVocab, msgCount, mode);
@@ -555,7 +568,7 @@ export default function EnglishPage() {
     }
   }, [flushSession, sessionId, avgGrammar, avgFluency, avgVocab, msgCount, mode, isPro]);
 
-  // ── End Session → generate debrief report ─────────────────────────────
+  // End Session → generate debrief report
 
   const handleEndSession = useCallback(async () => {
     // Need at least one full exchange (user + assistant) to generate a report
@@ -614,7 +627,7 @@ export default function EnglishPage() {
     }
   }, [messages, flushSession, sessionId, avgGrammar, avgFluency, avgVocab, msgCount, mode, canSpeak, elaraSpeak, resetChat]);
 
-  // ── New session after debrief ──────────────────────────────────────────
+  // New session after debrief
 
   const handleNewSession = useCallback(() => {
     setDebriefResult(null);
@@ -777,7 +790,7 @@ export default function EnglishPage() {
           </CardHeader>
 
           <CardBody>
-            {/* ── Debrief report ── */}
+            {/* Debrief report */}
             {debriefResult ? (
               <DebriefReport
                 result={debriefResult}
@@ -788,7 +801,7 @@ export default function EnglishPage() {
               />
             ) : (
               <>
-                {/* ── Chat messages ── */}
+                {/* Chat messages */}
                 <div className="space-y-4 min-h-[240px] sm:min-h-[320px] mb-4">
                   {messages.length === 0 && (
                     <p className="text-sm text-center py-8" style={{ color: 'var(--text-3)' }}>

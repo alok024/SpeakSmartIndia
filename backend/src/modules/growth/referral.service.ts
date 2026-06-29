@@ -88,7 +88,7 @@ export async function getOrCreateReferralCode(userId: string): Promise<ReferralI
   const user = await db.getUserById(userId);
   if (!user) throw new AppError(404, 'not_found', 'User not found');
 
-  let code: string = ((user as unknown) as Record<string, string>).referral_code ?? '';
+  let code = user.referral_code ?? '';
 
   if (!code) {
     // Generate a unique code (retry on collision)

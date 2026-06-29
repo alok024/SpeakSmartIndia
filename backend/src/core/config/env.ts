@@ -183,9 +183,6 @@ const EnvSchema = z.object({
   SARVAM_BREAKER_FAILURE_THRESHOLD: z.coerce.number().int().positive().default(3),
   SARVAM_BREAKER_COOLDOWN_MS:       z.coerce.number().int().positive().default(15_000),
 }).superRefine((data, ctx) => {
-  // SUPABASE_ANON_KEY must be set in production — the silent fallback
-  // to SUPABASE_SERVICE_KEY bypasses Row Level Security. Dev/test environments
-  // can still omit it for local convenience.
   if (data.NODE_ENV === 'production' && !data.SUPABASE_ANON_KEY) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
@@ -193,6 +190,19 @@ const EnvSchema = z.object({
       message:
         "SUPABASE_ANON_KEY is required in production. Set it to your Supabase project's " +
         'anon/public key — falling back to the service-role key would bypass Row Level Security.',
+    });
+  }
+
+  // REDIS_URL must be set in production. Without it the refresh-token grace
+  // cache silently degrades to an in-process Map, which breaks under horizontal
+  // scale (false-positive token-theft logouts) and hides misconfigurations.
+  if (data.NODE_ENV === 'production' && !data.REDIS_URL) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['REDIS_URL'],
+      message:
+        'REDIS_URL is required in production. Without it the refresh-token grace cache ' +
+        'falls back to an in-process Map, which is broken under multi-instance deployments.',
     });
   }
 });

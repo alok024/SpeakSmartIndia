@@ -1,12 +1,5 @@
 'use client';
 
-/**
- * app/(public)/b2b/page.tsx
- *
- * B2B teams landing page. Migrated from backend/public/b2b.html.
- * Route: /b2b
- */
-
 import { useState } from 'react';
 import { apiCall } from '@/lib/api';
 

@@ -3,7 +3,7 @@
 /**
  * app/(app)/prep-paths/page.tsx
  *
- * Browse & enroll in a Guided Prep Path (P6-A). Shows the catalog of
+ * Browse & enroll in a Guided Prep Path. Shows the catalog of
  * active paths (e.g. "Bank PO 7-Day Prep", "UPSC 14-Day Prep") and lets
  * the user enroll, switch, or continue their active one. The dashboard
  * card is the at-a-glance version of the same "today" data surfaced here.

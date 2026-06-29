@@ -18,7 +18,7 @@ import React from 'react';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useLogin } from '@/hooks/queries';
+import { useLogin } from '@/features/auth/hooks';
 import { extractErrorMessage } from '@/lib/api';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -255,7 +255,7 @@ function LoginPageInner() {
                 borderRadius: 10, padding: '10px 14px', marginBottom: 20, fontSize: 13,
                 color: 'var(--error)',
               }}>
-                {extractErrorMessage(login.error as any)}
+                {extractErrorMessage(login.error)}
               </div>
             )}
 

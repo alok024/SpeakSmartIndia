@@ -52,8 +52,8 @@ const vocabLimiter = rateLimit({
 });
 
 // Inline Elite guard — always checks DB, never trusts JWT plan field.
-// Bug 4 fix: uses db.getEffectivePlan() which also accepts users on an active
-// 90-day Elite trial (elite_trial_expires_at set, plan not yet 'elite').
+// getEffectivePlan() resolves elite_trial_expires_at so trial users pass the Pro gate
+// (elite_trial_expires_at set, plan not yet 'elite').
 async function requireElite(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const user        = req.user!;

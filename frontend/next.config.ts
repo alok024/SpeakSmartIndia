@@ -14,12 +14,8 @@ const nextConfig: NextConfig = {
   },
   // Rewrites: proxy /api/* to Express backend on Railway
   async rewrites() {
-    // this is the rewrite target apiCall() in lib/api.ts actually
-    // hits (it fetches the relative `/api/...` path, which Next.js then
-    // proxies here) — so this fallback, not the same-looking one in
-    // lib/api.ts's BACKEND_URL export, is what previously sent a
-    // forgotten-env-var local dev straight to production. Same fix:
-    // fail loudly in development instead of silently proxying to prod.
+    // Fail loudly in development when NEXT_PUBLIC_BACKEND_URL is missing —
+    // prevents accidental proxying of local requests to the production backend.
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
     if (!backendUrl) {
       if (process.env.NODE_ENV === 'development') {
@@ -38,9 +34,9 @@ const nextConfig: NextConfig = {
   },
   // Security headers
   async headers() {
-    // M11/M12: X-XSS-Protection is deprecated and ignored (or actively
-    // harmful) in modern browsers; replaced with a real Content-Security-
-    // Policy. Scoped to what this app actually loads:
+    // X-XSS-Protection is deprecated in modern browsers and actively harmful
+    // in some; replaced with a real Content-Security-Policy below. Scoped to
+    // what this app actually loads:
     // - Razorpay's checkout.js is loaded dynamically (UpgradeModal.tsx)
     // and opens its own iframe/popup for the payment form.
     // - next/font/google self-hosts fonts at build time under
@@ -55,7 +51,7 @@ const nextConfig: NextConfig = {
     // this later without changing the rest of the header set.
     const csp = [
       "default-src 'self'",
-      // P7-C (barge-in): 'wasm-unsafe-eval' is required by onnxruntime-web to
+
       // compile the Silero ONNX model inside the browser. Without it, the VAD
       // worker throws a WASM compilation error and barge-in silently degrades.
       "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://checkout.razorpay.com",
@@ -64,7 +60,7 @@ const nextConfig: NextConfig = {
       "font-src 'self' data:",
       "connect-src 'self' https://*.razorpay.com https://app.posthog.com https://eu.posthog.com https://api.simli.com wss://api.simli.com",
       "frame-src https://api.razorpay.com https://checkout.razorpay.com",
-      // P7-C (barge-in): vad-web registers an AudioWorklet from a blob: URL.
+
       // Chrome requires blob: in worker-src for this to succeed.
       "worker-src blob: 'self'",
       "object-src 'none'",

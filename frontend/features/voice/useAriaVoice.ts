@@ -45,7 +45,7 @@ export function useAriaVoice({ user, lang = 'en' }: UseAriaVoiceOptions): UseAri
     const isFree   = !user || user.plan === 'free';
     const isHd     = !isFree && (user?.hd_voice_enabled ?? false);
 
-    // ── Paid HD path: real TTS through backend ──────────────────────────────
+    // Paid HD path: real TTS through backend
     if (isHd) {
       speakingRef.current = true;
       try {
@@ -75,7 +75,7 @@ export function useAriaVoice({ user, lang = 'en' }: UseAriaVoiceOptions): UseAri
       return;
     }
 
-    // ── Free path: Web Speech API with server-side char cap gate ────────────
+    // Free path: Web Speech API with server-side char cap gate
     if (isFree) {
       const gate = await voiceApi.checkFreeTtsGate(text.length);
       if (!gate.allowed) {
@@ -84,7 +84,7 @@ export function useAriaVoice({ user, lang = 'en' }: UseAriaVoiceOptions): UseAri
       }
     }
 
-    // ── Web Speech (free cap ok, or paid with HD off) ───────────────────────
+    // Web Speech (free cap ok, or paid with HD off)
     speakingRef.current = true;
     _webSpeech(text, lang, () => {
       speakingRef.current = false;
@@ -98,11 +98,9 @@ export function useAriaVoice({ user, lang = 'en' }: UseAriaVoiceOptions): UseAri
   return { speak, freeCapped, hdExhausted };
 }
 
-// ---------------------------------------------------------------------------
 // Internal: thin wrapper around window.speechSynthesis for the Standard path.
 // Picks the best available voice: prefers Indian English voices when available
 // (Chrome on Android often has one), falls back to any en-* voice.
-// ---------------------------------------------------------------------------
 function _webSpeech(text: string, lang: VoiceLang, onEnd: () => void): void {
   if (!window.speechSynthesis) { onEnd(); return; }
 

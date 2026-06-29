@@ -5,7 +5,7 @@
  * AI avatar speech: when the user starts speaking, Simli's audio is
  * immediately silenced and the mic recorder starts capturing.
  *
- * ─── Architecture overview ───────────────────────────────────────────────
+ * Architecture overview
  *
  *  MicVAD (vad-web / Silero ONNX)
  *    │
@@ -19,7 +19,7 @@
  *          chat textarea, etc.). The hook doesn't decide what to do
  *          with the captured audio — that's the session page's job.
  *
- * ─── Lifecycle ───────────────────────────────────────────────────────────
+ * Lifecycle
  *
  *  useBargeIn is a no-op (returns immediately) when:
  *    - avatarMode is 'voice-only' (no Simli to interrupt)
@@ -29,7 +29,7 @@
  *  Call `disable()` on session end / component unmount (handled in
  *  the returned cleanup automatically via useEffect).
  *
- * ─── Static assets ───────────────────────────────────────────────────────
+ * Static assets
  *
  *  vad-web loads model files at runtime from /public/vad/:
  *    - silero_vad_legacy.onnx   (Silero VAD model, ~1.8 MB)
@@ -39,17 +39,17 @@
  *  These were copied from node_modules into public/vad/ during P7-C setup.
  *  The baseAssetPath and onnxWASMBasePath options below point vad-web there.
  *
- * ─── CSP ─────────────────────────────────────────────────────────────────
+ * CSP
  *
  *  next.config.ts must include:
  *    "script-src ... 'wasm-unsafe-eval'"   ← ONNX runtime needs this
  *    "worker-src blob: 'self'"             ← AudioWorklet blob URL
  *
- *  These additions are documented in next.config.ts (see P7-C comment).
+ *  These additions are documented in next.config.ts.
  *
- * ─── Simli surface ───────────────────────────────────────────────────────
+ * Simli surface
  *
- *  This hook depends on two handles from the Simli integration (P7-B):
+ *  This hook depends on two handles from the Simli integration:
  *    - audioEl: HTMLAudioElement   the <audio> element Simli streams into
  *    - simliClient: { stopSpeaking(): void }
  *
@@ -57,7 +57,6 @@
  *  If either is null (Simli not ready / voice-only mode), barge-in silently
  *  becomes a no-op for that cycle.
  *
- * See: P7-C in the build plan — Phase 9.
  */
 
 'use client';
@@ -65,18 +64,14 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useInterviewStore } from '@/store/interview';
 
-// ---------------------------------------------------------------------------
 // Minimal Simli surface — only what barge-in needs.
-// The real SimliClient (when wired in P7-B) satisfies this automatically.
-// ---------------------------------------------------------------------------
+// The real SimliClient satisfies this automatically.
 export interface SimliHandle {
   /** Drain Simli's internal audio queue so no queued speech plays after barge-in. */
   stopSpeaking(): void;
 }
 
-// ---------------------------------------------------------------------------
 // Options
-// ---------------------------------------------------------------------------
 export interface UseBargeInOptions {
   /**
    * Ref to the <audio> element that Simli streams TTS into.
@@ -111,9 +106,7 @@ export interface UseBargeInOptions {
   onSpeechEnd?: () => void;
 }
 
-// ---------------------------------------------------------------------------
 // Return type
-// ---------------------------------------------------------------------------
 export interface UseBargeInReturn {
   /**
    * True once MicVAD has loaded the ONNX model and is listening.
@@ -135,9 +128,7 @@ export interface UseBargeInReturn {
   disable: () => Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
 // Hook
-// ---------------------------------------------------------------------------
 
 const VAD_ASSET_BASE = '/vad/';
 
@@ -164,7 +155,7 @@ export function useBargeIn(options: UseBargeInOptions): UseBargeInReturn {
   useEffect(() => { onSpeechStartRef.current = onSpeechStart; }, [onSpeechStart]);
   useEffect(() => { onSpeechEndRef.current = onSpeechEnd; }, [onSpeechEnd]);
 
-  // ── interrupt() ──────────────────────────────────────────────────────────
+  // interrupt()
   // Called the moment VAD detects speech start.
   // The three operations must happen synchronously (no await) so there is
   // zero gap between detecting speech and silencing the avatar audio.
@@ -190,7 +181,7 @@ export function useBargeIn(options: UseBargeInOptions): UseBargeInReturn {
     onSpeechStartRef.current?.();
   }, [audioElRef, simliRef]);
 
-  // ── enable() ─────────────────────────────────────────────────────────────
+  // enable()
   const enable = useCallback(async () => {
     if (isVoiceOnly || activeRef.current) return;
 
@@ -256,7 +247,7 @@ export function useBargeIn(options: UseBargeInOptions): UseBargeInReturn {
     }
   }, [isVoiceOnly, interrupt, audioElRef]);
 
-  // ── disable() ────────────────────────────────────────────────────────────
+  // disable()
   const disable = useCallback(async () => {
     const vad = vadRef.current as { destroy(): Promise<void> } | null;
     if (!vad) return;

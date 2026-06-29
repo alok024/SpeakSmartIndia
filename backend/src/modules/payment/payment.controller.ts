@@ -3,7 +3,7 @@ import * as PaymentService from './payment.service';
 import { paymentLogger } from '../../infra/logger';
 import { capturePaymentException } from '../../infra/observability';
 import { ok, badRequest, fail } from '../../core/utils/response';
-import { trackEvent } from '../analytics/events.service';
+import { trackEvent } from '../analytics/events/events.service';
 import { getOrCreateReferralCode } from '../growth/referral.service';
 import { setAccessCookie } from '../auth/cookies';
 

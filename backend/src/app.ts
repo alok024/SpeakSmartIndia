@@ -20,25 +20,25 @@ import { getRedis }                                  from './infra/queue/redis';
 // Route modules
 import authRoutes    from './modules/auth/auth.routes';
 import paymentRoutes from './modules/payment/payment.routes';
-import userRoutes         from './modules/user/user.routes';
-import resultsBoardRoutes from './modules/user/results-board.routes';
-import aiRoutes      from './modules/ai/ai.routes';
-import sessionRoutes from './modules/analytics/sessions.routes';
+import userRoutes         from './modules/user/profile/profile.routes';
+import resultsBoardRoutes from './modules/user/results-board/results-board.routes';
+import aiRoutes      from './modules/ai/chat/chat.routes';
+import sessionRoutes from './modules/analytics/sessions/sessions.routes';
 import reportRoutes  from './modules/reports/reports.routes';
 import certificateRoutes from './modules/certificates/certificates.routes';
 import comparisonRoutes  from './modules/comparison/comparison.routes';
 import adminRoutes   from './modules/admin/admin.routes';
 import leadsRoutes   from './modules/leads/leads.routes';
 import voiceRoutes   from './modules/voice/voice.routes';
-import eventsRoutes  from './modules/analytics/events.routes';
+import eventsRoutes  from './modules/analytics/events/events.routes';
 import { pushRouter }    from './modules/push/push.routes';
 import interviewRoutes   from './modules/interview/interview.routes';
 import speechRoutes      from './modules/speech/speech.routes';
 import prepPathsRoutes   from './modules/prep-paths/prep-paths.routes';
 import elaraRoutes       from './modules/elara/elara.routes';
-import leaderboardRoutes from './modules/analytics/leaderboard.routes';
-import { registerShutdownFlush } from './modules/analytics/events.service';
-import { initVapid } from './modules/analytics/weekly-card.service';
+import leaderboardRoutes from './modules/analytics/leaderboard/leaderboard.routes';
+import { registerShutdownFlush } from './modules/analytics/events/events.service';
+import { initVapid } from './modules/analytics/reports/weekly-card.service';
 
 // Extend Express Request with requestId
 declare global {
@@ -255,12 +255,9 @@ app.get('/health/metrics', async (req: Request, res: Response) => {
 });
 
 // Routes
-// NOTE (Bug #2 fix): userRoutes is mounted at '/api' (NOT '/api/user').
-// Its actual paths are /api/me, /api/referral, /api/onboarding etc.
-// resultsBoardRoutes is mounted at '/api/user' for /api/user/job-landed,
-// /api/user/results-board. There is NO route conflict — but the naming is
-// intentionally documented here to prevent a future dev from accidentally
-// changing the userRoutes mount prefix to '/api/user' and shadowing these routes.
+// userRoutes mounts at '/api' for /api/me, /api/referral, /api/onboarding.
+// resultsBoardRoutes mounts at '/api/user' for /api/user/job-landed, /api/user/results-board.
+// Do not change userRoutes to '/api/user' without auditing profile.routes.ts for conflicts.
 app.use('/api',          userRoutes);
 app.use('/api/user',     resultsBoardRoutes);
 app.use('/api',          authRoutes);

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authMiddleware, requireAdmin, validate, validateUUIDParam } from '../../core/middleware';
 import { getOverview, getUsers, getSubscriptions, getLeads, updateLeadStatus } from './admin.controller';
-import { getFunnel, getEvents } from '../analytics/events.controller';
+import { getFunnel, getEvents } from '../analytics/events/events.controller';
 import { UpdateLeadStatusSchema } from '../../core/utils/schemas';
 
 const router = Router();

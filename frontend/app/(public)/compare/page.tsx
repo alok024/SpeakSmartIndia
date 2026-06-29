@@ -24,10 +24,10 @@ import type {
   ChallengeSubmitResponse,
 } from '@/features/comparison/types';
 
-// ── helpers ───────────────────────────────────────────────────────────────
+// helpers
 
 function ScorePill({ score, label }: { score: number; label: string }) {
-  // Feature 44 — ring grammar, matching the rest of the app. Thresholds
+
   // simplified from this page's previous 3-cutoff scheme (8/6/4) to the
   // app-wide 0-10 convention (7/4) used everywhere else, so a score of
   // e.g. 6.5 now reads the same "good" colour here as it would on the
@@ -92,7 +92,7 @@ function formatDate(iso: string) {
   });
 }
 
-// ── main inner component ──────────────────────────────────────────────────
+// main inner component
 
 function ComparePageInner() {
   const params = useSearchParams();
@@ -119,14 +119,19 @@ function ComparePageInner() {
       setLoading(false);
       return;
     }
-    comparisonApi.getComparison(token).then(res => {
-      if (!res.ok) {
-        setError('This comparison link has expired or doesn\'t exist.');
-      } else {
-        setComparison(res.data);
-      }
-      setLoading(false);
-    });
+    comparisonApi.getComparison(token)
+      .then(res => {
+        if (!res.ok) {
+          setError('This comparison link has expired or doesn\'t exist.');
+        } else {
+          setComparison(res.data);
+        }
+        setLoading(false);
+      })
+      .catch(() => {
+        setError('Something went wrong. Please try again.');
+        setLoading(false);
+      });
   }, [token]);
 
   const handleSubmit = useCallback(async () => {
@@ -175,7 +180,7 @@ function ComparePageInner() {
     });
   }, []);
 
-  // ── loading / error states ──────────────────────────────────────────────
+  // loading / error states
 
   if (loading) {
     return (
@@ -206,7 +211,7 @@ function ComparePageInner() {
   const expiresDate  = formatDate(comparison.expires_at);
   const hasResponded = Boolean(result);
 
-  // ── main render ──────────────────────────────────────────────────────────
+  // main render
 
   return (
     <main className="min-h-screen bg-[#0A0B10] font-sans text-white">

@@ -5,7 +5,7 @@ import { sendPasswordResetEmail } from './email.service';
 import { authLogger } from '../../infra/logger';
 import { env } from '../../core/config/env';
 import { ok, created, badRequest, tooManyRequests, unauthorized } from '../../core/utils/response';
-import { trackEvent } from '../analytics/events.service';
+import { trackEvent } from '../analytics/events/events.service';
 import { setAuthCookies, clearAuthCookies, REFRESH_COOKIE } from './cookies';
 
 // Register

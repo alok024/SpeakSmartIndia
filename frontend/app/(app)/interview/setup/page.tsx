@@ -5,7 +5,7 @@ import { useEffect, useState, useRef, Suspense } from 'react';
 import { useInterviewStore } from '@/store/interview';
 import { useAuthStore } from '@/store/auth';
 import { useUIStore } from '@/store/ui';
-import { useMe } from '@/hooks/queries';
+import { useMe } from '@/features/user/hooks';
 import { useSaveCompanyMode } from '@/features/user/hooks';
 import { Button, Card, ChipGroup, Input } from '@/components/ui';
 import { Difficulty, InterviewType, SessionMode } from '@/types';
@@ -60,7 +60,7 @@ const TIMERS = [
   { label: '3 min', value: '180' },  { label: '5 min', value: '300' },
 ];
 
-// Voice "warm-up" — Easy build item. One short line per language so the
+// Voice "warm-up" One short line per language so the
 // preview button actually demonstrates the language it's previewing.
 const VOICE_PREVIEW_SAMPLES: Record<'en' | 'hi' | 'hinglish', string> = {
   en:       "Tell me about a time you handled a challenging situation at work.",
@@ -68,7 +68,7 @@ const VOICE_PREVIEW_SAMPLES: Record<'en' | 'hi' | 'hinglish', string> = {
   hinglish: "Apna experience batao ek challenging situation ke baare mein jo aapne kaam ke dauran handle ki.",
 };
 
-// ─── F29: Live preview builder ────────────────────────────────────────────────
+// Live preview builder
 function buildLivePreview(
   profession: string | null,
   difficulty: Difficulty | null,
@@ -106,7 +106,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ─── F28: Step indicator component ───────────────────────────────────────────
+// Step indicator component
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
     <div className="flex items-center gap-0 mb-6">
@@ -144,7 +144,7 @@ function InterviewSetupPageInner() {
   const store = useInterviewStore();
   const saveCompanyMode = useSaveCompanyMode();
 
-  // ─── F28: Multi-step state ───────────────────────────────────────────────
+  // Multi-step state
   const [step, setStep] = useState(0); // 0=track, 1=topics, 2=style, 3=review+start
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
 
@@ -251,7 +251,6 @@ function InterviewSetupPageInner() {
   const selectedTrackName =
     TRACK_NAMES.find((name) => TRACKS[name].profession === selectedProfession) ?? null;
 
-
   async function playVoicePreview() {
     if (previewLoading) return;
     setPreviewLoading(true);
@@ -317,7 +316,7 @@ function InterviewSetupPageInner() {
     setStarting(false);
   }
 
-  // ─── F29: Live preview ────────────────────────────────────────────────────
+  // Live preview
   const livePreview = buildLivePreview(
     customProfession.trim() || selectedProfession || null,
     store.config.difficulty ?? null,
@@ -365,10 +364,10 @@ function InterviewSetupPageInner() {
         </p>
       </div>
 
-      {/* ─── F28: Step indicator ─────────────────────────────────────────── */}
+      {/* Step indicator */}
       <StepIndicator current={step} total={4} />
 
-      {/* ─── Step 0: Track picker ────────────────────────────────────────── */}
+      {/* Step 0: Track picker */}
       {step === 0 && (
         <div
           key={step}
@@ -528,7 +527,7 @@ function InterviewSetupPageInner() {
         </div>
       )}
 
-      {/* ─── Step 1: Topic Buckets ──────────────────────────────────────── */}
+      {/* Step 1: Topic Buckets */}
       {step === 1 && (() => {
         const activeBuckets = selectedTrackName ? TRACKS[selectedTrackName].topics : [];
         return (
@@ -609,7 +608,7 @@ function InterviewSetupPageInner() {
         );
       })()}
 
-      {/* ─── Step 2: Style ───────────────────────────────────────────────── */}
+      {/* Step 2: Style */}
       {step === 2 && (
         <div
           key={step}
@@ -768,7 +767,7 @@ function InterviewSetupPageInner() {
         </div>
       )}
 
-      {/* ─── Step 3: Review + Start ──────────────────────────────────────── */}
+      {/* Step 3: Review + Start */}
       {step === 3 && (
         <div
           key={step}
@@ -779,7 +778,7 @@ function InterviewSetupPageInner() {
               : 'slideInLeft 0.28s cubic-bezier(.22,.68,0,1.2) both',
           }}
         >
-          {/* ─── F29: Live preview card ───────────────────────────────────── */}
+          {/* Live preview card */}
           {livePreview && (
             <Card
               className="p-5 transition-all duration-300"

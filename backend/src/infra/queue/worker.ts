@@ -1,34 +1,18 @@
-/**
- * Background Worker
- *
- * Processes every job on `vachix:background`.
- * Runs as a separate process in production (see src/worker.ts entry point).
- * Can also run in the same process during development.
- *
- * IMPORTANT — all handlers must be IDEMPOTENT.
- * BullMQ retries failed jobs. A job that partially completes
- * and is retried must not create duplicate data.
- * The underlying services (persistMistakesFromFeedback, recomputeWeakAreas)
- * already use upsert semantics — they are safe to retry.
- *
- * Concurrency = 5:
- *   At most 5 jobs run in parallel per worker process.
- *   Scale by running more worker processes, not by raising this number.
- */
+// All handlers must be idempotent — BullMQ retries on failure.
+// Concurrency = 5: scale by running more worker processes, not raising this.
 
-import { Worker, Job } from 'bullmq';
-import { getRedis } from './redis';
-import { QUEUE_NAME } from './queues';
-import { logger } from '../logger';
-import { captureException } from '../observability';
+import { Worker, Job }            from 'bullmq';
+import { env }                    from '../../core/config/env';
+import { QUEUE_NAME }             from './queues';
+import { logger }                 from '../logger';
+import { captureException }       from '../observability';
+import { REDIS_CONNECTION_OPTIONS } from './redis';
 
 const log = logger.child({ module: 'worker' });
 
 export function startBackgroundWorker(): Worker | null {
-  const conn = getRedis();
-
-  if (!conn) {
-    log.warn('Redis not configured — background worker NOT started (jobs run inline)');
+  if (!env.REDIS_URL) {
+    log.warn('Redis not configured — background worker not started');
     return null;
   }
 
@@ -39,30 +23,23 @@ export function startBackgroundWorker(): Worker | null {
 
       switch (job.name) {
 
-        // Persist AI memory mistakes
         case 'persist-mistakes': {
           const { persistMistakesFromFeedback } =
-            await import('../../modules/ai/ai.memory');
-          await persistMistakesFromFeedback(
-            job.data.userId,
-            job.data.topic,
-            job.data.feedbacks
-          );
+            await import('../../modules/ai/memory/memory.service');
+          await persistMistakesFromFeedback(job.data.userId, job.data.topic, job.data.feedbacks);
           break;
         }
 
-        // Recompute weak areas
         case 'recompute-weak-areas': {
           const { recomputeWeakAreas } =
-            await import('../../modules/analytics/weak_areas.service');
+            await import('../../modules/analytics/reports/weak-areas.service');
           await recomputeWeakAreas(job.data.userId);
           break;
         }
 
-        // Interviewer's Notes — 2-3 sentence narrative summary
         case 'generate-interviewer-notes': {
           const { generateInterviewerNotes } =
-            await import('../../modules/analytics/interviewer-notes.service');
+            await import('../../modules/analytics/reports/interviewer-notes.service');
           await generateInterviewerNotes(
             job.data.sessionId,
             job.data.profession,
@@ -72,25 +49,19 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
-        // Interview Readiness Report — every-5-sessions rollup summary
         case 'generate-readiness-report': {
           const { generateReadinessReport } =
-            await import('../../modules/analytics/readiness-report.service');
-          await generateReadinessReport(
-            job.data.userId,
-            job.data.sessionCount
-          );
+            await import('../../modules/analytics/reports/readiness-report.service');
+          await generateReadinessReport(job.data.userId, job.data.sessionCount);
           break;
         }
 
-        // Retry-persist a batch of analytics events
         case 'persist-analytics-events': {
           const { db } = await import('../../core/database/client');
           await db.createAnalyticsEvents(job.data.events);
           break;
         }
 
-        // Expire overdue subscriptions (hourly cron)
         case 'expire-subscriptions': {
           const { expireOverdueSubscriptions } =
             await import('../../modules/payment/payment.service');
@@ -98,30 +69,24 @@ export function startBackgroundWorker(): Worker | null {
           break;
         }
 
-        // Expire stale 'scoring' sessions (every 15 min)
         case 'expire-stale-sessions': {
           const { expireStaleSessions } =
-            await import('../../modules/analytics/sessions.service');
+            await import('../../modules/analytics/sessions/sessions.service');
           await expireStaleSessions();
           break;
         }
 
-        // B2B lead 24h follow-up email
-        // Skips if a human has already moved the lead past "new"
-        // (e.g. team marked it "contacted"/"qualified"/"closed").
         case 'lead-followup-email': {
-          const { db }              = await import('../../core/database/client');
+          const { db }                    = await import('../../core/database/client');
           const { sendLeadFollowUpEmail } = await import('../../modules/auth/email.service');
 
           const lead = await db.getLeadById(job.data.leadId);
           if (!lead) {
-            log.warn('lead-followup-email: lead not found — skipping', { leadId: job.data.leadId });
+            log.warn('lead-followup-email: lead not found', { leadId: job.data.leadId });
             break;
           }
           if (lead.status !== 'new') {
-            log.debug('lead-followup-email: lead already actioned — skipping', {
-              leadId: lead.id, status: lead.status,
-            });
+            log.debug('lead-followup-email: already actioned', { leadId: lead.id, status: lead.status });
             break;
           }
 
@@ -134,16 +99,14 @@ export function startBackgroundWorker(): Worker | null {
             message: lead.message ?? undefined,
           });
 
-          // Mark as contacted — only if still "new" (avoids racing a
-          // manual status change made between the read above and now).
+          // Conditional update guards against a status change between the read above and now.
           await db.updateLeadStatus(lead.id, 'contacted', 'new');
           break;
         }
 
-        // Weekly progress cards + push notifications (Sunday 08:00 IST)
         case 'weekly-progress-cards': {
           const { generateWeeklyProgressCards } =
-            await import('../../modules/analytics/weekly-card.service');
+            await import('../../modules/analytics/reports/weekly-card.service');
           await generateWeeklyProgressCards();
           break;
         }
@@ -153,55 +116,30 @@ export function startBackgroundWorker(): Worker | null {
       }
     },
     {
-      connection:  conn,
+      connection:  { ...REDIS_CONNECTION_OPTIONS, url: env.REDIS_URL },
       concurrency: 5,
     }
   );
 
-  // Event listeners
-
   worker.on('completed', (job: Job) =>
-    log.info('Job completed', {
-      name:     job.name,
-      id:       job.id,
-      attempts: job.attemptsMade,
-    })
+    log.info('Job completed', { name: job.name, id: job.id, attempts: job.attemptsMade })
   );
 
-  // Distinguish between a transient failure (will be retried) and
-  // exhaustion (all attempts used up — data is silently lost without action).
-  // BullMQ defaultJobOptions sets attempts = 3, so job.attemptsMade === 3
-  // means this is the final failure. We capture to Sentry so ops is paged
-  // rather than silently losing AI memory or weak-area recomputation.
   worker.on('failed', (job: Job | undefined, err: Error) => {
-    const attempts    = job?.attemptsMade ?? 0;
-    const maxAttempts = 3; // mirrors defaultJobOptions.attempts in queues.ts
-    const exhausted   = attempts >= maxAttempts;
+    const attempts  = job?.attemptsMade ?? 0;
+    const exhausted = attempts >= 3;
 
-    log.error('Job failed', {
-      name:      job?.name,
-      id:        job?.id,
-      attempts,
-      exhausted,
-      error:     err.message,
-    });
+    log.error('Job failed', { name: job?.name, id: job?.id, attempts, exhausted, error: err.message });
 
-    // Alert only on final failure — not on intermediate retries.
     if (exhausted) {
       captureException(err, {
-        extra: {
-          job_name:  job?.name,
-          job_id:    job?.id,
-          attempts,
-          job_data:  JSON.stringify(job?.data ?? {}),
-          note:      'Background job exhausted all retries — manual replay may be needed.',
-        },
+        extra: { job_name: job?.name, job_id: job?.id, attempts, job_data: JSON.stringify(job?.data ?? {}) },
       });
     }
   });
 
   worker.on('error', (err: Error) =>
-    log.error('Worker-level error', { error: err.message })
+    log.error('Worker error', { error: err.message })
   );
 
   log.info('Background worker started', { queue: QUEUE_NAME, concurrency: 5 });

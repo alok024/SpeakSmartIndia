@@ -7,7 +7,7 @@ import { PLAN_LIMITS, PlanType } from './config/env';
 import { logger } from '../infra/logger';
 import { unauthorized, forbidden, badRequest, fail } from './utils/response';
 import { AppError } from './utils/errors';
-import { trackEvent } from '../modules/analytics/events.service';
+import { trackEvent } from '../modules/analytics/events/events.service';
 import { ACCESS_COOKIE } from '../modules/auth/cookies';
 import { setContextUserId } from '../infra/request-context';
 
@@ -44,6 +44,7 @@ declare global {
   namespace Express {
     interface Request {
       user?:      JWTPayload;
+      dbUser?:    import('./database/client').UserRow;
       callCount?: number;
       // resolvedLimit carries the DB-authoritative plan limit (including
       // referral bonus calls) so controllers don't re-derive it from the JWT plan,
@@ -56,6 +57,22 @@ declare global {
       };
     }
   }
+}
+
+// Single DB fetch per request for plan/admin/onboarding guards.
+// Place this after authMiddleware on any route that stacks multiple
+// plan guards — guards then read req.dbUser directly instead of each
+// issuing an independent db.getUserById() round-trip.
+export async function attachUser(
+  req: Request, _res: Response, next: NextFunction
+): Promise<void> {
+  if (!req.user) { next(); return; }
+  try {
+    req.dbUser = await db.getUserById(req.user.id) ?? undefined;
+  } catch (err) {
+    log.warn('attachUser DB fetch failed', { userId: req.user.id, err });
+  }
+  next();
 }
 
 // Auth middleware
@@ -138,7 +155,7 @@ export async function checkUsageLimit(
     const callCount   = usage?.call_count ?? 0;
 
     // Referral bonus calls are added on top of the base free limit
-    const bonusCalls  = (dbUser as unknown as Record<string, number>)?.referral_bonus ?? 0;
+    const bonusCalls  = dbUser?.referral_bonus ?? 0;
     const actualLimit = baseLimit === -1 ? -1 : baseLimit + bonusCalls;
 
     req.callCount = callCount;
@@ -282,7 +299,7 @@ export async function requireVerified(
 ): Promise<void> {
   const user = req.user!;
   try {
-    const dbUser = await db.getUserById(user.id);
+    const dbUser = req.dbUser ?? await db.getUserById(user.id);
     if (!dbUser?.email_verified) {
       forbidden(res, 'Please verify your email before using this feature.', 'email_not_verified');
       return;
@@ -305,7 +322,7 @@ export async function requireOnboarded(
 ): Promise<void> {
   const user = req.user!;
   try {
-    const dbUser = await db.getUserById(user.id);
+    const dbUser = req.dbUser ?? await db.getUserById(user.id);
 
     // Paid users (pro/elite) and pre-launch accounts are exempt from the
     // onboarding gate — they either predated the feature or paid without
@@ -337,7 +354,7 @@ export async function requireAdmin(
 ): Promise<void> {
   const user = req.user!;
   try {
-    const dbUser = await db.getUserById(user.id);
+    const dbUser = req.dbUser ?? await db.getUserById(user.id);
     if (!dbUser?.is_admin) {
       forbidden(res, 'Forbidden: admin access required', 'admin_required');
       return;
@@ -358,13 +375,9 @@ export async function requirePro(
 ): Promise<void> {
   const user = req.user!;
   try {
-    const dbUser = await db.getUserById(user.id);
-    // Use getEffectivePlan so Elite trial users (elite_trial_expires_at set)
-    // are treated as 'elite' and are not blocked from Pro+ features.
+    const dbUser = req.dbUser ?? await db.getUserById(user.id);
     const plan   = dbUser ? db.getEffectivePlan(dbUser) : 'free';
     if (plan !== 'pro' && plan !== 'elite') {
-      // Track the upsell moment so we can measure voice → upgrade conversion.
-      // Fire-and-forget — never blocks the rejection.
       trackEvent({
         event:  'upsell_shown',
         userId: user.id,
@@ -399,7 +412,7 @@ export async function requireStarterTier(
 ): Promise<void> {
   const user = req.user!;
   try {
-    const dbUser = await db.getUserById(user.id);
+    const dbUser = req.dbUser ?? await db.getUserById(user.id);
     const plan   = (dbUser?.plan ?? 'free') as PlanType;
     if (plan !== 'starter' && plan !== 'pro' && plan !== 'elite') {
       trackEvent({
@@ -438,7 +451,7 @@ export async function requireVoiceTier(
 ): Promise<void> {
   const user = req.user!;
   try {
-    const dbUser = await db.getUserById(user.id);
+    const dbUser = req.dbUser ?? await db.getUserById(user.id);
     const plan   = (dbUser?.plan ?? 'free') as PlanType;
     if (plan !== 'starter' && plan !== 'pro' && plan !== 'elite') {
       // Track the upsell moment so we can measure voice → upgrade conversion.

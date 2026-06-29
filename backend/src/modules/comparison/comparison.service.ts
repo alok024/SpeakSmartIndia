@@ -23,7 +23,7 @@
 import crypto from 'crypto';
 import { env }    from '../../core/config/env';
 import { db }     from '../../core/database/client';
-import { callAI } from '../ai/ai.service';
+import { callAI } from '../ai/chat/chat.service';
 import { logger } from '../../infra/logger';
 import type { ScoreComparisonRow, ComparisonResponseRow } from '../../core/database/client';
 

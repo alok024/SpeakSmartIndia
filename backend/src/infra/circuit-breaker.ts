@@ -128,11 +128,9 @@ export class CircuitBreaker {
 
 // Singleton breakers — one per provider
 //
-// NOTE: these breakers are process-local. Under multi-instance deployment
-// each instance maintains independent state — Instance A can have Groq OPEN
-// while Instance B keeps hammering it. For shared breaker state, migrate to
-// a Redis-backed implementation keyed on `circuit:state:<name>`.
-// Acceptable at current scale (single Railway instance). Revisit when
-// Railway auto-scaling or a second region is introduced.
+// TODO(infra): These breakers are process-local. Under multi-instance
+// deployment, migrate to a Redis-backed state keyed on `circuit:state:<name>`
+// so all instances share the same open/closed state.
+// Safe to defer until Railway auto-scaling or a second region is added.
 export const groqBreaker   = new CircuitBreaker('Groq');
 export const openaiBreaker = new CircuitBreaker('OpenAI');

@@ -2,14 +2,11 @@
 
 /**
  * components/landing/LandingPage.tsx
- * Phase 4 polish pass — adds:
- *   01 Side Rail (scroll-tracking section index, with tooltips + accent bar)
- *   06 Cursor Aura (follows mouse, desktop only)
- *   08 Toast System (success/error/info/warning, swipe-to-dismiss)
- *   09 Command Palette (⌘K, keyboard navigation)
- *   11 Micro-interaction button ripples
- *   12 Floating CTA Island (appears after scrolling past hero)
- *   15 Glass Modal (used for upgrade prompt from pricing cards)
+ *
+ * Public marketing landing page. Features: scroll-tracking side rail,
+ * cursor aura (desktop), toast notifications, command palette (⌘K),
+ * button ripple micro-interactions, floating CTA island, and a glass
+ * upgrade modal. See app/landing.css for animation keyframes.
  */
 
 import Link from 'next/link';
@@ -18,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useUIStore } from '@/store/ui';
 import '@/app/landing.css';
 
-/* ── DATA ──────────────────────────────────────────────────────────── */
+/* Data */
 const FAQS = [
   { cat: 'Sessions',  q: 'Do I need to speak aloud, or can I type my answers?', a: 'Both work. You can type or speak — if your device has a microphone, Vachix will transcribe your answer in real time. Elara then analyses whichever form she receives.' },
   { cat: 'Language',  q: 'Is it useful if my English is already decent?', a: 'Yes — Elara catches the subtle mistakes standard spell-checkers miss: "myself is", "I am having experience", prepositional errors, and bureaucratic phrases that weaken interview impact.' },
@@ -28,7 +25,7 @@ const FAQS = [
   { cat: 'Privacy',  q: 'Is my data private?', a: 'Your interview sessions and corrections are stored only to generate your progress analytics. We do not share your data with third parties.' },
   { cat: 'General',  q: 'How is Vachix different from other interview prep apps?', a: 'Most prep apps focus on what you know. Vachix also trains how you say it — the live correction loop and real-time language coaching is unique to us.' },
   { cat: 'Pricing',  q: 'Do you offer plans for colleges or coaching institutes?', a: "Yes. Vachix for Teams gives institutions a shared dashboard, bulk seat management, and per-student progress tracking at seat-based pricing. It's rolling out now — reach out from the \"For Teams\" section above to get early access." },
-  { cat: 'Sessions',  q: 'Can I get free sessions beyond the first 7?', a: "Yes — refer a friend from your profile page and you'll both get +10 bonus AI sessions when they sign up. There's no limit on how many friends you can refer." },
+  { cat: 'Sessions',  q: 'Can I get free sessions beyond the first 7?', a: "Yes — refer a friend from your profile page and you'll both get +10 bonus AI sessions when they complete their first Vachix interview. There's no limit on how many friends you can refer." },
 ];
 
 const TRACKS = ['UPSC / IAS', 'Bank PO', 'SSC CGL', 'Campus Placement', 'IBPS PO', 'Software Engineer', 'Data Science', 'Railway RRB', 'Defence NDA', 'Product Manager', 'Teaching', 'Healthcare'];
@@ -52,13 +49,13 @@ const RAIL_SECTIONS = [
   { id: 'faq',     label: 'FAQ' },
 ];
 
-/* ── TOAST TYPES ────────────────────────────────────────────────────── */
+/* Toast Types */
 type ToastType = 'success' | 'error' | 'info' | 'warning';
 interface Toast { id: number; type: ToastType; title: string; msg: string; }
 const TOAST_ICONS: Record<ToastType, string> = { success: '✓', error: '✕', info: 'ℹ', warning: '⚠' };
 let _toastId = 0;
 
-/* ── GLASS MODAL CONFIGS ─────────────────────────────────────────── */
+/* Glass Modal Configs */
 interface GlassConfig { icon: string; title: string; body: string; cta: string; onConfirm?: () => void; }
 
 export default function LandingPage() {
@@ -89,25 +86,25 @@ export default function LandingPage() {
   const [showCorr, setShowCorr] = useState(false);
   const [showScores, setShowScores] = useState(false);
   const [ansText, setAnsText] = useState('');
-  const [corrStep, setCorrStep] = useState(0); // F19: 0–3, one per correction revealed
+  const [corrStep, setCorrStep] = useState(0);
 
-  /* ── F20: TESTIMONIAL CAROUSEL ──────────────────────────────── */
+  /* Testimonial Carousel */
   const [tcActive, setTcActive] = useState(0);
   const tcAutoRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tcCount = TESTIMONIALS.length;
 
-  /* ── F17: PARALLAX + F14: SCROLL TYPOGRAPHY ──────────────────── */
+  /* PARALLAX + SCROLL TYPOGRAPHY */
   const [scrollY, setScrollY] = useState(0);
   const heroRef = useRef<HTMLElement>(null);
-  /* F17: dot-grid parallax ref + one-time reduced-motion check */
+  /* dot-grid parallax ref + one-time reduced-motion check */
   const gridRef    = useRef<HTMLDivElement>(null);
   const noMotionRef = useRef(
     typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
   );
 
-  /* ── F01: SIDE RAIL ────────────────────────────────────────────── */
+  /* Side Rail */
   const [railActive, setRailActive] = useState(0);
-  /* F13: per-section scroll progress [0..1] for gradient rings */
+  /* per-section scroll progress [0..1] for gradient rings */
   const [sectionProgress, setSectionProgress] = useState<number[]>(() => RAIL_SECTIONS.map(() => 0));
   const railPillRef = useRef<HTMLDivElement>(null);
   const BAR_H = 14;
@@ -132,10 +129,10 @@ export default function LandingPage() {
     pulseTimerRef.current = setTimeout(() => pill.classList.remove('bar-pulse'), 400);
   }, []);
 
-  /* ── F06: CURSOR AURA ──────────────────────────────────────────── */
+  /* Cursor Aura */
   const auraRef = useRef<HTMLDivElement>(null);
   const dotRef  = useRef<HTMLDivElement>(null);
-  const trailRef = useRef<HTMLCanvasElement>(null); // F06: particle trail
+  const trailRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     if (window.matchMedia('(pointer:coarse)').matches) return;
@@ -145,7 +142,6 @@ export default function LandingPage() {
     const canvas = trailRef.current;
     if (!aura || !dot || !canvas) return;
 
-    // F06: particle trail setup
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     const ctx = canvas.getContext('2d')!;
@@ -196,13 +192,7 @@ export default function LandingPage() {
     };
   }, []);
 
-  /* ── F17: MOUNT — pause float animations while JS drives transforms ──
-     CSS animations and inline JS transforms both target the same
-     `transform` property. When they coexist the browser alternates
-     between them every frame → visible jank. Pausing the CSS
-     animations on mount gives JS exclusive ownership of transform
-     for the life of this component. The noMotion guard means
-     reduced-motion users never get any parallax motion at all. */
+  /* MOUNT — pause float animations while JS drives transforms CSS animations and inline JS transforms both target the same `transform` property. When they coexist the browser alternates between them every frame → visible jank. Pausing the CSS animations on mount gives JS exclusive ownership of transform for the life of this component. The noMotion guard means reduced-motion users never get any parallax motion at all. */
   useEffect(() => {
     if (noMotionRef.current) return;
     const orbs = [
@@ -216,7 +206,7 @@ export default function LandingPage() {
     };
   }, []);
 
-  /* ── F08: TOAST SYSTEM ─────────────────────────────────────────── */
+  /* Toast System */
   const [toasts, setToasts] = useState<Toast[]>([]);
   const showToast = useCallback((type: ToastType, title: string, msg: string, dur = 4200) => {
     const id = ++_toastId;
@@ -227,13 +217,13 @@ export default function LandingPage() {
     setToasts((prev: Toast[]) => prev.filter((t: Toast) => t.id !== id));
   }, []);
 
-  /* ── F09: COMMAND PALETTE ──────────────────────────────────────── */
-  /* ── F12: FLOATING CTA ISLAND ──────────────────────────────────── */
+  /* Command Palette */
+  /* Floating Cta Island */
   const [ctaVisible, setCtaVisible] = useState(false);
   const [ctaCollapsed, setCtaCollapsed] = useState(false);
   const lastScrollY = useRef(0);
 
-  /* ── F15: GLASS MODAL ──────────────────────────────────────────── */
+  /* Glass Modal */
   const [glassOpen, setGlassOpen] = useState(false);
   const [glassCfg, setGlassCfg] = useState<GlassConfig | null>(null);
   const [glassClosing, setGlassClosing] = useState(false);
@@ -244,7 +234,7 @@ export default function LandingPage() {
     setTimeout(() => { setGlassOpen(false); setGlassClosing(false); }, 300);
   };
 
-  /* ── NAV SCROLL + REVEAL + BARS + BIG NUM + DEMO + CTA ISLAND ── */
+  /* NAV SCROLL + REVEAL + BARS + BIG NUM + DEMO + CTA ISLAND */
   useEffect(() => {
     let ticking = false;
     let scrollRaf = 0;
@@ -252,13 +242,13 @@ export default function LandingPage() {
       const y = window.scrollY;
       setScrollY(y);
       setNavScrolled(y > 40);
-      // F07: nav scroll progress bar
+
       const docH = document.documentElement.scrollHeight - window.innerHeight;
       const fill = document.getElementById('ssi-nav-prog-fill');
       if (fill && docH > 0) fill.style.width = Math.min(100, (y / docH) * 100) + '%';
       // floating CTA
       setCtaVisible(y > window.innerHeight * 0.6);
-      // F17: drive dot-grid at slowest depth (0.08×) for background parallax
+
       if (!noMotionRef.current && gridRef.current) {
         gridRef.current.style.transform = `translateY(${y * 0.08}px)`;
       }
@@ -288,7 +278,7 @@ export default function LandingPage() {
         prevRailRef.current = idx;
         setRailActive(idx);
       }
-      /* F13: compute per-section scroll progress for gradient rings */
+      /* compute per-section scroll progress for gradient rings */
       const vh = window.innerHeight;
       const progArr = RAIL_SECTIONS.map((s, i) => {
         if (i < idx) return 1;
@@ -304,7 +294,7 @@ export default function LandingPage() {
       });
       setSectionProgress(progArr);
     };
-    // F17: rAF-gated scroll listener — coalesces rapid scroll events so
+
     // handleScroll (which writes styles + several setState calls) runs
     // at most once per animation frame instead of once per scroll event.
     const onScroll = () => {
@@ -333,7 +323,6 @@ export default function LandingPage() {
     }, { threshold: 0, rootMargin: '0px 0px -40px 0px' });
     document.querySelectorAll('.ssi-rv,.ssi-rvl,.ssi-rvr,.ssi-rvs,.ssi-rvc').forEach(el => io.observe(el));
 
-    // F16: delay the mount-time visible-check so the browser paints opacity:0 first,
     // letting CSS transitions actually animate. sessionStorage guards once-per-session.
     const wasAnimated = sessionStorage.getItem('ssi_hero_done');
     const mountDelay = wasAnimated ? 0 : 100;
@@ -384,7 +373,7 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  /* Demo typer — F19: variable speed + staggered correction step dots */
+  /* Demo typer — variable speed + staggered correction step dots */
   useEffect(() => {
     if (!demoRef.current) return;
     const obs = new IntersectionObserver(entries => {
@@ -417,7 +406,7 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, [demoTyped]);
 
-  /* ── F20: TESTIMONIAL CAROUSEL auto-advance ─────────────────── */
+  /* TESTIMONIAL CAROUSEL auto-advance */
   useEffect(() => {
     tcAutoRef.current = setInterval(() => {
       setTcActive(p => (p + 1) % tcCount);
@@ -434,7 +423,7 @@ export default function LandingPage() {
     }, 5000);
   };
 
-  /* ── F05: COUNT-UP on stat strip ─────────────────────────────── */
+  /* COUNT-UP on stat strip */
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>('[data-count]');
     if (!els.length) return;
@@ -472,7 +461,7 @@ export default function LandingPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [glassOpen]);
 
-  /* F03: Numbered section headers — ghost big-number + eyebrow shimmer
+  /* Numbered section headers — ghost big-number + eyebrow shimmer
      1. Propagate data-num to the parent .ssi-rv via --section-num CSS var so
         the ghost ::before positions against the full section div (not the tiny span).
      2. Trigger ghost entrance animation (.ssi-bignum-in) on section entry.
@@ -510,7 +499,7 @@ export default function LandingPage() {
     return () => obs.disconnect();
   }, []);
 
-  /* F04: Coach card 3D tilt + cursor-speed scan line */
+  /* Coach card 3D tilt + cursor-speed scan line */
   useEffect(() => {
     const plates = document.querySelectorAll<HTMLElement>('.ssi-tilt-card');
     const cleanups: (() => void)[] = [];
@@ -555,7 +544,7 @@ export default function LandingPage() {
     return () => cleanups.forEach(fn => fn());
   }, []);
 
-  /* Ripple helper — F11: also triggers loading → success flash */
+  /* Ripple helper — triggers loading → success state before navigation */
   const addRipple = (e: React.MouseEvent<HTMLElement>) => {
     const btn = e.currentTarget;
     const rect = btn.getBoundingClientRect();
@@ -565,7 +554,7 @@ export default function LandingPage() {
     r.style.top  = (e.clientY - rect.top - 2) + 'px';
     btn.appendChild(r);
     setTimeout(() => r.remove(), 560);
-    // F11: brief loading → success state before navigation takes over
+
     btn.classList.add('btn-loading');
     setTimeout(() => {
       btn.classList.remove('btn-loading');
@@ -580,17 +569,17 @@ export default function LandingPage() {
 
   return (
     <div className="ssi-page-root" style={{ position: 'relative' }}>
-      {/* ── CURSOR AURA (F06) ─────────────────────────────────────── */}
+      {/* CURSOR AURA */}
       <div ref={auraRef} className="ssi-aura" aria-hidden="true" />
       <div ref={dotRef}  className="ssi-cursor-dot" aria-hidden="true" />
       <canvas ref={trailRef} className="ssi-trail-canvas" aria-hidden="true" />
 
-      {/* ── TOAST CONTAINER (F08) ─────────────────────────────────── */}
+      {/* TOAST CONTAINER */}
       <div id="ssi-toast-container" aria-live="polite" aria-atomic="false">
         {toasts.map((t: Toast) => (
           <div key={t.id} className={`ssi-toast toast-${t.type}`} style={{ '--toast-dur': '4200ms' } as React.CSSProperties}>
             <div className="toast-icon-wrap">
-              {/* F08: SVG countdown ring */}
+              {/* SVG countdown ring */}
               <svg className="toast-ring" viewBox="0 0 36 36" aria-hidden="true">
                 <circle className="toast-ring-track" cx="18" cy="18" r="15" />
                 <circle className="toast-ring-fill" cx="18" cy="18" r="15"
@@ -608,7 +597,7 @@ export default function LandingPage() {
         ))}
       </div>
 
-      {/* ── SIDE RAIL (F01) ───────────────────────────────────────── */}
+      {/* SIDE RAIL */}
       <nav className="ssi-rail" aria-label="Page sections">
         <div className="ssi-rail-pill" ref={railPillRef}>
           {RAIL_SECTIONS.map((s, i) => {
@@ -621,7 +610,7 @@ export default function LandingPage() {
                 data-idx={i}
                 aria-label={s.label}
               >
-                {/* F13: section progress ring — gradient fill + neon glow */}
+                {/* section progress ring — gradient fill + neon glow */}
                 {(() => {
                   const R = 7, C = +(2 * Math.PI * R).toFixed(2);
                   const pct = sectionProgress[i] ?? 0;
@@ -664,7 +653,7 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* ── FLOATING CTA ISLAND (F12) ─────────────────────────────── */}
+      {/* FLOATING CTA ISLAND */}
       <div
         id="ssi-floating-cta"
         className={`${ctaVisible ? 'visible' : ''}${ctaCollapsed ? ' collapsed' : ''}`}
@@ -677,7 +666,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── GLASS MODAL (F15) ─────────────────────────────────────── */}
+      {/* GLASS MODAL */}
       {glassOpen && glassCfg && (
         <div
           id="ssi-glass-backdrop"
@@ -708,7 +697,7 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── TOP BAR ──────────────────────────────────────────────── */}
+      {/* Top Bar */}
       {topbarOpen && (
         <div className="ssi-topbar">
           <div className="ssi-topbar-text">
@@ -719,9 +708,9 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* ── NAV ──────────────────────────────────────────────────── */}
+      {/* Nav */}
       <nav className={`ssi-nav${navScrolled ? ' s' : ''}`} style={{ top: topbarOpen ? 36 : 0 }}>
-        {/* F07: scroll progress bar */}
+        {/* scroll progress bar */}
         <div className="ssi-nav-progress" aria-hidden="true"><div className="ssi-nav-progress-fill" id="ssi-nav-prog-fill" /></div>
         <a href="#hero" className="ssi-nlogo">
           <svg className="ssi-nlogo-mark" width="30" height="30" viewBox="0 0 44 44" fill="none" aria-hidden="true">
@@ -809,7 +798,7 @@ export default function LandingPage() {
         </div>
       </div>
 
-      {/* ── HERO ─────────────────────────────────────────────────── */}
+      {/* Hero */}
       <section className="ssi-hero" id="hero" ref={heroRef}>
         <div className="ssi-hero-bg">
           <div className="ssi-h-grid" ref={gridRef} />
@@ -1034,7 +1023,7 @@ export default function LandingPage() {
             <div className="ssi-dc-ans">{ansText}<span className="ssi-tc" /></div>
             <div className={`ssi-dc-corr${showCorr ? ' show' : ''}`}>
               <div style={{ marginBottom: 4, fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>⚡ Elara's corrections</div>
-              {/* F19: step progress dots */}
+              {/* step progress dots */}
               <div className="ssi-step-dots" aria-hidden="true">
                 {[1, 2, 3].map(n => (
                   <div key={n} className={`ssi-step-dot${corrStep >= n ? ' active' : ''}`} />
@@ -1065,7 +1054,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* TESTIMONIALS — F20: carousel with auto-advance, dot nav, prev/next */}
+      {/* TESTIMONIALS — carousel with auto-advance, dot nav, prev/next */}
       <section className="ssi-sect">
         <div className="ssi-si">
           <div className="ssi-rv" style={{ textAlign: 'center' }}>
@@ -1193,7 +1182,7 @@ export default function LandingPage() {
               </div>
             </div>
             <p className="ssi-free-note">Or <Link href="/register">start completely free</Link> — 7 AI sessions to try, all tracks, no card needed</p>
-            <p className="ssi-referral-note">Already have an account? <Link href="/profile">Refer a friend</Link> and earn +10 bonus AI sessions when they sign up.</p>
+            <p className="ssi-referral-note">Already have an account? <Link href="/profile">Refer a friend</Link> and earn +10 bonus AI sessions when they complete their first Vachix interview.</p>
           </div>
         </div>
       </section>
@@ -1305,7 +1294,7 @@ export default function LandingPage() {
               <div key={globalIdx} className={`ssi-fi${openFaq === globalIdx ? ' open' : ''}`}>
                 <button className="ssi-fb" onClick={() => setOpenFaq(openFaq === globalIdx ? null : globalIdx)} aria-expanded={openFaq === globalIdx}>
                   <span>{f.q}</span>
-                  {/* F21: SVG lines — rotate(45deg) on parent makes + → × cleanly */}
+                  {/* SVG lines — rotate(45deg) on parent makes + → × cleanly */}
                   <svg className="ssi-fi-icon" width="16" height="16" viewBox="0 0 16 16" fill="none"
                     stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
                     <line x1="1.5" y1="8" x2="14.5" y2="8" />

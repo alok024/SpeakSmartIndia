@@ -65,8 +65,22 @@ export function VoiceSettingsPanel({ user }: VoiceSettingsPanelProps) {
     );
   }
 
-  // ── Free tier view ─────────────────────────────────────────────────────────
-  if (isFree || !settings) {
+  // Free tier view
+  if (!settings) {
+    return (
+      <div
+        className="rounded-2xl p-5"
+        style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
+      >
+        <div className="text-sm font-medium text-white mb-1">🎙 Voice Settings</div>
+        <p className="text-xs" style={{ color: 'var(--text-3)' }}>
+          Could not load voice settings. Please refresh the page.
+        </p>
+      </div>
+    );
+  }
+
+  if (isFree) {
     const charsUsed = settings?.chars_used ?? 0;
     const charsCap  = settings?.chars_cap  ?? 54_000;
     const pct       = Math.min(100, Math.round((charsUsed / charsCap) * 100));
@@ -117,7 +131,7 @@ export function VoiceSettingsPanel({ user }: VoiceSettingsPanelProps) {
     );
   }
 
-  // ── Paid tier view ─────────────────────────────────────────────────────────
+  // Paid tier view
   const hdEnabled  = settings.hd_voice_enabled;
   const hdExhausted = settings.hd_exhausted ?? false;
   const resetDate  = settings.hd_quota_reset
