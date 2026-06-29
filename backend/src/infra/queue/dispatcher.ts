@@ -25,7 +25,7 @@ export async function dispatchPersistMistakes(
   topic:     string,
   feedbacks: FeedbackItem[]
 ): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     // No Redis — run inline (dev / degraded mode)
@@ -50,7 +50,7 @@ export async function dispatchPersistMistakes(
 // Enqueue: recompute weak areas after a session
 
 export async function dispatchRecomputeWeakAreas(userId: string): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     const { recomputeWeakAreas } =
@@ -79,7 +79,7 @@ export async function dispatchGenerateInterviewerNotes(
   score:      number,
   feedbacks:  FeedbackItem[]
 ): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     const { generateInterviewerNotes } =
@@ -109,7 +109,7 @@ export async function dispatchGenerateReadinessReport(
   userId:       string,
   sessionCount: number,
 ): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     const { generateReadinessReport } =
@@ -138,7 +138,7 @@ export async function dispatchGenerateReadinessReport(
 // 24h delay. Logged so it's visible in ops dashboards.
 
 export async function dispatchLeadFollowUp(leadId: string): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     log.warn('Redis not configured — lead follow-up email NOT scheduled', { leadId });
@@ -166,7 +166,7 @@ export async function dispatchLeadFollowUp(leadId: string): Promise<void> {
 // Without Redis: falls back to plain setInterval (current behaviour).
 
 export async function scheduleSubscriptionExpiry(): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     const { expireOverdueSubscriptions } =
@@ -214,7 +214,7 @@ export async function scheduleSubscriptionExpiry(): Promise<void> {
 // Without Redis: falls back to plain setInterval.
 
 export async function scheduleSessionExpiry(): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     const { expireStaleSessions } =
@@ -282,7 +282,7 @@ export function scheduleBlacklistCleanup(): void {
 // The stable jobId ensures restarts don't register a second repeatable.
 
 export async function scheduleWeeklyProgressCards(): Promise<void> {
-  const q = getBackgroundQueue();
+  const q = await getBackgroundQueue();
 
   if (!q) {
     log.warn('Redis not configured — weekly progress cards NOT scheduled');
