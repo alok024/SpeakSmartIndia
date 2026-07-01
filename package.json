@@ -21,12 +21,8 @@
     "eslint": "^8.57.0",
     "ioredis": "^5.11.1",
     "uuid": "^11.1.1",
-<<<<<<< HEAD
     "esbuild": "0.28.1",
     "next": "15.5.19"
-=======
-    "esbuild": "0.28.1"
->>>>>>> origin/main
   },
   "devDependencies": {
     "@ioredis/commands": "^1.10.0",
