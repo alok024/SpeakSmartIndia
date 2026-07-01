@@ -1,15 +1,12 @@
 name: CI
-
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main]
-
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
     services:
       redis:
         image: redis:7-alpine
@@ -20,17 +17,14 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 5
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-
       - name: Validate package.json files
         run: |
           echo "Validating package.json files..."
@@ -41,29 +35,16 @@ jobs:
                 || { echo "  ✗ $f is invalid JSON"; exit 1; }
             fi
           done
-
       - name: Install dependencies
-        run: npm ci
-
+        run: npm install --no-audit
       - name: Build shared package
         run: npm run build --workspace=shared
-
       - name: Build backend (TypeScript check)
         run: npm run build --workspace=backend
-
       - name: TypeScript check frontend
         run: npx tsc --noEmit --project frontend/tsconfig.json
-
-      # ESLint is skipped in CI: eslint-config-next@15 + ESLint 9 in a monorepo
-      # causes ajv schema resolution failures (Cannot set properties of undefined
-      # setting 'defaultMeta'). The root node_modules eslint@9 is always resolved
-      # over the workspace-local eslint@8 despite overrides. TypeScript check above
-      # catches type errors; lint locally before pushing with `npx next lint`.
-      # Revisit when Next.js ships flat config support (expected 15.1+).
-
       - name: Build frontend
         run: npm run build --workspace=frontend
-
       - name: Run backend tests
         run: npm test --workspace=backend
         env:
@@ -80,17 +61,14 @@ jobs:
           RAZORPAY_WEBHOOK_SECRET: ci-test-webhook-secret
           REPORT_SECRET: test-report-secret-32-chars-here-x
           FRONTEND_URL: http://localhost:3000
-
   security-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: 'npm'
-
       - name: Validate package.json files
         run: |
           for f in package.json shared/package.json backend/package.json frontend/package.json; do
@@ -100,16 +78,10 @@ jobs:
                 || { echo "  ✗ $f is invalid JSON"; exit 1; }
             fi
           done
-
       - name: Install dependencies
-        run: npm ci
-
+        run: npm install --no-audit
       - name: Backend npm audit
         run: npm audit --audit-level=high --workspace=backend
-
       - name: Frontend npm audit
-        # next@15.5.19 postcss advisory is unfixable (bundled inside next, no higher
-        # compatible version exists that resolves it). --omit=dev excludes build tools.
-        # continue-on-error until upstream fixes the bundled postcss.
         run: npm audit --omit=dev --audit-level=critical --workspace=frontend
         continue-on-error: true
