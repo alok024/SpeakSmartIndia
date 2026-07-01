@@ -5,13 +5,12 @@
   "scripts": {
     "dev": "next dev",
     "build": "npx next build",
-    "build:cf": "node -e \"const fs=require('fs');const f='node_modules/next/dist/lib/helpers/get-pkg-manager.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(\\\"lockFile: 'yarn.lock'\\\",\\\"lockFile: '_no_yarn.lock'\\\"))\" && npx next build && npx @cloudflare/next-on-pages",
-    "start": "next start",
+    "build:cf": "npx opennextjs-cloudflare build",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "pages:build": "npx next build && npx @cloudflare/next-on-pages",
-    "preview": "npm run pages:build && wrangler pages dev",
-    "deploy": "npm run pages:build && wrangler pages deploy"
+    "pages:build": "npx opennextjs-cloudflare build",
+    "preview": "npx opennextjs-cloudflare build && wrangler dev",
+    "deploy": "npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@alloc/quick-lru": "^5.2.0",
@@ -34,7 +33,7 @@
     "clsx": "^2.1.1",
     "jose": "^5.9.6",
     "lucide-react": "^0.454.0",
-    "next": "15.5.2",
+    "next": "^15.5.19",
     "patch-package": "^8.0.1",
     "posthog-js": "^1.170.0",
     "react": "^18.3.1",
@@ -46,13 +45,13 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.16",
+    "@opennextjs/cloudflare": "^1.20.1",
     "@types/node": "^22.9.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
-    "eslint-config-next": "15.5.2",
+    "eslint-config-next": "^15.5.19",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.9.3"
