@@ -62,11 +62,69 @@ export interface SimliAvatarOptions {
   onAvatarSessionEnded?: () => void;
 }
 
+/**
+ * Initialises a SimliClient, connects it to the container element, and
+ * returns a SimliHandle (the minimal barge-in surface we expose).
+ *
+ * Dynamic import keeps simli-client (and its livekit-client dep) out of
+ * the SSR bundle entirely — both packages reference `window` at module
+ * scope and crash on Cloudflare edge runtime if statically imported.
+ * Same pattern as @ricky0123/vad-web in useBargeIn.ts.
+ *
+ * @param containerEl  The div that Simli renders the video element into.
+ * @param audioEl      The hidden <audio> element barge-in pauses.
+ * @param sessionToken Short-lived Simli token from /api/voice/avatar/start.
+ * @returns A SimliHandle, or null if init fails.
+ */
 async function initSimliClient(
-  _containerEl: HTMLElement | null,
+  containerEl:  HTMLElement | null,
+  audioEl:      HTMLAudioElement | null,
+  sessionToken: string,
 ): Promise<SimliHandle | null> {
-  // Not yet wired — returns null so the hook falls through to voice-only mode.
-  return null;
+  if (typeof window === 'undefined' || !containerEl || !audioEl) return null;
+
+  try {
+    const { SimliClient, generateIceServers } = await import('simli-client');
+
+    // Create a <video> element inside the container div.
+    // Simli streams the talking-head video here.
+    const videoEl = document.createElement('video');
+    videoEl.autoplay   = true;
+    videoEl.playsInline = true;
+    videoEl.muted      = true;  // audio goes through audioEl, not videoEl
+    videoEl.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+    containerEl.innerHTML = '';
+    containerEl.appendChild(videoEl);
+
+    // Fetch ICE servers for the WebRTC connection.
+    // generateIceServers expects the Simli API key — we don't have it
+    // client-side (it stays on the server). Passing null makes SimliClient
+    // fall back to its default STUN/TURN configuration which is fine for
+    // the majority of network conditions. If NAT traversal becomes an issue,
+    // add a backend endpoint that calls generateIceServers() server-side
+    // and returns the ICE servers alongside the session token.
+    const iceServers = await generateIceServers(null as unknown as string).catch(() => null);
+
+    const client = new SimliClient(
+      sessionToken,
+      videoEl,
+      audioEl,
+      iceServers,
+    );
+
+    await client.start();
+
+    // Return the minimal barge-in surface.
+    // SimliClient.ClearBuffer() drains the audio queue — maps to stopSpeaking().
+    return {
+      stopSpeaking() {
+        try { client.ClearBuffer(); } catch { /* non-fatal */ }
+      },
+    };
+  } catch (err) {
+    console.error('[Simli] initSimliClient failed:', err);
+    return null;
+  }
 }
 
 // Hook
@@ -74,7 +132,10 @@ async function initSimliClient(
 export function useSimliAvatar(
   containerRef: React.RefObject<HTMLElement | null>,
   clientRef?:  React.RefObject<SimliHandle | null>,
-  options?:    SimliAvatarOptions,
+  options?:    SimliAvatarOptions & {
+    /** Ref to the hidden <audio> element Simli streams TTS into. */
+    audioRef?: React.RefObject<HTMLAudioElement | null>;
+  },
 ): SimliAvatarState {
   const store = useInterviewStore();
   const requestedVoiceOnly = store.config.avatarMode === 'voice-only';
@@ -129,32 +190,47 @@ export function useSimliAvatar(
     didInit.current = true;
 
     (async () => {
-      // Gate check
+      // Gate check — fetches quota + Simli session token from the backend.
       let autoEndAfterSecs: number | null = null;
+      let sessionToken: string | null = null;
       try {
         const gate = await avatarApi.start();
         if (!gate) {
           // null = quota exhausted (429), wrong tier (403), or network error.
-          // All cases fall back to voice-only. avatarApi.start() swallows non-ok
-          // responses and returns null, so we can't distinguish 429 from 403 here.
-          // The quota gate on the server side already logged the reason.
           store.setAvatarMode('voice-only');
           setVoiceOnly(true);
           return;
         }
+        if (gate.simli_unavailable) {
+          // Backend returned graceful fallback (SIMLI_API_KEY not set, or
+          // Simli API returned an error). Continue in voice-only mode silently.
+          store.setAvatarMode('voice-only');
+          setVoiceOnly(true);
+          return;
+        }
+        sessionToken = gate.session_token;
         autoEndAfterSecs = gate.auto_end_after_secs;
         setSecondsLeft(gate.avatar_seconds_remaining);
       } catch {
-        // Fail-open on unexpected error — let Simli init proceed without a
-        // known balance. If the stub returns null below, voice-only path fires.
+        // Fail-open on unexpected error — fall back to voice-only.
+        store.setAvatarMode('voice-only');
+        setVoiceOnly(true);
+        return;
       }
 
-      // Simli init
+      if (!sessionToken) {
+        store.setAvatarMode('voice-only');
+        setVoiceOnly(true);
+        return;
+      }
+
+      // Simli init — dynamic import keeps livekit-client out of SSR bundle.
       try {
-        const handle = await initSimliClient(containerRef.current);
+        const audioEl = options?.audioRef?.current ?? null;
+        const handle = await initSimliClient(containerRef.current, audioEl, sessionToken);
 
         if (handle === null) {
-          // Stub or real init returned null — no SDK yet; fall back to voice-only.
+          // Real init returned null — fall back to voice-only.
           avatarApi.end(0); // 0 s — Simli never connected; ledger clamps to 1 s minimum
           store.setAvatarMode('voice-only');
           setVoiceOnly(true);

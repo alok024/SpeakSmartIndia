@@ -5,14 +5,14 @@
  * non-fatally from sessions.service.ts after each streak increment.
  *
  * Milestones:
- *   7  days — Unlocks first streak-freeze slot (if not already unlocked).
- *             Small celebration animation flag returned to the client via
- *             the session save response.
+ *   3  days — +1 bonus session (free users only).
+ *   7  days — Unlocks first streak-freeze slot. (Voice bonus at day 7 is
+ *             handled by voice.ledger.ts maybeAwardStreakVoiceBonus, which
+ *             fires on every 7-day interval — not double-awarded here.)
+ *   14 days — +5 bonus sessions (all plans).
+ *   21 days — +15 bonus voice minutes.
  *   30 days — XP double-day: all XP earned that IST calendar day counts 2×.
- *             A morning push notification is sent at grant time (the user
- *             has just completed a session, so "morning" is approximate —
- *             the notification is sent immediately rather than re-scheduling
- *             for dawn, which would require a separate cron).
+ *             A push notification is sent immediately at grant time.
  *   60 days — Free readiness certificate auto-generated and shareable to
  *             LinkedIn. Uses the existing HMAC-signed certificate system.
  *   90 days — 7-day Elite trial: unlocks full avatar, full Elara audit,
@@ -35,11 +35,19 @@ import { db }      from '../../core/database/client';
 import { env }     from '../../core/config/env';
 import { logger }  from '../../infra/logger';
 import { encodeCertificateToken } from '../certificates/certificates.service';
+import { sendFcmToUser } from '../push/push.service';
 
 const log = logger.child({ module: 'milestone-rewards' });
 
-// The four milestone thresholds, in ascending order.
-const MILESTONES = [7, 30, 60, 90] as const;
+// Milestone thresholds in ascending order.
+// 3  days — +1 bonus session (free users only)
+// 7  days — streak-freeze slot unlock (voice bonus via voice.ledger, not here)
+// 14 days — +5 bonus sessions (all plans)
+// 21 days — +15 bonus voice minutes (one-time; recurring voice via voice.ledger)
+// 30 days — XP double-day
+// 60 days — Auto-generated readiness certificate
+// 90 days — 7-day Elite trial
+const MILESTONES = [3, 7, 14, 21, 30, 60, 90] as const;
 type Milestone = typeof MILESTONES[number];
 
 // ── Public entry point ────────────────────────────────────────────────────────
@@ -85,8 +93,14 @@ export async function maybeTriggerMilestoneRewards(
   log.info('Milestone reward triggered', { userId, milestone, streak });
 
   switch (milestone) {
+    case 3:
+      return award3Day(userId, user.name ?? 'Vachix User', user.plan ?? 'free');
     case 7:
       return award7Day(userId, user.name ?? 'Vachix User');
+    case 14:
+      return award14Day(userId, user.name ?? 'Vachix User');
+    case 21:
+      return award21Day(userId, user.name ?? 'Vachix User', user.plan ?? 'free');
     case 30:
       return award30Day(userId, user.name ?? 'Vachix User');
     case 60:
@@ -107,12 +121,45 @@ export interface MilestoneRewardResult {
   cert_url?:   string;
 }
 
+// ── 3-day: +1 bonus session (free users) ─────────────────────────────────────
+
+async function award3Day(userId: string, name: string, plan: string): Promise<MilestoneRewardResult> {
+  // Free users only — paid plans already have generous session allowances.
+  if (plan === 'free') {
+    try {
+      await db.addBonusSessions(userId, 1);
+    } catch (err) {
+      log.warn('award3Day: addBonusSessions failed (non-fatal)', { userId, error: String(err) });
+    }
+  }
+
+  await sendPush(userId, {
+    title: '🔥 3-Day Streak!',
+    body:  plan === 'free'
+      ? `${name}, you've earned a bonus session. Keep it going!`
+      : `${name}, 3 days strong — you're building momentum!`,
+    url:   `${env.FRONTEND_URL}/dashboard`,
+  });
+
+  return {
+    milestone:   3,
+    celebration: true,
+    title:       '3-Day Streak!',
+    body:        plan === 'free'
+      ? 'You\'ve earned 1 bonus session.'
+      : 'Keep the streak alive!',
+  };
+}
+
 // ── 7-day: unlock first streak-freeze slot ───────────────────────────────────
+// Voice bonus at day 7 is handled by voice.ledger.ts (maybeAwardStreakVoiceBonus),
+// which fires on every 7-day interval [7, 14, 21, 28, ...]. Adding a separate
+// topUpBonusVoiceSeconds call here would double-award on day 7.
 
 async function award7Day(userId: string, name: string): Promise<MilestoneRewardResult> {
   // streak_freeze_unlocked is already flipped by increment_user_stats at
-  // the 7-day threshold (migration 024).  We send a push notification to
-  // celebrate and surface the unlock in the dashboard.
+  // the 7-day threshold (migration 024). Send a push to celebrate and
+  // surface the unlock in the dashboard.
   await sendPush(userId, {
     title: '🔥 7-Day Streak! Freeze slot unlocked',
     body:  `${name}, you've earned your first Streak Freeze. Use it to protect your streak on a rest day.`,
@@ -124,6 +171,56 @@ async function award7Day(userId: string, name: string): Promise<MilestoneRewardR
     celebration: true,
     title:       '7-Day Streak!',
     body:        'You\'ve unlocked your first Streak Freeze.',
+  };
+}
+
+// ── 14-day: +5 bonus sessions ────────────────────────────────────────────────
+
+async function award14Day(userId: string, name: string): Promise<MilestoneRewardResult> {
+  try {
+    await db.addBonusSessions(userId, 5);
+  } catch (err) {
+    log.warn('award14Day: addBonusSessions failed (non-fatal)', { userId, error: String(err) });
+  }
+
+  await sendPush(userId, {
+    title: '🌟 14-Day Streak! Bonus sessions unlocked',
+    body:  `${name}, two weeks straight — you've earned 5 bonus sessions this month!`,
+    url:   `${env.FRONTEND_URL}/dashboard`,
+  });
+
+  return {
+    milestone:   14,
+    celebration: true,
+    title:       '14-Day Streak!',
+    body:        '5 bonus sessions added to your monthly allowance.',
+  };
+}
+
+// ── 21-day: +15 bonus voice minutes ──────────────────────────────────────────
+// NOTE: The master plan also defines a 5-min avatar taste for Starter users at
+// this milestone, but the avatar bonus top-up RPC is scheduled for Phase 4.
+// The voice bonus is delivered here; the avatar credit will be wired in Phase 4.
+
+async function award21Day(userId: string, name: string, plan: string): Promise<MilestoneRewardResult> {
+  const VOICE_BONUS_SECS = 900; // 15 min
+  try {
+    await db.topUpBonusVoiceSeconds(userId, VOICE_BONUS_SECS, env.MAX_BONUS_VOICE_SECONDS);
+  } catch (err) {
+    log.warn('award21Day: topUpBonusVoiceSeconds failed (non-fatal)', { userId, error: String(err) });
+  }
+
+  await sendPush(userId, {
+    title: '🚀 21-Day Streak! Voice minutes bonus',
+    body:  `${name}, 21 days — incredible! You've earned 15 bonus voice minutes.`,
+    url:   `${env.FRONTEND_URL}/dashboard`,
+  });
+
+  return {
+    milestone:   21,
+    celebration: true,
+    title:       '21-Day Streak!',
+    body:        `15 bonus voice minutes added${plan === 'starter' ? ' (avatar taste coming soon).' : '.'}`,
   };
 }
 
@@ -209,6 +306,16 @@ async function sendPush(
   userId:  string,
   payload: { title: string; body: string; url: string },
 ): Promise<void> {
+  await Promise.allSettled([
+    sendWebPush(userId, payload),
+    sendFcmToUser(userId, payload),
+  ]);
+}
+
+async function sendWebPush(
+  userId:  string,
+  payload: { title: string; body: string; url: string },
+): Promise<void> {
   if (!env.VAPID_PUBLIC_KEY || !env.VAPID_PRIVATE_KEY) return;
 
   try {
@@ -235,6 +342,6 @@ async function sendPush(
       })
     );
   } catch (err) {
-    log.warn('sendPush failed (milestone reward, non-fatal)', { userId, error: String(err) });
+    log.warn('sendWebPush failed (milestone reward, non-fatal)', { userId, error: String(err) });
   }
 }

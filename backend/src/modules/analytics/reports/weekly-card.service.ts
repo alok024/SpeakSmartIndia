@@ -33,6 +33,7 @@
 
 import webpush from 'web-push';
 import { db }  from '../../../core/database/client';
+import { sendFcmToUser } from '../../push/push.service';
 import type { UserRow } from '../../../core/database/base';
 import { env } from '../../../core/config/env';
 import { logger } from '../../../infra/logger';
@@ -481,11 +482,13 @@ export async function generateWeeklyProgressCards(): Promise<void> {
             ? `You did ${stats.sessionsThisWeek} session${stats.sessionsThisWeek !== 1 ? 's' : ''} this week. Avg score: ${fmtScore(stats.avgScoreThisWeek)}/10`
             : `Your streak is ${stats.streak} day${stats.streak !== 1 ? 's' : ''}. Keep it going!`;
 
-          await sendPushToUser(user.id, {
+          const pushPayload = {
             title: '📊 Your weekly Vachix summary is ready',
             body,
             url:   `${env.FRONTEND_URL}/progress`,
-          });
+          };
+          await sendPushToUser(user.id, pushPayload);
+          await sendFcmToUser(user.id, pushPayload);
           pushed++;
         } catch (err) {
           log.error('Weekly card generation failed for user', { userId: user.id, error: String(err) });

@@ -43,13 +43,15 @@ export const UserSchema = z.object({
 });
 
 export const UsageSchema = z.object({
+  // ai_calls is kept for backward compat but limit/remaining are always null.
+  // Monthly gating is session-based only (session_count / session_limit).
   ai_calls:      z.number(),
-  call_count:    z.number().optional(),
   limit:         z.number().nullable().optional(),
   remaining:     z.number().nullable().optional(),
   resets_at:     z.string().nullable().optional(),
-  // P1-A session cap fields
+  // Monthly session cap
   session_count: z.number(),
+  session_bonus: z.number().optional(),
   session_limit: z.number().nullable(),
 });
 

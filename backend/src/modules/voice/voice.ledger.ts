@@ -49,9 +49,9 @@ const log = logger.child({ module: 'voice-ledger' });
 // one debit type, one reset, one balance shown to the user.
 // free is blocked before this middleware fires (requireVoiceTier in voice.routes.ts).
 const PLAN_VOICE_CAPS: Record<string, number> = {
-  starter: env.VOICE_CAP_STARTER,  // 600 s = 10 min
-  pro:     env.VOICE_CAP_PRO,      // 2400 s = 40 min
-  elite:   env.VOICE_CAP_PRO,      // same 40 min cap as Pro
+  starter: env.VOICE_CAP_STARTER,  // 1200 s = 20 min
+  pro:     env.VOICE_CAP_PRO,      // 3600 s = 60 min
+  elite:   env.VOICE_CAP_ELITE,    // 7200 s = 120 min
 };
 
 // Streak days that trigger a voice bonus top-up
@@ -89,7 +89,7 @@ export async function requireVoiceQuota(
   const plan   = (dbUser?.plan ?? user.plan ?? 'free') as string;
   const cap    = PLAN_VOICE_CAPS[plan] ?? -1;
 
-  // -1 = unlimited (Elite) — skip the DB read entirely
+  // -1 means unknown/unrecognised plan — fail-open
   if (cap === -1) { next(); return; }
 
   try {
@@ -219,9 +219,9 @@ export async function maybeAwardStreakVoiceBonus(
 
 // Per-plan avatar caps in seconds. Simli is WebRTC streaming: billed per-minute
 // of active connection, not per character. Needs its own gate + termination.
-//   Starter: 600 s = 10 min  (taste — 2-3 sessions before upgrade prompt)
-//   Pro:     2400 s = 40 min
-//   Elite:   4800 s = 80 min
+//   Starter: 1200 s = 20 min
+//   Pro:     3600 s = 60 min
+//   Elite:   7200 s = 120 min
 //   free:    0 (avatar toggle never shown to free users)
 const PLAN_AVATAR_CAPS: Record<string, number> = {
   starter: env.AVATAR_CAP_STARTER,  // 600 s = 10 min

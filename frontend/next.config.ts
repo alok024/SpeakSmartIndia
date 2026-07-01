@@ -2,6 +2,14 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+
+  // simli-client 3.x dist references ./Client internally which webpack
+  // can't resolve during SSR build. serverExternalPackages excludes it
+  // from the server bundle entirely — the dynamic import in useSimliAvatar
+  // already handles client-only loading at runtime.
+  // livekit-client is simli's peer dep and also crashes on edge runtime.
+  serverExternalPackages: ['simli-client', 'livekit-client'],
+
   images: {
     remotePatterns: [
       {
@@ -12,6 +20,7 @@ const nextConfig: NextConfig = {
     // Cloudflare Pages doesn't support Next.js image optimization
     unoptimized: true,
   },
+
   // Rewrites: proxy /api/* to Express backend on Railway
   async rewrites() {
     // Fail loudly in development when NEXT_PUBLIC_BACKEND_URL is missing —
@@ -32,6 +41,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
   // Security headers
   async headers() {
     // X-XSS-Protection is deprecated in modern browsers and actively harmful
@@ -51,7 +61,6 @@ const nextConfig: NextConfig = {
     // this later without changing the rest of the header set.
     const csp = [
       "default-src 'self'",
-
       // compile the Silero ONNX model inside the browser. Without it, the VAD
       // worker throws a WASM compilation error and barge-in silently degrades.
       "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://checkout.razorpay.com",
@@ -60,7 +69,6 @@ const nextConfig: NextConfig = {
       "font-src 'self' data:",
       "connect-src 'self' https://*.razorpay.com https://app.posthog.com https://eu.posthog.com https://api.simli.com wss://api.simli.com",
       "frame-src https://api.razorpay.com https://checkout.razorpay.com",
-
       // Chrome requires blob: in worker-src for this to succeed.
       "worker-src blob: 'self'",
       "object-src 'none'",

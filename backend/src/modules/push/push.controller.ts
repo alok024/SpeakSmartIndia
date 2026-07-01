@@ -25,6 +25,16 @@ export const unsubscribePush = asyncHandler(async (req: Request, res: Response) 
   ok(res, { unsubscribed: true });
 });
 
+export const registerDevice = asyncHandler(async (req: Request, res: Response) => {
+  await PushService.registerDevice(req.user!.id, req.body);
+  ok(res, { registered: true });
+});
+
+export const unregisterDevice = asyncHandler(async (req: Request, res: Response) => {
+  await PushService.unregisterDevice(req.user!.id, req.body.token);
+  ok(res, { unregistered: true });
+});
+
 // Public — SVG is designed to be shareable without auth.
 export const getWeeklyCardSvg = asyncHandler(async (req: Request, res: Response) => {
   const svg = await PushService.getWeeklyCardSvg(req.params.userId);

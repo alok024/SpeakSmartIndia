@@ -13,7 +13,7 @@ import { asyncHandler }            from '../../../core/middleware';
 import { callAI, streamAI, AIMessage } from './chat.service';
 import { getCachedAIResponse, setCachedAIResponse, inferType, CacheType } from '../../../infra/ai-cache';
 import { buildPromptContextCached } from '../prompt/prompt.service';
-import { env, PLAN_LIMITS, PlanType } from '../../../core/config/env';
+import { env, PlanType } from '../../../core/config/env';
 import { aiLogger }                from '../../../infra/logger';
 import { checkBurstLimit }         from '../../../infra/burst-limiter';
 import { getAILimiterStats }       from '../../../infra/ai-limiter';
@@ -51,13 +51,8 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   // response path below, including error/limit responses.
   res.setHeader('Cache-Control', 'no-store');
 
-  const user      = req.user!;
-  const callCount  = req.callCount ?? 0;
-  const plan       = user.plan as PlanType;
-  // Use req.resolvedLimit (set by checkUsageLimit from the DB) instead of
-  // PLAN_LIMITS[user.plan]. The JWT plan is stale immediately after an upgrade —
-  // users who just paid would still see their old free-tier "remaining" count.
-  const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
+  const user  = req.user!;
+  const plan  = user.plan as PlanType;
 
   const topic = sanitiseTopic(
     (req.body.topic as string | undefined) ??
@@ -153,28 +148,21 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
   // checkUsageLimit to block new session starts when quota is exhausted.
 
   aiLogger.debug('AI call completed', {
-    userId:     user.id,
+    userId:       user.id,
     provider,
-    cached:     cached ?? false,
-    callCount,
+    cached:       cached ?? false,
     plan,
-    adaptive:   !!adaptiveProfile,   // true when Pro/Elite has enough data for coaching profile
-    personalised: hasPersonalisation, // false on free plan — no memory/adaptive layer
+    adaptive:     !!adaptiveProfile,
+    personalised: hasPersonalisation,
   });
 
   ok(res, {
     text,
     provider,
-    cached:     cached ?? false,
-    calls_used: callCount,
-    limit:      limit === -1 ? null : limit,
-    remaining:  limit === -1 ? null : Math.max(0, limit - callCount),
+    cached:        cached ?? false,
     plan_features: {
-      personalised: hasPersonalisation,  // false = free plan; prompt has no adaptive/memory layer
+      personalised: hasPersonalisation,
     },
-    // Structured coaching signals for the "Aria adapted for you" UI.
-    // null when hasPersonalisation is false (free plan) or on first session
-    // before enough data exists for a profile.
     coaching_context: adaptiveProfile?.coaching_context ?? null,
   });
 });
@@ -192,11 +180,8 @@ export const handleAI = asyncHandler(async (req: Request, res: Response) => {
 // event: error   data: {"error":"...","message":"...","retry_after_s":N}
 
 export const handleAIStream = asyncHandler(async (req: Request, res: Response) => {
-  const user      = req.user!;
-  const callCount  = req.callCount ?? 0;
-  const plan       = user.plan as PlanType;
-  // Same as handleAI — use DB-authoritative limit, not stale JWT plan.
-  const limit      = req.resolvedLimit ?? PLAN_LIMITS[plan]?.ai_calls ?? 30;
+  const user  = req.user!;
+  const plan  = user.plan as PlanType;
 
   const topic = sanitiseTopic(
     (req.body.topic as string | undefined) ??
@@ -277,12 +262,9 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
         }
         sendEvent('done', {
           provider: cached.provider,
-          cached: true,
-          calls_used: callCount + 1,
-          limit: limit === -1 ? null : limit,
-          remaining: limit === -1 ? null : Math.max(0, limit - (callCount + 1)),
+          cached:   true,
           plan_features: {
-            personalised: hasPersonalisation,  // false = free plan; prompt has no adaptive/memory layer
+            personalised: hasPersonalisation,
           },
           coaching_context: adaptiveProfile?.coaching_context ?? null,
         });
@@ -303,18 +285,13 @@ export const handleAIStream = asyncHandler(async (req: Request, res: Response) =
       await setCachedAIResponse(messages, { text: fullText, provider }, cacheCtx).catch(() => {});
     }
 
-    aiLogger.debug('AI stream completed', {
-      userId: user.id, provider, callCount: callCount + 1, plan,
-    });
+    aiLogger.debug('AI stream completed', { userId: user.id, provider, plan });
 
     sendEvent('done', {
       provider,
       cached: false,
-      calls_used: callCount + 1,
-      limit: limit === -1 ? null : limit,
-      remaining: limit === -1 ? null : Math.max(0, limit - (callCount + 1)),
       plan_features: {
-        personalised: hasPersonalisation,  // false = free plan; prompt has no adaptive/memory layer
+        personalised: hasPersonalisation,
       },
       coaching_context: adaptiveProfile?.coaching_context ?? null,
     });

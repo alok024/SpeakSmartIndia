@@ -37,9 +37,9 @@ describe('Voice ledger plan caps', () => {
   // If PLAN_VOICE_CAPS is ever exported from the module this should
   // switch to importing it directly.
   const PLAN_CAPS: Record<string, number> = {
-    starter: parseInt(process.env.VOICE_CAP_STARTER ?? '600'),
+    starter: parseInt(process.env.VOICE_CAP_STARTER ?? '1200'),
     pro:     parseInt(process.env.VOICE_CAP_PRO     ?? '3600'),
-    elite:   -1,
+    elite:   parseInt(process.env.VOICE_CAP_ELITE   ?? '7200'),
   };
 
   it('free tier has no cap entry (blocked by requireVoiceTier upstream)', () => {
@@ -48,34 +48,40 @@ describe('Voice ledger plan caps', () => {
     expect(PLAN_CAPS['free']).toBeUndefined();
   });
 
-  it('starter cap is 600 seconds (10 min)', () => {
-    expect(PLAN_CAPS['starter']).toBe(600);
+  it('starter cap is 1200 seconds (20 min)', () => {
+    expect(PLAN_CAPS['starter']).toBe(1200);
   });
 
   it('pro cap is 3600 seconds (60 min)', () => {
     expect(PLAN_CAPS['pro']).toBe(3600);
   });
 
-  it('elite cap is -1 (unlimited)', () => {
-    expect(PLAN_CAPS['elite']).toBe(-1);
+  it('elite cap is 7200 seconds (120 min)', () => {
+    expect(PLAN_CAPS['elite']).toBe(7200);
   });
 
-  it('elite cap short-circuits the DB read entirely (no quota check needed)', () => {
-    // Sentinel value convention: -1 means skip the Supabase getVoiceUsage call.
-    // This test documents the intent so future readers don't second-guess it.
-    expect(PLAN_CAPS['elite']).toBeLessThan(0);
+  it('elite cap is a positive number (quota-checked, not unlimited)', () => {
+    expect(PLAN_CAPS['elite']).toBeGreaterThan(0);
+  });
+
+  it('elite cap is greater than pro cap', () => {
+    expect(PLAN_CAPS['elite']).toBeGreaterThan(PLAN_CAPS['pro']);
   });
 });
 
 // ── Env-driven cap overrides ─────────────────────────────────────────────────
 
 describe('Voice cap env vars', () => {
-  it('VOICE_CAP_STARTER defaults to 600 seconds', () => {
-    expect(parseInt(process.env.VOICE_CAP_STARTER ?? '600')).toBe(600);
+  it('VOICE_CAP_STARTER defaults to 1200 seconds (20 min)', () => {
+    expect(parseInt(process.env.VOICE_CAP_STARTER ?? '1200')).toBe(1200);
   });
 
-  it('VOICE_CAP_PRO defaults to 3600 seconds', () => {
+  it('VOICE_CAP_PRO defaults to 3600 seconds (60 min)', () => {
     expect(parseInt(process.env.VOICE_CAP_PRO ?? '3600')).toBe(3600);
+  });
+
+  it('VOICE_CAP_ELITE defaults to 7200 seconds (120 min)', () => {
+    expect(parseInt(process.env.VOICE_CAP_ELITE ?? '7200')).toBe(7200);
   });
 
   it('STREAK_VOICE_BONUS_SECS is a non-negative integer', () => {
@@ -100,56 +106,58 @@ describe('Voice cap env vars', () => {
 
 describe('Effective quota calculation', () => {
   it('effectiveCap = planCap + bonusSeconds', () => {
-    const planCap     = 600;   // starter
-    const bonusSecs   = 300;   // one streak milestone
+    const planCap      = 1200;  // starter
+    const bonusSecs    = 300;   // one streak milestone
     const effectiveCap = planCap + bonusSecs;
-    expect(effectiveCap).toBe(900);
+    expect(effectiveCap).toBe(1500);
   });
 
-  it('quota is exhausted when totalUsed >= effectiveCap', () => {
-    const effectiveCap = 900;
-    const totalUsed    = 900;
-    expect(totalUsed >= effectiveCap).toBe(true);
+  it('quota is exhausted when voiceUsed >= effectiveCap', () => {
+    const effectiveCap = 1500;
+    const voiceUsed    = 1500;
+    expect(voiceUsed >= effectiveCap).toBe(true);
   });
 
-  it('quota is NOT exhausted when totalUsed < effectiveCap', () => {
-    const effectiveCap = 900;
-    const totalUsed    = 899;
-    expect(totalUsed >= effectiveCap).toBe(false);
+  it('quota is NOT exhausted when voiceUsed < effectiveCap', () => {
+    const effectiveCap = 1500;
+    const voiceUsed    = 1499;
+    expect(voiceUsed >= effectiveCap).toBe(false);
   });
 
-  it('voiceSecondsUsed + avatarSecondsUsed drain the same pool', () => {
-    // avatar_seconds_used counts against the voice quota — both consume
-    // from the same monthly ceiling.
-    const voiceUsed  = 400;
-    const avatarUsed = 200;
-    const totalUsed  = voiceUsed + avatarUsed;
-    expect(totalUsed).toBe(600); // equals starter cap → exhausted
+  it('voice and avatar seconds are tracked in separate pools', () => {
+    // requireVoiceQuota checks voice_seconds_used only.
+    // requireAvatarQuota checks avatar_seconds_used only.
+    // Heavy avatar usage does NOT consume the voice quota and vice-versa.
+    const voiceCap    = 1200; // starter voice cap
+    const voiceUsed   = 1200; // voice exhausted
+    const avatarUsed  = 600;  // avatar also consumed — irrelevant to voice gate
+    expect(voiceUsed >= voiceCap).toBe(true);    // voice gate fires
+    expect(avatarUsed >= voiceCap).toBe(false);  // avatar usage doesn't affect voice gate
   });
 
-  it('remainingQuota = effectiveCap - totalUsed', () => {
-    const effectiveCap = 900;
-    const totalUsed    = 600;
-    const remaining    = effectiveCap - totalUsed;
-    expect(remaining).toBe(300);
+  it('remainingQuota = effectiveCap - voiceUsed', () => {
+    const effectiveCap = 1500;
+    const voiceUsed    = 600;
+    const remaining    = effectiveCap - voiceUsed;
+    expect(remaining).toBe(900);
   });
 });
 
 // ── Streak milestone set ─────────────────────────────────────────────────────
 
-describe('Streak milestone days', () => {
+describe('Streak milestone days (voice bonus)', () => {
   // Mirror the STREAK_MILESTONE_DAYS set from voice.ledger.ts.
   const STREAK_MILESTONE_DAYS = new Set([7, 14, 21, 28, 35, 42, 60, 90]);
 
-  it('day 7 triggers a bonus top-up', () => {
+  it('day 7 triggers a voice bonus top-up', () => {
     expect(STREAK_MILESTONE_DAYS.has(7)).toBe(true);
   });
 
-  it('day 28 triggers a bonus top-up', () => {
+  it('day 28 triggers a voice bonus top-up', () => {
     expect(STREAK_MILESTONE_DAYS.has(28)).toBe(true);
   });
 
-  it('day 90 triggers a bonus top-up', () => {
+  it('day 90 triggers a voice bonus top-up', () => {
     expect(STREAK_MILESTONE_DAYS.has(90)).toBe(true);
   });
 

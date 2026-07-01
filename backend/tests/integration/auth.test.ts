@@ -8,6 +8,7 @@
 
 import request from 'supertest';
 import bcrypt  from 'bcryptjs';
+import jwt     from 'jsonwebtoken';
 
 // ── Infrastructure mocks (must precede any app import) ───────────────────────
 
@@ -267,5 +268,58 @@ describe('POST /api/login', () => {
 
       expect(statuses[10]).toBe(429);
     });
+  });
+});
+
+describe('POST /api/login — mobile client token body', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (db.getUsage as jest.Mock).mockResolvedValue({ call_count: 0 });
+  });
+
+  it('omits tokens from the body by default (browser/cookie flow)', async () => {
+    const user = await buildFakeUser();
+    (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
+
+    const res = await request(app).post('/api/login').send({ email: user.email, password: 'ValidPass123' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.tokens).toBeUndefined();
+    expect(res.headers['set-cookie']).toBeDefined();
+  });
+
+  it('includes access_token + refresh_token in the body when X-Vachix-Client: mobile is set', async () => {
+    const user = await buildFakeUser();
+    (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
+
+    const res = await request(app)
+      .post('/api/login')
+      .set('X-Vachix-Client', 'mobile')
+      .send({ email: user.email, password: 'ValidPass123' });
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.data.tokens.access_token).toBe('string');
+    expect(typeof res.body.data.tokens.refresh_token).toBe('string');
+    expect(res.body.data.tokens.token_type).toBe('Bearer');
+    expect(res.body.data.tokens.expires_in).toBe(30 * 60);
+    // Cookies are still set even for mobile — harmless if the client
+    // ignores them, and keeps the response shape uniform.
+    expect(res.headers['set-cookie']).toBeDefined();
+  });
+
+  it('the returned access_token is a JWT valid against the same secret authMiddleware checks', async () => {
+    const user = await buildFakeUser();
+    (db.getUserByEmail as jest.Mock).mockResolvedValue(user);
+
+    const loginRes = await request(app)
+      .post('/api/login')
+      .set('X-Vachix-Client', 'mobile')
+      .send({ email: user.email, password: 'ValidPass123' });
+
+    const { access_token } = loginRes.body.data.tokens;
+    const decoded = jwt.verify(access_token, process.env.JWT_SECRET as string) as { id: string; email: string };
+
+    expect(decoded.id).toBe(user.id);
+    expect(decoded.email).toBe(user.email);
   });
 });

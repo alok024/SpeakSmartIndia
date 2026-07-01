@@ -211,7 +211,7 @@ export function useBargeIn(options: UseBargeInOptions): UseBargeInReturn {
         positiveSpeechThreshold:  0.6,   // confidence needed to fire onSpeechStart
         negativeSpeechThreshold:  0.35,  // confidence below which speech is considered ended
         minSpeechMs:              90,    // ~90 ms minimum — filters breath noise
-        redemptionMs:             240,   // frames below threshold before declaring speech end
+        redemptionMs:             250,   // frames below threshold before declaring speech end (tuned: 240→250)
         preSpeechPadMs:           30,    // prepend ~1 frame of audio before detected start
 
         startOnLoad: true,

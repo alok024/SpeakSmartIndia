@@ -173,6 +173,9 @@ function InterviewSetupPageInner() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Auto-detect low-end devices and default to voice-only mode.
+  // Free users are also forced into voice-only — the avatar gate on the
+  // backend would 403 anyway, but doing it client-side avoids the wasted
+  // round-trip and keeps the session page clean.
   useEffect(() => {
     if (useInterviewStore.getState().config.avatarMode !== undefined) return;
     if (typeof window === 'undefined') return;
@@ -182,7 +185,12 @@ function InterviewSetupPageInner() {
     };
     const isLowMemory  = (nav.deviceMemory ?? Infinity) < 2;
     const isSlow2G     = nav.connection?.effectiveType === '2g';
-    if (isLowMemory || isSlow2G) useInterviewStore.getState().setAvatarMode('voice-only');
+    // Read plan from auth store (synchronous snapshot — no hook rule violation).
+    const userPlan = (useAuthStore.getState() as { user?: { plan?: string } }).user?.plan;
+    const noAvatarPlan = !userPlan || userPlan === 'free';
+    if (isLowMemory || isSlow2G || noAvatarPlan) {
+      useInterviewStore.getState().setAvatarMode('voice-only');
+    }
   }, []);
 
   useEffect(() => {
@@ -220,6 +228,9 @@ function InterviewSetupPageInner() {
   const livePlan    = meData?.user?.plan ?? user?.plan;
   const isFree      = !livePlan || (livePlan !== 'pro' && livePlan !== 'elite');
   const hasVoiceQuota = livePlan === 'starter' || livePlan === 'pro' || livePlan === 'elite';
+  // Avatar (Simli) is Starter+ only. Free users never see the toggle —
+  // it would 403 on the backend anyway, but hiding it avoids confusion.
+  const hasAvatarAccess = livePlan === 'starter' || livePlan === 'pro' || livePlan === 'elite';
   const aiCallsLeft = useAuthStore((s) => s.aiCallsLeft());
 
   const sessionCount = meData?.usage?.session_count ?? 0;
@@ -731,7 +742,8 @@ function InterviewSetupPageInner() {
             )}
           </div>
 
-          {/* Voice-only toggle */}
+          {/* Voice-only toggle — only visible to Starter+ (free users don't get avatar) */}
+          {hasAvatarAccess && (
           <div
             className="flex items-center justify-between rounded-xl px-4 py-3 border"
             style={{ background: 'var(--surface-2)', borderColor: 'var(--border)' }}
@@ -759,6 +771,7 @@ function InterviewSetupPageInner() {
               />
             </button>
           </div>
+          )}
 
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => goToStep(1)}>← Back</Button>

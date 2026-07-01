@@ -16,6 +16,7 @@ import { getAILimiterStats }                         from './infra/ai-limiter';
 import { groqBreaker, openaiBreaker }                from './infra/circuit-breaker';
 import { getQueueDepth }                             from './infra/queue/queues';
 import { getRedis }                                  from './infra/queue/redis';
+import { getVoiceLatencyStats }                      from './infra/voice-latency';
 
 // Route modules
 import authRoutes    from './modules/auth/auth.routes';
@@ -39,6 +40,7 @@ import elaraRoutes       from './modules/elara/elara.routes';
 import leaderboardRoutes from './modules/analytics/leaderboard/leaderboard.routes';
 import { registerShutdownFlush } from './modules/analytics/events/events.service';
 import { initVapid } from './modules/analytics/reports/weekly-card.service';
+import { attachSttWebSocket } from './modules/voice/stt-ws.handler';
 
 // Extend Express Request with requestId
 declare global {
@@ -136,6 +138,54 @@ app.use(rateLimit({
 app.use((req: Request, res: Response, next: NextFunction) => {
   req.requestId = (req.headers['x-request-id'] as string | undefined) ?? crypto.randomUUID();
   res.setHeader('X-Request-Id', req.requestId);
+
+  const startMs = Date.now();
+
+  // BUGFIX: the X-Response-Time header used to be set inside the 'finish'
+  // listener below. 'finish' fires *after* the response (headers + body)
+  // has already been flushed to the socket, so res.setHeader() there
+  // throws ERR_HTTP_HEADERS_SENT ("Cannot set headers after they are sent
+  // to the client") — silently swallowed by Express's default error
+  // listener in most requests, but surfaced as a hard failure whenever
+  // another piece of middleware (e.g. express-rate-limit's `message`
+  // response) also touches the response around the same tick, which is
+  // exactly what tripped the rate-limit test.
+  //
+  // Fix: patch writeHead/_implicitHeader so the header is injected the
+  // moment Node is about to flush headers — guaranteed to run before
+  // headersSent flips true, regardless of whether the route calls
+  // res.send()/res.json()/res.end() directly. This mirrors the approach
+  // the `on-headers` package uses, without adding a new dependency.
+  let responseTimeWritten = false;
+  const writeResponseTimeHeader = (): void => {
+    if (responseTimeWritten || res.headersSent) return;
+    responseTimeWritten = true;
+    res.setHeader('X-Response-Time', `${Date.now() - startMs}ms`);
+  };
+
+  const originalImplicitHeader = (res as Response & { _implicitHeader: () => void })._implicitHeader.bind(res);
+  (res as Response & { _implicitHeader: () => void })._implicitHeader = () => {
+    writeResponseTimeHeader();
+    originalImplicitHeader();
+  };
+
+  const originalWriteHead = res.writeHead.bind(res);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (res as any).writeHead = (...args: any[]) => {
+    writeResponseTimeHeader();
+    return originalWriteHead(...args);
+  };
+
+  // Logging only — never set headers here, the response is already gone.
+  res.on('finish', () => {
+    const elapsed = Date.now() - startMs;
+    logger.info('request_complete', {
+      method:   req.method,
+      path:     req.path,
+      status:   res.statusCode,
+      duration: elapsed,
+    });
+  });
 
   requestContextStore.run({ requestId: req.requestId }, () => {
     logger.info('incoming_request', {
@@ -250,7 +300,8 @@ app.get('/health/metrics', async (req: Request, res: Response) => {
       groq:   groqBreaker.getState(),
       openai: openaiBreaker.getState(),
     },
-    queue_depth: await getQueueDepth(),  // null when Redis is unavailable
+    queue_depth:    await getQueueDepth(),  // null when Redis is unavailable
+    voice_latency:  getVoiceLatencyStats(), // Phase 2 benchmark data: STT/TTS p50/p95/p99
   });
 });
 
@@ -301,11 +352,15 @@ app.use((err: Error, req: Request, res: Response, next: express.NextFunction) =>
 if (env.NODE_ENV !== 'test') {
   const PORT = env.PORT;
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     logger.info('🚀 Vachix API started', {
     port: PORT, env: env.NODE_ENV, version: env.VERSION,
     queue: env.REDIS_URL ? 'BullMQ (Redis)' : 'inline (no Redis)',
   });
+
+  // Attach WebSocket STT handler to the underlying HTTP server.
+  // Must run after listen() so the server is bound and can accept upgrades.
+  attachSttWebSocket(server);
 
   // Health-check assertion: B2B lead follow-up depends on Redis
   // Without REDIS_URL, dispatchLeadFollowUp() silently skips scheduling

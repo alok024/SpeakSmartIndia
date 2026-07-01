@@ -1,4 +1,4 @@
-import { Response, CookieOptions } from 'express';
+import { Request, Response, CookieOptions } from 'express';
 import { IS_PROD } from '../../core/config/env';
 import { ACCESS_TOKEN_TTL_MS } from './auth.service';
 
@@ -50,4 +50,28 @@ export function setAuthCookies(
 export function clearAuthCookies(res: Response): void {
   res.clearCookie(ACCESS_COOKIE, baseOpts);
   res.clearCookie(REFRESH_COOKIE, refreshOpts);
+}
+
+// Mobile clients (Flutter, native) don't keep a cookie jar the way a
+// browser does, so the httpOnly-cookie flow that protects web sessions
+// from XSS doesn't apply to them — they need the raw tokens to store in
+// platform secure storage and replay as `Authorization: Bearer`.
+// Cookies are still set on every response regardless (harmless if the
+// client ignores them); this header just opts a request into *also*
+// getting the tokens back in the JSON body. The header is checked, not
+// guessed from User-Agent, so this is an explicit per-request choice
+// made by the calling client, not implicit platform detection.
+export const CLIENT_PLATFORM_HEADER = 'x-vachix-client';
+
+export function wantsTokenBody(req: Request): boolean {
+  return req.headers[CLIENT_PLATFORM_HEADER] === 'mobile';
+}
+
+export function tokenBody(tokens: { token: string; refreshToken: string }) {
+  return {
+    access_token:  tokens.token,
+    refresh_token: tokens.refreshToken,
+    token_type:    'Bearer',
+    expires_in:    ACCESS_TTL_MS / 1000,
+  };
 }

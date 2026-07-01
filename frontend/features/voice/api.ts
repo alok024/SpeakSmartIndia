@@ -35,7 +35,13 @@ export interface VoiceSettings {
 
 export interface AvatarStartResult {
   avatar_seconds_remaining: number | null;
-  auto_end_after_secs: number | null;
+  auto_end_after_secs:      number | null;
+  /** False when SIMLI_API_KEY is configured and token was issued successfully. */
+  simli_unavailable:        boolean;
+  /** Short-lived Simli session token — null when simli_unavailable. */
+  session_token:            string | null;
+  /** Simli face ID echoed back for convenience — null when simli_unavailable. */
+  face_id:                  string | null;
 }
 
 export interface FreeTtsGateResult {
@@ -145,7 +151,34 @@ export const voiceApi = {
   },
 };
 
-// Avatar (Simli) session gate + debit — called by useSimliAvatar
+export interface SttResult {
+  transcript: string;
+  provider:   'groq' | 'sarvam';
+}
+
+export const sttApi = {
+  /**
+   * Transcribe an audio blob via the backend STT endpoint.
+   * Requires Starter+ plan (backend enforces requireVoiceTier).
+   * Returns null if the server returned a non-ok status or on network error.
+   */
+  transcribe: async (audioBlob: Blob): Promise<SttResult | null> => {
+    try {
+      const form = new FormData();
+      form.append('audio', audioBlob, 'utterance.wav');
+      const res = await fetch('/api/voice/stt', {
+        method:      'POST',
+        credentials: 'include',
+        body:        form,
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as { data: SttResult };
+      return data.data ?? null;
+    } catch {
+      return null;
+    }
+  },
+};
 export const avatarApi = {
   // Gate check before opening a Simli WebRTC connection.
   // Returns remaining seconds so the client can schedule self-termination.

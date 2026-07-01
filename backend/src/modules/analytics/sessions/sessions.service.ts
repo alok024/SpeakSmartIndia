@@ -8,7 +8,7 @@
 
 import { db }                      from '../../../core/database/client';
 import { AppError }                from '../../../core/utils/errors';
-import { PlanType, SESSION_CAP_FREE, SESSION_CAP_STARTER } from '../../../core/config/env';
+import { PlanType, SESSION_CAP_FREE, SESSION_CAP_STARTER, SESSION_CAP_PRO, SESSION_CAP_ELITE, SESSION_BONUS_CAP_FREE, SESSION_BONUS_CAP_STARTER, SESSION_BONUS_CAP_PRO, SESSION_BONUS_CAP_ELITE } from '../../../core/config/env';
 import { logger }                  from '../../../infra/logger';
 import { computeScoreBreakdown, FeedbackForScoring } from '../../ai/scoring/scoring.service';
 import {
@@ -181,14 +181,14 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
 
   // ── Monthly session cap (free + starter tiers) ────────────────────────────
   //
-  // Free users:    capped at SESSION_CAP_FREE (3) sessions per IST month.
-  // Starter users: capped at SESSION_CAP_STARTER (30) + monthly_session_bonus
-  //                (referral bonus sessions earned this month) per IST month.
-  // Pro / Elite:   no session cap — fall straight through.
+  // Free:    capped at SESSION_CAP_FREE (5) base + up to 2 streak bonus = 7 max/month
+  // Starter: capped at SESSION_CAP_STARTER (30) + monthly_session_bonus (up to 10) per IST month.
+  // Pro:     capped at SESSION_CAP_PRO (60) + monthly_session_bonus (up to 15) per IST month.
+  // Elite:   capped at SESSION_CAP_ELITE (90) + monthly_session_bonus (up to 20) per IST month.
   //
   // Flow:
   //  1. Read the user's plan and usage row.
-  //  2. If free or starter, check if the IST month has rolled over since
+  //  2. Check if the IST month has rolled over since
   //     monthly_session_reset_at and lazily reset if so. Resetting also
   //     zeros monthly_session_bonus (bonus sessions don't roll over).
   //  3. Compute effective cap: base cap + current-month bonus.
@@ -217,7 +217,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
 
     const plan = userPlan;
 
-    if (plan === 'free' || plan === 'starter') {
+    if (plan === 'free' || plan === 'starter' || plan === 'pro' || plan === 'elite') {
       // Lazy monthly reset: if monthly_session_reset_at is in a previous IST
       // month, reset the counter before the cap check. Avoids a background cron.
       // resetUsage also zeroes monthly_session_bonus — bonuses don't roll over.
@@ -244,15 +244,30 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
         }
       }
 
-      // Effective cap = plan base + referral bonus sessions earned this month.
-      // For free users the bonus pool is typically 0 (free-plan referrers earn
-      // just +1 session — stored but rarely significant). For Starter the bonus
-      // meaningfully extends the 30-session base.
-      const baseSessionCap = plan === 'free' ? SESSION_CAP_FREE : SESSION_CAP_STARTER;
+      // Effective cap = plan base + streak bonus sessions, capped per plan.
+      // Free:    5  base + min(bonus, 2)  = up to 7   max
+      // Starter: 30 base + min(bonus, 10) = up to 40  max
+      // Pro:     60 base + min(bonus, 15) = up to 75  max
+      // Elite:   90 base + min(bonus, 20) = up to 110 max
+      const BASE_CAP: Record<string, number> = {
+        free:    SESSION_CAP_FREE,
+        starter: SESSION_CAP_STARTER,
+        pro:     SESSION_CAP_PRO,
+        elite:   SESSION_CAP_ELITE,
+      };
+      const BONUS_CAP: Record<string, number> = {
+        free:    SESSION_BONUS_CAP_FREE,
+        starter: SESSION_BONUS_CAP_STARTER,
+        pro:     SESSION_BONUS_CAP_PRO,
+        elite:   SESSION_BONUS_CAP_ELITE,
+      };
+      const baseSessionCap = BASE_CAP[plan];
+      const bonusCap       = BONUS_CAP[plan];
       // After a lazy reset the bonus column was just zeroed, so read the
       // post-reset value (0) rather than the stale pre-reset value from the
       // usage row we fetched before the reset.
-      const sessionBonus   = isNewMonth ? 0 : (usage?.monthly_session_bonus ?? 0);
+      const rawBonus       = isNewMonth ? 0 : (usage?.monthly_session_bonus ?? 0);
+      const sessionBonus   = Math.min(rawBonus, bonusCap);
       const effectiveCap   = baseSessionCap + sessionBonus;
 
       // Single atomic RPC — check + increment in one row-locked Postgres UPDATE.
@@ -288,7 +303,6 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
         );
       }
     }
-    // Pro / Elite: no session cap — fall straight through.
   }
   // ── end session cap ────────────────────────────────────────────────────────
 
@@ -615,7 +629,7 @@ async function _saveSession(input: SaveSessionInput): Promise<SaveSessionResult>
     log.warn('maybeAwardStreakVoiceBonus failed (non-fatal)', { userId, streak: newStreak, error: err })
   );
 
-  // Streak milestone rewards (7 / 30 / 60 / 90 days).  Idempotent — each
+  // Streak milestone rewards (3 / 7 / 14 / 21 / 30 / 60 / 90 days).  Idempotent — each
   // milestone fires at most once per user.  Non-fatal: a failed reward must
   // never block the session save response.
   const milestoneReward = await maybeTriggerMilestoneRewards(userId, newStreak).catch(err => {
