@@ -43,7 +43,7 @@ jobs:
           done
 
       - name: Install dependencies
-        run: npm install --prefer-offline
+        run: npm ci
 
       - name: Build shared package
         run: npm run build --workspace=shared
@@ -102,16 +102,14 @@ jobs:
           done
 
       - name: Install dependencies
-        run: npm install --no-audit
+        run: npm ci
 
       - name: Backend npm audit
         run: npm audit --audit-level=high --workspace=backend
 
       - name: Frontend npm audit
-        # next is hard-capped at 15.5.2 by @cloudflare/next-on-pages@1.13.16 peer constraint.
-        # npm advisory DB reports next@15.5.2 as vulnerable but no higher stable version exists
-        # within the Cloudflare deploy toolchain constraint. --omit=dev excludes build tools
-        # (vercel CLI, esbuild, etc.) that never ship to users. continue-on-error until
-        # @cloudflare/next-on-pages bumps its peer dep ceiling above 15.5.2.
+        # next@15.5.19 postcss advisory is unfixable (bundled inside next, no higher
+        # compatible version exists that resolves it). --omit=dev excludes build tools.
+        # continue-on-error until upstream fixes the bundled postcss.
         run: npm audit --omit=dev --audit-level=critical --workspace=frontend
         continue-on-error: true
