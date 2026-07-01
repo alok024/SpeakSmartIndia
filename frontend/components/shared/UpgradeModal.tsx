@@ -102,7 +102,7 @@ export function UpgradeModal() {
       const rzp = new window.Razorpay({
         key, amount, currency, order_id,
         name: 'Vachix',
-        description: `${plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Elite'} Plan — ₹${plan === 'starter' ? '299' : plan === 'pro' ? '699' : '1,299'}/month`,
+        description: `${plan === 'starter' ? 'Starter' : plan === 'pro' ? 'Pro' : 'Elite'} Plan — ₹${plan === 'starter' ? '249' : plan === 'pro' ? '599' : '999'}/month`,
         prefill: { email: user?.email ?? '', name: user?.name ?? '' },
         // Accent from the brand, not hardcoded blue
         theme: { color: '#9b7fff' },
@@ -209,19 +209,19 @@ export function UpgradeModal() {
           {user?.plan !== 'starter' && (
             <Button variant="secondary" size="lg" className="w-full" loading={loading === 'starter'} disabled={!!loading} onClick={() => handleUpgrade('starter')}>
               <Sparkles className="w-4 h-4" />
-              Starter — ₹299/month · 30 sessions
+              Starter — ₹249/month · 40 sessions
             </Button>
           )}
           {user?.plan !== 'pro' && (
             <Button variant="upgrade" size="lg" className="w-full" loading={loading === 'pro'} disabled={!!loading} onClick={() => handleUpgrade('pro')}>
               <Crown className="w-4 h-4" />
-              Pro — ₹699/month · Unlimited + AI Chat
+              Pro — ₹599/month · Unlimited + AI Chat
             </Button>
           )}
           {user?.plan !== 'elite' && (
             <Button variant="upgrade" size="lg" className="w-full" loading={loading === 'elite'} disabled={!!loading} onClick={() => handleUpgrade('elite')}>
               <Diamond className="w-4 h-4" />
-              Elite — ₹1,299/month · Everything + Priority AI
+              Elite — ₹999/month · Everything + Priority AI
             </Button>
           )}
         </div>

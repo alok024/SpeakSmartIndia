@@ -6,7 +6,7 @@ import { getOrCreateReferralCode } from '../../growth/referral.service';
 import { trackEvent } from '../../analytics/events/events.service';
 import { getSessionDefaults, getDashboardRecommendations } from '../../ai/prompt/onboarding-context';
 import { ok, notFound } from '../../../core/utils/response';
-import { SESSION_CAP_FREE, SESSION_CAP_STARTER } from '../../../core/config/env';
+import { SESSION_CAP_FREE, SESSION_CAP_STARTER, SESSION_CAP_PRO, SESSION_CAP_ELITE, SESSION_BONUS_CAP_FREE, SESSION_BONUS_CAP_STARTER, SESSION_BONUS_CAP_PRO, SESSION_BONUS_CAP_ELITE } from '../../../core/config/env';
 import { db } from '../../../core/database/client';
 
 // GET /api/me
@@ -84,29 +84,29 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
     },
     onboarding,
     usage: {
+      // ai_calls is no longer a monthly counter; keeping the field for
+      // client compatibility but limit/remaining are always null.
       ai_calls:  callCount,
-      limit:     limit === -1 ? null : limit,
-      remaining: limit === -1 ? null : Math.max(0, limit - callCount),
-      resets_at: limit === -1 ? null : (() => {
-        // First day of next IST month — tells the frontend when the cap resets.
-        // Computed server-side so the client doesn't need to know timezone logic.
-        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
-        const nextMonth = new Date(nowIST.getFullYear(), nowIST.getMonth() + 1, 1);
-        return nextMonth.toISOString();
-      })(),
-      // P1-A + Migration 025: monthly session cap.
-      // Free:    capped at SESSION_CAP_FREE (3).
-      // Starter: capped at SESSION_CAP_STARTER (30) + monthly_session_bonus.
-      // Pro / Elite: no cap → null.
-      // Previously used `limit === -1` (ai_calls unlimited) as proxy for
-      // "paid plan", which wrongly gave Starter a session_limit of 3.
+      limit:     null,
+      remaining: null,
+      resets_at: null,
+      // Monthly session cap — the authoritative monthly gate.
+      // Free:    SESSION_CAP_FREE  base + up to SESSION_BONUS_CAP_FREE  bonus
+      // Starter: SESSION_CAP_STARTER base + up to SESSION_BONUS_CAP_STARTER bonus
+      // Pro:     SESSION_CAP_PRO base + up to SESSION_BONUS_CAP_PRO bonus
+      // Elite:   SESSION_CAP_ELITE base + up to SESSION_BONUS_CAP_ELITE bonus
       session_count:   usage?.monthly_session_count   ?? 0,
       session_bonus:   usage?.monthly_session_bonus   ?? 0,
-      session_limit:   dbUser.plan === 'free'
-        ? SESSION_CAP_FREE
-        : dbUser.plan === 'starter'
-          ? SESSION_CAP_STARTER + (usage?.monthly_session_bonus ?? 0)
-          : null,
+      session_limit: (() => {
+        const bonus = usage?.monthly_session_bonus ?? 0;
+        switch (dbUser.plan) {
+          case 'free':    return SESSION_CAP_FREE    + Math.min(bonus, SESSION_BONUS_CAP_FREE);
+          case 'starter': return SESSION_CAP_STARTER + Math.min(bonus, SESSION_BONUS_CAP_STARTER);
+          case 'pro':     return SESSION_CAP_PRO     + Math.min(bonus, SESSION_BONUS_CAP_PRO);
+          case 'elite':   return SESSION_CAP_ELITE   + Math.min(bonus, SESSION_BONUS_CAP_ELITE);
+          default:        return null;
+        }
+      })(),
     },
     stats: {
       streak:              stats?.streak     || 0,

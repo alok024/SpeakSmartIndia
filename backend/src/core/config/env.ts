@@ -141,10 +141,17 @@ const EnvSchema = z.object({
   // Web Push / VAPID (migration 015 — weekly progress cards)
   // Generate a keypair with: npx web-push generate-vapid-keys
   // VAPID_CONTACT_EMAIL is the mailto: address sent to push services.
-  // Optional — if unset, push notifications are silently skipped.
+  // Optional — if unset, web push notifications are silently skipped.
   VAPID_PUBLIC_KEY:    z.string().default(''),
   VAPID_PRIVATE_KEY:   z.string().default(''),
   VAPID_CONTACT_EMAIL: z.string().default(''),
+
+  // Firebase Cloud Messaging — native push for iOS/Android.
+  // Set to the full JSON of a Firebase service account credential
+  // (download from Firebase console → Project settings → Service accounts).
+  // Optional — if unset, FCM sends are silently skipped (tokens are still
+  // stored; the send path just won't fire until this is populated).
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().default(''),
 
   // Feature flags
   // HUMANIZE_COACH: enables Aria's coach-style rewrite + per-turn tone detection.
@@ -155,22 +162,28 @@ const EnvSchema = z.object({
   // Voice usage ledger (migration 011)
   // Per-plan monthly voice caps (seconds). -1 = unlimited.
   // free:    no voice (gated by requireVoiceTier in voice.routes.ts)
-  // starter: 600 s = 10 min  (enough for ~20 short TTS calls)
+  // starter: 1200 s = 20 min
   // pro:     3600 s = 60 min
-  // elite:   -1   = unlimited
+  // elite:   7200 s = 120 min
   // Sarvam voice balance (Aria questions + Elara corrections share one pool).
-  // Starter: 10 min; Pro/Elite: 40 min. Elara is Pro+ only (gated upstream),
-  // but both voices debit the same pool — one debit type, one reset, one balance shown.
-  VOICE_CAP_STARTER:       z.coerce.number().int().default(600),   // 10 min
-  VOICE_CAP_PRO:           z.coerce.number().int().default(2400),  // 40 min (Pro + Elite share same cap)
+  // Both voices debit the same pool — one debit type, one reset, one balance shown.
+  VOICE_CAP_STARTER:       z.coerce.number().int().default(1200),  // 20 min
+  VOICE_CAP_PRO:           z.coerce.number().int().default(3600),  // 60 min
+  VOICE_CAP_ELITE:         z.coerce.number().int().default(7200),  // 120 min
 
   // Avatar (Simli WebRTC) — separate minute pool, billed per-minute of active
   // connection (fundamentally different from TTS characters). -1 = unlimited.
   // Starter: 10 min taste (2-3 sessions); Pro: 40 min; Elite: 80 min.
   // Resets 1st of month IST alongside voice. No streak bonus for avatar.
-  AVATAR_CAP_STARTER:      z.coerce.number().int().default(600),   // 10 min
-  AVATAR_CAP_PRO:          z.coerce.number().int().default(2400),  // 40 min
-  AVATAR_CAP_ELITE:        z.coerce.number().int().default(4800),  // 80 min
+  AVATAR_CAP_STARTER:      z.coerce.number().int().default(1200),  // 20 min
+  AVATAR_CAP_PRO:          z.coerce.number().int().default(3600),  // 60 min
+  AVATAR_CAP_ELITE:        z.coerce.number().int().default(7200),  // 120 min
+  // Simli WebRTC — API key is server-side only (never sent to browser).
+  // The backend calls generateSimliSessionToken() and vends the short-lived
+  // session_token to the client via /api/voice/avatar/start.
+  // SIMLI_FACE_ID: the Elara face to use (get from Simli dashboard).
+  SIMLI_API_KEY:  z.string().min(1).optional(),
+  SIMLI_FACE_ID:  z.string().min(1).optional(),
   // Hard ceiling on streak-milestone bonus voice seconds a user can
   // accumulate. Enforced via LEAST() inside the RPC (same as referral cap).
   MAX_BONUS_VOICE_SECONDS: z.coerce.number().int().positive().default(3600),
@@ -255,38 +268,52 @@ export type Env = typeof env;
 
 export const IS_PROD = env.NODE_ENV === 'production';
 
-// 2026-06: 'starter' (₹299/mo, 30 sessions) is a fully integrated tier —
-// exposed in the landing page pricing section, the in-app upgrade modal,
-// and the billing flow.md "Starter tier
-// (full integration)"). Every PLAN_LIMITS/PLAN_PRICES consumer below
-// resolves dynamically by key, so this has applied to real Starter
-// subscribers since launch — no per-feature opt-in needed here.
 export type PlanType = 'free' | 'starter' | 'pro' | 'elite';
 
-/** -1 = unlimited */
+/**
+ * ai_calls is no longer a monthly counter. The monthly gate is sessions only
+ * (SESSION_CAP_* below). The per-session depth guard (MAX_QUESTIONS_PER_SESSION)
+ * is the only AI-call limit — no user ever hits it naturally.
+ *
+ * Kept as a record so callers that reference PLAN_LIMITS compile without
+ * changes; the value is -1 (unlimited) for every tier.
+ */
 export const PLAN_LIMITS: Record<PlanType, { ai_calls: number }> = {
-  free:    { ai_calls: 7 },    // returned to the client via usage.limit in /me
-  starter: { ai_calls: 30 },
+  free:    { ai_calls: -1 },
+  starter: { ai_calls: -1 },
   pro:     { ai_calls: -1 },
   elite:   { ai_calls: -1 },
 };
 
 /**
- * P1-A: Monthly session cap for the free tier.
- * Free users may complete at most this many full sessions per IST calendar month.
- * Enforced in sessions.service.ts (_saveSession) and surfaced via /api/me usage.session_limit.
- * Keep in sync with the hard-coded value in frontend/app/(app)/interview/setup/page.tsx
- * (session_limit returned from /me drives that UI, so they stay consistent automatically).
+ * Hard ceiling on AI exchanges within a single session.
+ * Protects against runaway loops — no legitimate interview reaches this.
  */
-export const SESSION_CAP_FREE = 3;
+export const MAX_QUESTIONS_PER_SESSION = 15;
 
 /**
- * Monthly session cap for Starter-tier users.
- * Pro and Elite have no session cap (-1 = unlimited).
- * The effective cap at enforcement time is SESSION_CAP_STARTER + usage.monthly_session_bonus
- * (bonus sessions earned via referrals this month).
+ * Monthly base session caps.
+ * Streak bonus sessions are stored in usage.monthly_session_bonus and added
+ * on top at enforcement time.
+ *
+ *   Free:    5  base + up to 2 streak bonus  = 7   max
+ *   Starter: 30 base + up to 10 streak bonus = 40  max
+ *   Pro:     60 base + up to 15 streak bonus = 75  max
+ *   Elite:   90 base + up to 20 streak bonus = 110 max
  */
+export const SESSION_CAP_FREE    = 5;
 export const SESSION_CAP_STARTER = 30;
+export const SESSION_CAP_PRO     = 60;
+export const SESSION_CAP_ELITE   = 90;
+
+/**
+ * Ceiling on streak bonus sessions that can accumulate per plan.
+ * Enforced via LEAST() in the addBonusSessions RPC.
+ */
+export const SESSION_BONUS_CAP_FREE    = 2;
+export const SESSION_BONUS_CAP_STARTER = 10;
+export const SESSION_BONUS_CAP_PRO     = 15;
+export const SESSION_BONUS_CAP_ELITE   = 20;
 
 /**
  * Bonus sessions granted to the REFERRER per successful referral
@@ -309,11 +336,11 @@ export const REFERRAL_BONUS_SESSIONS: Record<PlanType, number> = {
 
 /**
  * In paise (INR × 100).
- * 2026-06 locked pricing.md):
- *   Starter ₹299 · Pro ₹299→₹699 · Elite ₹599→₹1,299
+ * 2026-06 pricing:
+ *   Starter ₹249 · Pro ₹599 · Elite ₹999
  */
 export const PLAN_PRICES: Record<'starter' | 'pro' | 'elite', number> = {
-  starter: 29900,   // ₹299
-  pro:     69900,   // ₹699  (was ₹299)
-  elite:   129900,  // ₹1,299 (was ₹599)
+  starter: 24900,   // ₹249
+  pro:     59900,   // ₹599
+  elite:   99900,   // ₹999
 };

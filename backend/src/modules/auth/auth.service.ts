@@ -285,7 +285,7 @@ export async function logoutUser(
 export async function refreshAccessToken(refreshToken: string): Promise<AuthTokens> {
   let payload: { id: string; jti?: string; type: string; exp?: number };
   try {
-    payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET) as {
+    payload = jwt.verify(refreshToken, env.JWT_REFRESH_SECRET, { algorithms: ['HS256'] }) as {
       id: string; jti?: string; type: string; exp?: number;
     };
   } catch {

@@ -20,12 +20,12 @@ const FAQS = [
   { cat: 'Sessions',  q: 'Do I need to speak aloud, or can I type my answers?', a: 'Both work. You can type or speak — if your device has a microphone, Vachix will transcribe your answer in real time. Elara then analyses whichever form she receives.' },
   { cat: 'Language',  q: 'Is it useful if my English is already decent?', a: 'Yes — Elara catches the subtle mistakes standard spell-checkers miss: "myself is", "I am having experience", prepositional errors, and bureaucratic phrases that weaken interview impact.' },
   { cat: 'Sessions',  q: 'Which exams does the interview coach cover?', a: 'UPSC/IAS, Bank PO (IBPS & SBI), SSC CGL/CHSL, Railway (RRB), Defence (NDA/CDS), Software Engineering, Data Science, Product Management, Campus Placements, Teaching, and Healthcare. New tracks are added regularly.' },
-  { cat: 'Pricing',  q: 'What is the Starter plan and who is it for?', a: 'Starter is ₹299/month and gives you 30 AI interview sessions per month across all 11 exam tracks, Elara English correction, and AI memory on your recurring mistakes. It\'s ideal if you want consistent practice without committing to the full Pro plan.' },
+  { cat: 'Pricing',  q: 'What is the Starter plan and who is it for?', a: 'Starter is ₹249/month and gives you up to 40 AI interview sessions per month across all 11 exam tracks, Elara English correction, and AI memory on your recurring mistakes. It\'s ideal if you want consistent practice without committing to the full Pro plan.' },
   { cat: 'Pricing',  q: 'Can I cancel my subscription at any time?', a: 'Yes. Cancel from your profile page and you keep access until the end of the billing period. No questions asked, no hidden fees.' },
   { cat: 'Privacy',  q: 'Is my data private?', a: 'Your interview sessions and corrections are stored only to generate your progress analytics. We do not share your data with third parties.' },
   { cat: 'General',  q: 'How is Vachix different from other interview prep apps?', a: 'Most prep apps focus on what you know. Vachix also trains how you say it — the live correction loop and real-time language coaching is unique to us.' },
   { cat: 'Pricing',  q: 'Do you offer plans for colleges or coaching institutes?', a: "Yes. Vachix for Teams gives institutions a shared dashboard, bulk seat management, and per-student progress tracking at seat-based pricing. It's rolling out now — reach out from the \"For Teams\" section above to get early access." },
-  { cat: 'Sessions',  q: 'Can I get free sessions beyond the first 7?', a: "Yes — refer a friend from your profile page and you'll both get +10 bonus AI sessions when they complete their first Vachix interview. There's no limit on how many friends you can refer." },
+  { cat: 'Sessions',  q: 'Can I get free sessions beyond the first 7?', a: "Yes — refer a friend from your profile page and you'll both get bonus sessions when they complete their first Vachix interview. There's no limit on how many friends you can refer." },
 ];
 
 const TRACKS = ['UPSC / IAS', 'Bank PO', 'SSC CGL', 'Campus Placement', 'IBPS PO', 'Software Engineer', 'Data Science', 'Railway RRB', 'Defence NDA', 'Product Manager', 'Teaching', 'Healthcare'];
@@ -912,7 +912,7 @@ export default function LandingPage() {
       {/* STAT STRIP */}
       <div className="ssi-stat-strip">
         <div className="ssi-ss-inner">
-          {[['11', 'Exam & Role Tracks', 'c-v', '11'], ['7', 'Free AI Sessions to Try', 'c-g', '7'], ['₹699', 'Pro Plan / Month', '', '699'], ['₹0', 'To Start, No Card', '', '0']].map(([n, l, cls, count]) => (
+          {[['11', 'Exam & Role Tracks', 'c-v', '11'], ['5', 'Free AI Sessions to Try', 'c-g', '5'], ['₹599', 'Pro Plan / Month', '', '599'], ['₹0', 'To Start, No Card', '', '0']].map(([n, l, cls, count]) => (
             <div key={l as string} className="ssi-ss-item ssi-rv">
               <span className={`ssi-ss-n ${cls}`} data-count={`${(n as string).startsWith('₹') ? '₹' : ''}${count}`}>{n}</span>
               <span className="ssi-ss-l">{l}</span>
@@ -1104,7 +1104,7 @@ export default function LandingPage() {
             <div className="ssi-plan-free-callout ssi-rv" style={{ marginTop: 56 }}>
               <div>
                 <div className="ssi-pfc-title">Free plan — always free, no card needed</div>
-                <div className="ssi-pfc-sub">7 free AI sessions to try · All 11 exam tracks · Elara corrections included</div>
+                <div className="ssi-pfc-sub">5 free AI sessions to try · All 11 exam tracks · Elara corrections included</div>
               </div>
               <Link href="/register" className="ssi-pfc-link">Start free →</Link>
             </div>
@@ -1113,17 +1113,17 @@ export default function LandingPage() {
                 <div className="ssi-plan-top-line" />
                 <span className="ssi-plan-name">Starter</span>
                 <p className="ssi-plan-tag">Get serious without the full commitment</p>
-                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹299</span><span className="ssi-plan-per">/month</span></div>
+                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹249</span><span className="ssi-plan-per">/month</span></div>
                 <p className="ssi-plan-gst">+ 18% GST · billed monthly</p>
                 <ul className="ssi-plan-feats">
-                  {['30 AI interview sessions/month', 'All 11 exam tracks', 'Elara English correction', 'Grammar & Fluency scoring', 'AI memory on your mistakes'].map(f => <li key={f}>{f}</li>)}
+                  {['Up to 40 AI sessions/month', 'All 11 exam tracks', 'Elara English correction', 'Grammar & Fluency scoring', 'AI memory on your mistakes'].map(f => <li key={f}>{f}</li>)}
                 </ul>
                 <button
                   className="ssi-plan-cta std"
                   onClick={() => openGlass({
                     icon: '⚡',
                     title: 'Upgrade to Starter',
-                    body: '<p>Get 30 sessions/month across all 11 exam tracks for ₹299/month + GST. Cancel any time.</p>',
+                    body: '<p>Get up to 40 sessions/month across all 11 exam tracks for ₹249/month + GST. Cancel any time.</p>',
                     cta: 'Continue to checkout',
                     onConfirm: () => { router.push('/register?plan=starter'); showToast('info', 'Redirecting…', 'Taking you to checkout.'); },
                   })}
@@ -1136,7 +1136,7 @@ export default function LandingPage() {
                 <span className="ssi-plan-badge">Best value</span>
                 <span className="ssi-plan-name">Pro</span>
                 <p className="ssi-plan-tag">Everything you need to crack your interview</p>
-                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹699</span><span className="ssi-plan-per">/month</span></div>
+                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹599</span><span className="ssi-plan-per">/month</span></div>
                 <p className="ssi-plan-gst">+ 18% GST · billed monthly</p>
                 <ul className="ssi-plan-feats">
                   {['Unlimited interview sessions', 'All 11 exam tracks (UPSC, Bank PO, SSC…)', 'Elara English correction on every answer', 'Grammar, Fluency & Vocabulary scoring', 'AI memory — tracks your recurring mistakes', 'Weak-area detection & adaptive difficulty', 'AI Chat coach between sessions', 'Session history & Readiness dashboard'].map(f => <li key={f}>{f}</li>)}
@@ -1148,7 +1148,7 @@ export default function LandingPage() {
                     openGlass({
                       icon: '🚀',
                       title: 'Upgrade to Pro',
-                      body: '<p>Unlock unlimited sessions, Interview Readiness Reports, and full history for ₹699/month + GST.</p>',
+                      body: '<p>Unlock unlimited sessions, Interview Readiness Reports, and full history for ₹599/month + GST.</p>',
                       cta: 'Continue to checkout',
                       onConfirm: () => { router.push('/register?plan=pro'); showToast('info', 'Redirecting…', 'Taking you to checkout.'); },
                     });
@@ -1162,7 +1162,7 @@ export default function LandingPage() {
                 <span className="ssi-plan-badge">Most popular</span>
                 <span className="ssi-plan-name">Elite</span>
                 <p className="ssi-plan-tag">For serious candidates preparing every day</p>
-                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹1,299</span><span className="ssi-plan-per">/month</span></div>
+                <div className="ssi-plan-price"><span className="ssi-plan-amt">₹999</span><span className="ssi-plan-per">/month</span></div>
                 <p className="ssi-plan-gst">+ 18% GST · billed monthly</p>
                 <ul className="ssi-plan-feats">
                   {['Everything in Pro', 'Priority AI — faster responses', 'Detailed grammar breakdowns with examples', 'Full session history & PDF exports', 'Personalised improvement plan', 'Early access to new features (voice & avatar)'].map(f => <li key={f}>{f}</li>)}
@@ -1172,7 +1172,7 @@ export default function LandingPage() {
                   onClick={() => openGlass({
                     icon: '👑',
                     title: 'Go Elite',
-                    body: '<p>Everything in Pro, plus priority AI, PDF exports, and a personalised improvement plan. ₹1,299/month + GST.</p>',
+                    body: '<p>Everything in Pro, plus priority AI, PDF exports, and a personalised improvement plan. ₹999/month + GST.</p>',
                     cta: 'Continue to checkout',
                     onConfirm: () => { router.push('/register?plan=elite'); showToast('info', 'Redirecting…', 'Taking you to checkout.'); },
                   })}
@@ -1181,7 +1181,7 @@ export default function LandingPage() {
                 </button>
               </div>
             </div>
-            <p className="ssi-free-note">Or <Link href="/register">start completely free</Link> — 7 AI sessions to try, all tracks, no card needed</p>
+            <p className="ssi-free-note">Or <Link href="/register">start completely free</Link> — 5 AI sessions to try, all tracks, no card needed</p>
             <p className="ssi-referral-note">Already have an account? <Link href="/profile">Refer a friend</Link> and earn +10 bonus AI sessions when they complete their first Vachix interview.</p>
           </div>
         </div>
@@ -1231,7 +1231,7 @@ export default function LandingPage() {
           </div>
           <div className="ssi-rvr d1">
             <div className="ssi-india-stats-grid">
-              {[['11', 'Exam & role tracks'], ['7', 'Free AI sessions to try'], ['₹699', 'Pro plan / month'], ['₹0', 'To start, no card']].map(([n, l]) => (
+              {[['11', 'Exam & role tracks'], ['5', 'Free AI sessions to try'], ['₹599', 'Pro plan / month'], ['₹0', 'To start, no card']].map(([n, l]) => (
                 <div key={l as string} className="ssi-india-stat">
                   <span className="ssi-india-stat-num">{n}</span>
                   <span className="ssi-india-stat-label">{l}</span>
@@ -1323,12 +1323,12 @@ export default function LandingPage() {
               className="ssi-cta-h-ghost"
               onClick={() => openGlass({
                 icon: '👑', title: 'Go Elite',
-                body: '<p>Everything in Pro, plus priority AI, PDF exports, and a personalised improvement plan. ₹1,299/month + GST. Cancel any time.</p>',
+                body: '<p>Everything in Pro, plus priority AI, PDF exports, and a personalised improvement plan. ₹999/month + GST. Cancel any time.</p>',
                 cta: 'Continue to checkout',
                 onConfirm: () => router.push('/register?plan=elite'),
               })}
             >
-              Go Elite — ₹1,299/mo
+              Go Elite — ₹999/mo
             </button>
           </div>
           <p className="ssi-cta-fine">UPI, cards & net banking · Cancel any time · Results in under 10 minutes</p>

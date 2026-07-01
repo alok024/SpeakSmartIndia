@@ -47,6 +47,7 @@ export type {
   ScoreComparisonRow,
   ComparisonResponseRow,
   PushSubscriptionRow,
+  DeviceTokenRow,
   PrepPathRow,
   UserPrepEnrollmentRow,
   ElaraSessionRow,

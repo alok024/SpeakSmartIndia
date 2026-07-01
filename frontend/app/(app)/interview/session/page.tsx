@@ -31,6 +31,8 @@ import { useBargeIn }     from '@/features/avatar/useBargeIn';
 import { useAriaVoice }  from '@/features/voice/useAriaVoice';
 import { useElaraVoice } from '@/features/elara/useElaraVoice';
 import { elaraApi }      from '@/features/elara/api';
+import { sttApi }        from '@/features/voice/api';
+import { useAudioWebSocket } from '@/features/voice/useAudioWebSocket';
 import type { DebriefResult, AuditResult } from '@/features/elara/api';
 
 // Matches patterns like "score: 7", "7/10", "rating: 6.5"
@@ -361,11 +363,48 @@ function InterviewSessionPageInner() {
   // Elara post-session state
   const [elaraDebrief, setElaraDebrief] = useState<DebriefResult | null>(null);
   const [elaraAudit,   setElaraAudit]   = useState<AuditResult   | null>(null);
-  // Barge-in listening indicator — true while VAD has detected speech onset
-  // and is capturing the user's utterance. Shown as a badge in the UI so the
-  // user knows their speech was detected (avoids the confusing "avatar stopped
-  // talking but nothing happened" experience when STT is not yet wired).
-  const [isListening, setIsListening] = useState(false);
+  // Voice input state
+  const [isListening,    setIsListening]    = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing]  = useState(false);
+
+  // Audio encoder worker — lazy init, reused across utterances
+  const encoderWorkerRef = useRef<Worker | null>(null);
+  const getEncoderWorker = useCallback((): Worker | null => {
+    if (typeof window === 'undefined') return null;
+    if (!encoderWorkerRef.current) {
+      try {
+        encoderWorkerRef.current = new Worker('/audioEncoder.worker.js');
+      } catch {
+        return null;
+      }
+    }
+    return encoderWorkerRef.current;
+  }, []);
+
+  const isPaidUser = !!(user && user.plan !== 'free');
+
+  // Persistent WebSocket for STT — preferred over HTTP for paid users.
+  // Falls back gracefully to HTTP when WS is unavailable (deadRef exceeded retries).
+  const audioWs = useAudioWebSocket({ enabled: isPaidUser });
+
+  // Sync WS transcript into session state whenever it arrives
+  useEffect(() => {
+    if (!audioWs.transcript) return;
+    const t = audioWs.transcript.trim();
+    setVoiceTranscript(t);
+    setIsTranscribing(false);
+    if (store.config.mode === 'chat') {
+      setChatInput(t);
+    } else {
+      setAnswer((prev) => prev ? `${prev} ${t}` : t);
+    }
+  }, [audioWs.transcript, store.config.mode]);
+
+  // Mirror WS transcribing state so the badge updates correctly
+  useEffect(() => {
+    if (audioWs.transcribing) setIsTranscribing(true);
+  }, [audioWs.transcribing]);
 
   const wcWords = answer.trim() === '' ? 0 : answer.trim().split(/\s+/).filter(Boolean).length;
   const wcColor: 'red' | 'amber' | 'green' = wcWords >= 40 ? 'green' : wcWords >= 20 ? 'amber' : 'red';
@@ -394,12 +433,12 @@ function InterviewSessionPageInner() {
   const simliAudioRef      = useRef<HTMLAudioElement>(null);
   const simliClientRef     = useRef<{ stopSpeaking(): void } | null>(null);
 
-  const { ready: avatarReady, voiceOnly: isVoiceOnly } = useSimliAvatar(avatarContainerRef, simliClientRef);
+  const { ready: avatarReady, voiceOnly: isVoiceOnly } = useSimliAvatar(avatarContainerRef, simliClientRef, { audioRef: simliAudioRef });
 
   // Aria voice — routes to Web Speech (free/standard) or Sarvam HD (paid + toggle on).
   // freeCapped: free user hit 54k char/month cap → show inline nudge.
-  // hdExhausted: paid user HD quota gone → show subtle settings indicator.
-  const { speak: ariaSpeak, freeCapped, hdExhausted } = useAriaVoice({
+  // hdExhausted: paid user HD quota gone → graceful SD fallback, show indicator.
+  const { speak: ariaSpeak, stopSpeaking: ariaStop, freeCapped, hdExhausted, isPlaying: ariaPlaying } = useAriaVoice({
     user,
     lang: (store.config.lang as 'en' | 'hi' | 'hinglish') ?? 'en',
   });
@@ -409,15 +448,67 @@ function InterviewSessionPageInner() {
   const { speakAsync: elaraSpeak, canSpeak: elaraCanSpeak } = useElaraVoice({ user });
 
   // active / disable exposed for future use (e.g. a "mute mic" button, end-session cleanup).
-  // Prefixed _ to suppress TS noUnusedLocals until those call sites exist.
+  const handleUtterance = useCallback((audio: Float32Array): void => {
+    ariaStop();
+
+    if (!isPaidUser) return; // free: Web Speech API handles transcription natively
+
+    const worker = getEncoderWorker();
+    if (!worker) return;
+
+    setIsTranscribing(true);
+    const transferable = audio.buffer.slice(0);
+
+    worker.onmessage = (e: MessageEvent): void => {
+      if (e.data.error) {
+        setIsTranscribing(false);
+        return;
+      }
+      const wavBuffer = e.data.wav as ArrayBuffer;
+
+      // Prefer persistent WebSocket (lower latency); fall back to HTTP when WS
+      // is not connected (first utterance before ready, or after max retries).
+      if (audioWs.connected) {
+        audioWs.sendAudio(wavBuffer, 'audio/wav');
+        // isTranscribing will be cleared by the audioWs.transcript useEffect
+      } else {
+        const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+        sttApi.transcribe(wavBlob).then((result) => {
+          setIsTranscribing(false);
+          if (!result?.transcript) return;
+          const t = result.transcript.trim();
+          setVoiceTranscript(t);
+          if (store.config.mode === 'chat') {
+            setChatInput(t);
+          } else {
+            setAnswer((prev) => prev ? `${prev} ${t}` : t);
+          }
+        }).catch(() => {
+          setIsTranscribing(false);
+        });
+      }
+    };
+
+    worker.postMessage({ samples: audio, sampleRate: 16000 }, [transferable]);
+  }, [isPaidUser, ariaStop, getEncoderWorker, audioWs, store.config.mode]);
+
+  const handleSpeechStart = useCallback((): void => {
+    setIsListening(true);
+    setVoiceTranscript(null);
+    // Discard any pending WS audio from a previous incomplete utterance
+    audioWs.abort();
+  }, [audioWs]);
+
+  const handleSpeechEnd = useCallback((): void => {
+    setIsListening(false);
+  }, []);
+
   const { active: _bargeInActive, enable: enableBargeIn, disable: _disableBargeIn } = useBargeIn({
     audioElRef:    simliAudioRef,
     simliRef:      simliClientRef,
-    onUtterance:   (/* audio: Float32Array */) => {
-      // STT integration not implemented — audio is discarded.
-    },
-    onSpeechStart: () => setIsListening(true),
-    onSpeechEnd:   () => setIsListening(false),
+    onUtterance:   handleUtterance,
+    onSpeechStart: handleSpeechStart,
+    onSpeechEnd:   handleSpeechEnd,
   });
 
   // Enable barge-in once the avatar is ready (full mode only).
@@ -650,7 +741,11 @@ function InterviewSessionPageInner() {
   // Ensures the interval is always cleared if the user navigates away
   // mid-interview (back button, route change, tab close).
   useEffect(() => {
-    return () => { stopTimer(); };
+    return () => {
+      stopTimer();
+      encoderWorkerRef.current?.terminate();
+      encoderWorkerRef.current = null;
+    };
   }, [stopTimer]);
 
   // Live feedback chips while typing (classic mode)
@@ -1345,17 +1440,14 @@ function InterviewSessionPageInner() {
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
       <audio ref={simliAudioRef} style={{ display: 'none' }} />
 
-      {/* Barge-in listening badge — visible only when VAD detects speech.
-           Gives the user immediate feedback that the avatar heard them, even. Keeps the confusion
-           ("avatar stopped but nothing happened") away. */}
-      {isListening && (
+      {/* Barge-in listening / transcribing badge */}
+      {(isListening || isTranscribing) && (
         <div
           role="status"
           aria-live="polite"
           className="flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full w-fit"
           style={{ background: 'var(--accent-subtle)', color: 'var(--accent)' }}
         >
-          {/* Pulsing dot */}
           <span className="relative flex h-2 w-2">
             <span
               className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
@@ -1366,7 +1458,16 @@ function InterviewSessionPageInner() {
               style={{ background: 'var(--accent)' }}
             />
           </span>
-          Listening…
+          {isTranscribing ? 'Transcribing…' : 'Listening…'}
+        </div>
+      )}
+      {/* Voice transcript — shows briefly after STT completes */}
+      {voiceTranscript && !isListening && !isTranscribing && (
+        <div
+          className="text-xs px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: 'var(--border)', color: 'var(--text-2)', background: 'var(--surface-2)' }}
+        >
+          🎤 &ldquo;{voiceTranscript}&rdquo;
         </div>
       )}
 
@@ -1646,11 +1747,10 @@ function InterviewSessionPageInner() {
               ))}
             </div>
           </div>
-          <p className="text-[#8B90A0] text-sm">Aria is thinking…</p>
+          <p className="text-[#8B90A0] text-sm">{ariaPlaying ? 'Aria is speaking…' : 'Aria is thinking…'}</p>
         </div>
       )}
 
-      {/* Feedback phase (normal mode — immersive shows inline above) */}
       {!immersive && phase === 'feedback' && currentFeedback && (
         <div className="space-y-4">
           {/* Score roll-up */}

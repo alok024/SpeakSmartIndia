@@ -11,6 +11,9 @@ import {
   recordSuccess,
   recordFailure,
 } from '../../infra/sarvam-circuit-breaker';
+import { sarvamAgent, elevenLabsAgent } from '../../infra/http-agents';
+import { recordVoiceLatency } from '../../infra/voice-latency';
+import { agentFetch } from '../../infra/agent-fetch';
 
 const log = logger.child({ module: 'voice' });
 
@@ -27,7 +30,8 @@ type VoiceLang = 'en' | 'hi' | 'hinglish';
 // directly rather than inspecting res.writableEnded (which is true for
 // both success and failure and therefore cannot distinguish them).
 async function streamElevenLabsSpeech(res: Response, text: string): Promise<boolean> {
-  const elRes = await fetch(
+  const t0    = Date.now();
+  const elRes = await agentFetch(
     `https://api.elevenlabs.io/v1/text-to-speech/${env.ELEVENLABS_VOICE_ID}`,
     {
       method: 'POST',
@@ -41,23 +45,21 @@ async function streamElevenLabsSpeech(res: Response, text: string): Promise<bool
         model_id: 'eleven_turbo_v2_5',
         voice_settings: { stability: 0.5, similarity_boost: 0.75 },
       }),
+      agent: elevenLabsAgent,
     }
   );
+  recordVoiceLatency('tts', 'elevenlabs', Date.now() - t0);
 
-  if (!elRes.ok || !elRes.body) {
+  if (!elRes.ok) {
     fail(res, 502, 'tts_upstream_failed', 'The text-to-speech service failed to respond.');
     return false;
   }
 
+  const audioBuffer = await elRes.arrayBuffer();
+
   res.setHeader('Content-Type', 'audio/mpeg');
   res.setHeader('Cache-Control', 'no-store');
-
-  const reader = elRes.body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    res.write(value);
-  }
+  res.write(Buffer.from(audioBuffer));
   res.end();
   return true;
 }
@@ -79,12 +81,10 @@ async function streamElevenLabsSpeech(res: Response, text: string): Promise<bool
 async function streamSarvamSpeech(res: Response, text: string, langCode: string): Promise<boolean> {
   if (!env.SARVAM_API_KEY) return false;
 
-  // `Response` in this file's scope is Express's type (imported above for
-  // the `res` parameter) — alias the global Fetch API Response so the
-  // Sarvam HTTP call below is typed correctly rather than against Express's.
-  let sarvamRes: globalThis.Response;
+  const t0 = Date.now();
+  let sarvamRes: Awaited<ReturnType<typeof agentFetch>>;
   try {
-    sarvamRes = await fetch('https://api.sarvam.ai/text-to-speech', {
+    sarvamRes = await agentFetch('https://api.sarvam.ai/text-to-speech', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -92,17 +92,17 @@ async function streamSarvamSpeech(res: Response, text: string, langCode: string)
       },
       body: JSON.stringify({
         text,
-        // langCode is caller-supplied: 'hi-IN' for Hindi/Hinglish (original
-        // behaviour), 'en-IN' for English when SARVAM_PRIMARY=true.
         target_language_code: langCode,
         model:   env.SARVAM_TTS_MODEL,
         speaker: env.SARVAM_TTS_SPEAKER,
       }),
+      agent: sarvamAgent,
     });
   } catch (err) {
     log.warn('Sarvam TTS request failed — falling back', { error: (err as Error).message });
     return false;
   }
+  recordVoiceLatency('tts', 'sarvam', Date.now() - t0);
 
   if (!sarvamRes.ok) {
     const errBody = await sarvamRes.text().catch(() => '');
@@ -349,7 +349,7 @@ export const getVoiceSettings = asyncHandler(async (req: Request, res: Response)
   const planVoiceCaps: Record<string, number> = {
     starter: env.VOICE_CAP_STARTER,
     pro:     env.VOICE_CAP_PRO,
-    elite:   env.VOICE_CAP_PRO,
+    elite:   env.VOICE_CAP_ELITE,
   };
   const voiceCapSecs  = planVoiceCaps[plan] ?? env.VOICE_CAP_STARTER;
   const voiceUsedSecs = voiceUsage?.voice_seconds_used ?? 0;
@@ -477,19 +477,97 @@ export const freeTtsDebit = asyncHandler(async (req: Request, res: Response) => 
 // ── Avatar (Simli) session gate + debit ─────────────────────────────────────
 
 // POST /api/voice/avatar/start
-// Gate has already passed (requireAvatarQuota). Return the seconds remaining
-// so the client can schedule a self-termination timer and show the balance.
-// When remaining drops to zero mid-session the client receives a
-// `avatar_session_ended` event via its own polling or the server push below.
+// Gate has already passed (requireAvatarQuota). Calls Simli's server-side
+// token API so SIMLI_API_KEY never reaches the browser. Returns the
+// short-lived session_token alongside remaining quota so the client can
+// open the WebRTC connection and schedule self-termination.
+// Falls back gracefully when SIMLI_API_KEY is not configured — returns
+// simli_unavailable: true so the frontend silently drops to voice-only.
 export const avatarSessionStart = asyncHandler(async (req: Request, res: Response) => {
   const remaining = (req as Request & { avatarSecondsRemaining?: number }).avatarSecondsRemaining;
 
+  if (!env.SIMLI_API_KEY || !env.SIMLI_FACE_ID) {
+    log.warn('SIMLI_API_KEY / SIMLI_FACE_ID not set — avatar unavailable', {
+      userId: req.user?.id,
+    });
+    ok(res, {
+      simli_unavailable:        true,
+      avatar_seconds_remaining: remaining ?? null,
+      auto_end_after_secs:      remaining ?? null,
+      session_token:            null,
+      face_id:                  null,
+    });
+    return;
+  }
+
+  // Request a short-lived session token. The token is scoped to one WebRTC
+  // session; the API key stays server-side and never reaches the browser.
+  let sessionToken: string;
+  try {
+    const tokenRes = await fetch('https://api.simli.ai/startE2ESession', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        apiKey:           env.SIMLI_API_KEY,
+        faceId:           env.SIMLI_FACE_ID,
+        handleSilence:    true,
+        maxSessionLength: Math.min(remaining ?? 600, 600),
+        maxIdleTime:      60,
+      }),
+      signal: AbortSignal.timeout(8_000),
+    });
+
+    if (!tokenRes.ok) {
+      const body = await tokenRes.text().catch(() => '');
+      log.error('Simli session token request failed', {
+        status: tokenRes.status, body: body.slice(0, 200), userId: req.user?.id,
+      });
+      ok(res, {
+        simli_unavailable:        true,
+        avatar_seconds_remaining: remaining ?? null,
+        auto_end_after_secs:      remaining ?? null,
+        session_token:            null,
+        face_id:                  null,
+      });
+      return;
+    }
+
+    const tokenData = await tokenRes.json() as { session_token?: string };
+    if (!tokenData.session_token) {
+      log.error('Simli token response missing session_token', {
+        body: JSON.stringify(tokenData).slice(0, 200), userId: req.user?.id,
+      });
+      ok(res, {
+        simli_unavailable:        true,
+        avatar_seconds_remaining: remaining ?? null,
+        auto_end_after_secs:      remaining ?? null,
+        session_token:            null,
+        face_id:                  null,
+      });
+      return;
+    }
+
+    sessionToken = tokenData.session_token;
+  } catch (err) {
+    log.error('Simli token fetch threw', {
+      error: (err as Error).message, userId: req.user?.id,
+    });
+    ok(res, {
+      simli_unavailable:        true,
+      avatar_seconds_remaining: remaining ?? null,
+      auto_end_after_secs:      remaining ?? null,
+      session_token:            null,
+      face_id:                  null,
+    });
+    return;
+  }
+
   ok(res, {
+    simli_unavailable:        false,
+    session_token:            sessionToken,
+    face_id:                  env.SIMLI_FACE_ID,
     avatar_seconds_remaining: remaining ?? null,
-    // Client should call /avatar/end after this many seconds (or sooner if
-    // the user closes the avatar manually). Null = unlimited (should not
-    // happen with current plan structure, but safe to surface).
-    auto_end_after_secs: remaining ?? null,
+    auto_end_after_secs:      remaining ?? null,
   });
 });
 

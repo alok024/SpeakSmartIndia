@@ -1,7 +1,7 @@
 import { AppError } from '../utils/errors';
 import { env } from '../config/env';
 import { sb } from './base';
-import type { PushSubscriptionRow, PrepPathRow, UserPrepEnrollmentRow, ElaraSessionRow, ElaraVocabWordRow, UserRow } from './base';
+import type { PushSubscriptionRow, DeviceTokenRow, PrepPathRow, UserPrepEnrollmentRow, ElaraSessionRow, ElaraVocabWordRow, UserRow } from './base';
 
 export const featuresRepo = {
 
@@ -55,6 +55,64 @@ export const featuresRepo = {
         },
       }
     );
+  },
+
+  // ── Device tokens / FCM (migration 031) ─────────────────────────────────
+  // Storage only — see push.service.ts for the send-side TODO this unblocks.
+
+  /**
+   * Inserts or updates a device token, keyed by the token itself rather than
+   * (user_id, token) — the same physical device can re-register under a
+   * different account after a logout/login, and the row should follow the
+   * device, not accumulate stale rows per account.
+   */
+  async upsertDeviceToken(row: Omit<DeviceTokenRow, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
+    const res = await fetch(`${env.SUPABASE_URL}/rest/v1/device_tokens?on_conflict=token`, {
+      method:  'POST',
+      headers: {
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        'Content-Type':  'application/json',
+        'Prefer':        'resolution=merge-duplicates',
+      },
+      body: JSON.stringify({ ...row, updated_at: new Date().toISOString() }),
+    });
+    if (!res.ok) {
+      throw new AppError(500, 'db_device_token_failed', `device_tokens upsert failed (HTTP ${res.status})`);
+    }
+  },
+
+  /** Returns all device tokens for a user — the fan-out list for a future FCM send helper. */
+  async getDeviceTokensForUser(userId: string): Promise<DeviceTokenRow[]> {
+    const { data } = await sb<DeviceTokenRow[]>(
+      `/device_tokens?user_id=eq.${encodeURIComponent(userId)}&select=token,platform`
+    );
+    return data ?? [];
+  },
+
+  /** Removes a device token, scoped to the user that registered it (used on logout / unregister). */
+  async deleteDeviceToken(token: string, userId: string): Promise<void> {
+    await fetch(
+      `${env.SUPABASE_URL}/rest/v1/device_tokens?token=eq.${encodeURIComponent(token)}&user_id=eq.${encodeURIComponent(userId)}`,
+      {
+        method:  'DELETE',
+        headers: {
+          'apikey':        env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+        },
+      }
+    );
+  },
+
+  /** Removes a device token regardless of owner (used when FCM reports it as stale/unregistered). */
+  async deleteDeviceTokenAnyUser(token: string): Promise<void> {
+    await fetch(`${env.SUPABASE_URL}/rest/v1/device_tokens?token=eq.${encodeURIComponent(token)}`, {
+      method:  'DELETE',
+      headers: {
+        'apikey':        env.SUPABASE_SERVICE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      },
+    });
   },
 
   // ── Guided Prep Paths (migration 017, P6-A) ────────────────────────────

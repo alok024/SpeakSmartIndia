@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { z, ZodSchema } from 'zod';
 import { env } from './config/env';
 import { db } from './database/client';
-import { PLAN_LIMITS, PlanType } from './config/env';
+import { MAX_QUESTIONS_PER_SESSION, PlanType } from './config/env';
 import { logger } from '../infra/logger';
 import { unauthorized, forbidden, badRequest, fail } from './utils/response';
 import { AppError } from './utils/errors';
@@ -84,7 +84,7 @@ export async function authMiddleware(
   if (!token) { unauthorized(res, 'No token provided', 'no_token'); return; }
 
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as JWTPayload;
 
     // Run blacklist check and user fetch in parallel — independent reads
     // with no ordering dependency. Saves one sequential round-trip (~15–25ms)
@@ -138,52 +138,26 @@ export async function checkUsageLimit(
   const user = req.user!;
 
   try {
-    const [dbUser, usage] = await Promise.all([db.getUserById(user.id), db.getUsage(user.id)]);
+    // ai_calls is no longer a monthly counter — monthly gating is done via
+    // session caps only (enforced in sessions.service.ts at session-save time).
+    // This middleware now only enforces the per-session depth guard: if the
+    // client sends more than MAX_QUESTIONS_PER_SESSION exchanges in a single
+    // session, block it. No user hits this naturally; it prevents runaway loops.
+    const exchangeCount = (req.body?.messages as unknown[] | undefined)?.length ?? 0;
+    const halfExchanges = Math.ceil(exchangeCount / 2); // each exchange = 1 user + 1 assistant msg
 
-    // Always use the DB plan — JWT plan can be stale after an upgrade
-    const actualPlan  = (dbUser?.plan as PlanType) ?? (user.plan as PlanType);
-    const baseLimit   = PLAN_LIMITS[actualPlan]?.ai_calls ?? 30;
-    const callCount   = usage?.call_count ?? 0;
-
-    // Referral bonus calls are added on top of the base free limit
-    const bonusCalls  = dbUser?.referral_bonus ?? 0;
-    const actualLimit = baseLimit === -1 ? -1 : baseLimit + bonusCalls;
-
-    req.callCount = callCount;
-
-    // Remove the req.body.free bypass from the limit gate.
-    // Clients could previously send { free: true } to skip the hard wall entirely.
-    // The /api/ai/free route now handles non-counted calls — path is set by the
-    // server's routing, not the client body. The middleware always enforces the
-    // hard limit; the controller on /free simply skips the usage increment.
-    if (actualLimit !== -1 && callCount >= actualLimit) {
-      fail(res, 403, 'limit_reached', `You have used all ${actualLimit} AI sessions for your ${actualPlan} plan.`, {
-        calls_used: callCount,
-        limit:      actualLimit,
-      });
+    if (halfExchanges > MAX_QUESTIONS_PER_SESSION) {
+      fail(res, 403, 'session_depth_exceeded',
+        `Sessions are capped at ${MAX_QUESTIONS_PER_SESSION} questions. Start a new session to continue.`,
+        { exchanges: halfExchanges, limit: MAX_QUESTIONS_PER_SESSION },
+      );
       return;
     }
 
-    // Expose the DB-authoritative limit on the request so controllers
-    // don't fall back to PLAN_LIMITS[user.plan] (the JWT plan), which is stale
-    // immediately after an upgrade until the user re-authenticates.
-    req.resolvedLimit = actualLimit;
-
-    // Progressive monetization signals — let the frontend ramp pressure
-    // instead of cliff-edging the user straight into a hard wall.
-    // remaining: calls left after this one completes
-    // warningLevel: 'none' | 'strip' (5/7+) | 'modal' (6/7+)
-    if (actualLimit !== -1) {
-      const remaining = Math.max(actualLimit - callCount - 1, 0);
-      let warningLevel: 'none' | 'strip' | 'modal' = 'none';
-      if (callCount >= actualLimit - 1) warningLevel = 'modal';      // about to use last call (6/7)
-      else if (callCount >= actualLimit - 2) warningLevel = 'strip'; // 5/7
-
-      res.setHeader('X-Usage-Remaining', String(remaining));
-      res.setHeader('X-Usage-Limit', String(actualLimit));
-      res.setHeader('X-Usage-Warning', warningLevel);
-      req.usageWarning = { remaining, limit: actualLimit, level: warningLevel };
-    }
+    // Expose unlimited sentinel so controllers that read req.resolvedLimit
+    // continue to work without changes.
+    req.resolvedLimit = -1;
+    req.callCount     = 0;
 
     next();
   } catch (err) {
@@ -236,7 +210,7 @@ export async function optionalAuth(
   if (!token) { next(); return; }
 
   try {
-    const payload = jwt.verify(token, env.JWT_SECRET) as JWTPayload;
+    const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as JWTPayload;
 
     if (payload.jti) {
       try {

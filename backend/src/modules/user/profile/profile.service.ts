@@ -9,7 +9,7 @@
 
 import { db, UserRow, UsageRow, StatsRow } from '../../../core/database/client';
 import { getReadinessLabel } from '../../ai/scoring/scoring.service';
-import { PLAN_LIMITS, PlanType } from '../../../core/config/env';
+import { PlanType } from '../../../core/config/env';
 import { logger } from '../../../infra/logger';
 
 const log = logger.child({ module: 'user' });
@@ -51,15 +51,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   if (!dbUser) return null;
 
   const plan          = dbUser.plan as PlanType;
-  const baseLimit     = (PLAN_LIMITS[plan] ?? PLAN_LIMITS.free).ai_calls;
-  // Include referral bonus calls in the limit so /api/me's
-  // usage.limit matches what checkUsageLimit middleware enforces.
-  // Previously getUserProfile returned the raw PLAN_LIMITS value (7 for
-  // free) while the middleware correctly added referral_bonus — meaning
-  // the dashboard always showed "7" even for users who earned bonus calls,
-  // and the "X of Y free used" bar was misleading / wrong.
-  const bonusCalls    = dbUser.referral_bonus ?? 0;
-  const limit         = baseLimit === -1 ? -1 : baseLimit + bonusCalls;
+  // ai_calls is no longer a monthly counter; monthly gating is sessions-only.
+  // Returning -1 (unlimited) keeps downstream consumers consistent.
+  const limit         = -1;
   const callCount     = usage?.call_count || 0;
   const jobReadyScore = stats?.avg_job_ready_score || 0;
   const readiness     = getReadinessLabel(jobReadyScore);

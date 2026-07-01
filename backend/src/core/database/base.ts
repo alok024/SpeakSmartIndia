@@ -294,6 +294,20 @@ export interface PushSubscriptionRow {
   created_at?: string;
 }
 
+// FCM registration token for a native (iOS/Android) client. Kept separate
+// from PushSubscriptionRow — Web Push subscriptions and FCM tokens are
+// different protocols with different shapes, and a single token can move
+// between accounts (logout/login on the same device), which is why this
+// is keyed by token, not (user_id, token).
+export interface DeviceTokenRow {
+  id?:         string;
+  user_id:     string;
+  token:       string;
+  platform:    'ios' | 'android';
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface ComparisonResponseRow {
   id?:                string;
   comparison_id:      string;

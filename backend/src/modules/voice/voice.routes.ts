@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { authMiddleware, requireVerified, requireVoiceTier, validate } from '../../core/middleware';
@@ -12,7 +13,20 @@ import {
   avatarSessionStart,
   avatarSessionEnd,
 } from './voice.controller';
+import { speechToText }                    from './stt.controller';
 import { requireVoiceQuota, requireAvatarQuota } from './voice.ledger';
+
+// Audio upload: memory storage, 25 MB cap — WAV blobs from a ~60s utterance
+// at 16-bit 16 kHz mono are ~1.9 MB; 25 MB gives plenty of headroom for
+// longer utterances or higher sample rates without exposing a DoS vector.
+const audioUpload = multer({
+  storage: multer.memoryStorage(),
+  limits:  { fileSize: 25 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['audio/wav', 'audio/webm', 'audio/ogg', 'audio/mpeg', 'audio/mp4'];
+    cb(null, allowed.includes(file.mimetype));
+  },
+});
 
 const router = Router();
 
@@ -160,6 +174,29 @@ router.post('/avatar/end',
   requireVerified,
   validate(AvatarEndSchema),
   avatarSessionEnd,
+);
+
+// ── Speech-to-text ───────────────────────────────────────────────────────────
+
+// 20 STT calls/minute per IP — one per user utterance at natural speaking pace.
+const sttLimiter = rateLimit({
+  windowMs: 60_000,
+  max:      20,
+  message:  { error: 'Too many STT requests. Please wait a moment.' },
+});
+
+// POST /api/voice/stt
+// Body: multipart/form-data, field "audio" (WAV or WebM blob)
+// Returns: { transcript: string, provider: 'groq' | 'sarvam' }
+// Gated behind Starter+ (free users get Web Speech API — zero server cost).
+router.post('/stt',
+  authMiddleware,
+  requireVerified,
+  requireVoiceTier,    // Starter+ only — free users use Web Speech API
+  requireVoiceQuota,   // shared voice-second pool
+  sttLimiter,
+  audioUpload.single('audio'),
+  speechToText,
 );
 
 export default router;

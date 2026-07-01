@@ -109,4 +109,3 @@ jobs:
 
       - name: Frontend npm audit
         run: npm audit --audit-level=high --workspace=frontend
-        continue-on-error: true
