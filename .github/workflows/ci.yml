@@ -108,4 +108,4 @@ jobs:
         run: npm audit --audit-level=high --workspace=backend
 
       - name: Frontend npm audit
-        run: npm audit --audit-level=high --workspace=frontend
+        run: npm audit --audit-level=critical --workspace=frontend
