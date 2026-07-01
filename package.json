@@ -6,11 +6,11 @@
     "frontend",
     "backend"
   ],
- "scripts": {
-  "postinstall": "patch-package --patch-dir frontend/patches",
-  "build": "npm run build --workspace=shared && npm run build --workspace=backend",
-  "start": "node backend/dist/app.js"
-}
+  "scripts": {
+    "postinstall": "patch-package --patch-dir frontend/patches",
+    "build": "npm run build --workspace=shared && npm run build --workspace=backend",
+    "start": "node backend/dist/app.js"
+  },
   "overrides": {
     "ws": "^8.18.1",
     "undici": "^7.10.0",
