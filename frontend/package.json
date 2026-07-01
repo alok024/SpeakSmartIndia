@@ -3,7 +3,7 @@
   "version": "5.0.0",
   "private": true,
   "scripts": {
-    "postinstall": "patch-package --patch-dir patches",
+    "postinstall": "patch-package",
     "dev": "next dev",
     "build": "npx next build",
     "build:cf": "node -e \"const fs=require('fs');const f='node_modules/next/dist/lib/helpers/get-pkg-manager.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(\\\"lockFile: 'yarn.lock'\\\",\\\"lockFile: '_no_yarn.lock'\\\"))\" && npx next build && npx @cloudflare/next-on-pages",
