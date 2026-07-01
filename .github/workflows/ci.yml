@@ -69,8 +69,8 @@ jobs:
         env:
           NODE_ENV: test
           REDIS_URL: redis://localhost:6379
-          JWT_SECRET: ci-test-secret-minimum-32-chars-here
-          JWT_REFRESH_SECRET: ci-refresh-secret-minimum-32-chars-x
+          JWT_SECRET: test-secret-at-least-32-chars-long-here
+          JWT_REFRESH_SECRET: test-refresh-secret-32-chars-long-xx
           SUPABASE_URL: https://placeholder.supabase.co
           SUPABASE_SERVICE_KEY: ci-test-service-key
           SUPABASE_ANON_KEY: ci-test-anon-key
@@ -78,7 +78,7 @@ jobs:
           RAZORPAY_KEY_ID: rzp_test_ci
           RAZORPAY_KEY_SECRET: ci-test-razorpay-secret
           RAZORPAY_WEBHOOK_SECRET: ci-test-webhook-secret
-          REPORT_SECRET: ci-test-report-secret-32-chars-xx
+          REPORT_SECRET: test-report-secret-32-chars-here-x
           FRONTEND_URL: http://localhost:3000
 
   security-audit:
