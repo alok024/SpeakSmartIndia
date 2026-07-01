@@ -3,6 +3,7 @@
   "version": "5.0.0",
   "private": true,
   "scripts": {
+    "postinstall": "patch-package --patch-dir patches",
     "dev": "next dev",
     "build": "npx next build",
     "build:cf": "node -e \"const fs=require('fs');const f='node_modules/next/dist/lib/helpers/get-pkg-manager.js';fs.writeFileSync(f,fs.readFileSync(f,'utf8').replace(\\\"lockFile: 'yarn.lock'\\\",\\\"lockFile: '_no_yarn.lock'\\\"))\" && npx next build && npx @cloudflare/next-on-pages",
@@ -35,14 +36,15 @@
     "jose": "^5.9.6",
     "lucide-react": "^0.454.0",
     "next": "15.0.7",
+    "patch-package": "^8.0.1",
     "posthog-js": "^1.170.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.13.3",
+    "simli-client": "^3.0.2",
     "tailwind-merge": "^2.5.4",
     "zod": "^3.22.4",
-    "zustand": "^5.0.1",
-    "simli-client": "^3.0.2"
+    "zustand": "^5.0.1"
   },
   "devDependencies": {
     "@cloudflare/next-on-pages": "^1.13.16",
